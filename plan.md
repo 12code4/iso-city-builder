@@ -124,3 +124,16 @@ M7 next: migration arrivals by car via highway. Then M8 tuning.
 - Tuning fix from test: recoverHours 18 -> 14 (drivers were arriving
   home with work=~17 > startBelow 15 and skipping alternate days).
   Verified: 4 shifts per worker over 4 days, exactly daily.
+
+## Empty-streets fix (2026-07-19)
+Diagnosis (headless repro): not a render bug.
+- Houses-only city = nowhere to go: agents visible 3s/180s. WAI but
+  reads broken; venues/jobs create trips (with shop: 92s/180).
+- House without road frontage = shut-ins (self-heals when road added).
+- Agents were ~3px at default zoom; wake latency up to ~1min.
+Fixes: agents ~60% bigger; half of residents spawn awake and decide
+within one tick. Result: first agent on street in 0.5s; 110s/180 with
+a shop+park present.
+Player guidance to keep in mind for UI later: buildings need road
+frontage; citizens need destinations. Backlog idea: idle "stroll"
+behavior so even venue-less towns show some foot traffic.

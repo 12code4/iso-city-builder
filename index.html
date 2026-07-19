@@ -472,9 +472,10 @@ function floodFrom(x, z, drive) {           // flood from a tile's frontage
 /* ---- Lifecycle: houses make citizens, shops make jobs ---- */
 function makeCitizen(hx, hz) {
   const j = 1 + rnd(-CZ.rateJitter, CZ.rateJitter);   // per-citizen rate jitter
+  const awake = Math.random() < 0.5;    // half start awake: instant street life
   return {
     id: nextCitizenId++, home: [hx, hz], at: [hx, hz], job: null,
-    state: 'sleep', phase: 'doing', mode: 'walk',
+    state: awake ? 'free_time' : 'sleep', phase: 'doing', mode: 'walk',
     dest: null, travelT: 0, stayUntil: 0, activity: null,
     meters: { energy: rnd(35, 90), work: rnd(10, 80),
               errands: rnd(30, 80), fun: rnd(30, 80) },
@@ -918,24 +919,24 @@ const AM = c => {
 const walkerPalette = [0xe2725b, 0x5b8ee2, 0x64b06a, 0xd9a441, 0x9a6fb8, 0x53b3ad];
 const carPalette = [0xc4544d, 0x4d7fc4, 0x58a05e, 0xd8c04f, 0x8a8f96, 0x4b4f55];
 const agentGeos = {
-  body: new THREE.BoxGeometry(0.09, 0.16, 0.09),
-  head: new THREE.SphereGeometry(0.045, 8, 6),
-  carBody: new THREE.BoxGeometry(0.34, 0.09, 0.17),
-  carTop: new THREE.BoxGeometry(0.17, 0.07, 0.14),
+  body: new THREE.BoxGeometry(0.14, 0.26, 0.14),
+  head: new THREE.SphereGeometry(0.07, 8, 6),
+  carBody: new THREE.BoxGeometry(0.46, 0.13, 0.24),
+  carTop: new THREE.BoxGeometry(0.24, 0.10, 0.20),
 };
 function makeAgentMesh(c) {
   const g = new THREE.Group();
   if (c.mode === 'drive') {
     const body = shadowed(new THREE.Mesh(agentGeos.carBody, AM(carPalette[c.id % carPalette.length])));
-    body.position.y = 0.09;
+    body.position.y = 0.12;
     const top = shadowed(new THREE.Mesh(agentGeos.carTop, AM(0xd8e2ea)));
-    top.position.set(-0.02, 0.17, 0);
+    top.position.set(-0.03, 0.23, 0);
     g.add(body, top);
   } else {
     const body = shadowed(new THREE.Mesh(agentGeos.body, AM(walkerPalette[c.id % walkerPalette.length])));
-    body.position.y = 0.11;
+    body.position.y = 0.16;
     const head = shadowed(new THREE.Mesh(agentGeos.head, AM(0xf2d6b3)));
-    head.position.y = 0.235;
+    head.position.y = 0.36;
     g.add(body, head);
   }
   scene.add(g);
