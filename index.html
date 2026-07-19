@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>City Builder — v0.1</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #10141a; }
+  #app { position: fixed; inset: 0; touch-action: none; }
+  canvas { display: block; }
+  .hud { position: fixed; font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: #fff; user-select: none; -webkit-user-select: none; }
+  #title { top: 12px; left: 14px; font-size: 14px; font-weight: 600; letter-spacing: 0.04em; opacity: 0.85; text-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+  #hint { top: 32px; left: 14px; font-size: 11px; opacity: 0.55; text-shadow: 0 1px 3px rgba(0,0,0,0.4); }
+  #controls { bottom: 92px; right: 14px; display: flex; flex-direction: column; gap: 10px; }
+  #controls button, #toolbar button {
+    border: none; color: #fff; cursor: pointer; touch-action: manipulation;
+    background: rgba(20, 26, 34, 0.65);
+    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
+  }
+  #controls button { width: 48px; height: 48px; border-radius: 12px; font-size: 20px; }
+  #controls button:active { background: rgba(20, 26, 34, 0.9); }
+  #toolbar {
+    bottom: 16px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 8px; padding: 8px; border-radius: 16px;
+    background: rgba(20, 26, 34, 0.5);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  }
+  #toolbar button {
+    min-width: 52px; height: 56px; border-radius: 12px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    font-size: 20px; line-height: 1;
+  }
+  #toolbar button span { font-size: 9px; margin-top: 4px; opacity: 0.75; font-family: inherit; }
+  #toolbar button.selected { background: rgba(120, 170, 220, 0.55); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="hud" id="title">City Builder — v0.2 M5</div>
+<div class="hud" id="hint">Q/E rotate · WASD or drag to pan · wheel/pinch zoom · tap to build</div>
+<div class="hud" id="census" style="top:12px; right:14px; font-size:12px; text-align:right; opacity:0.85; text-shadow:0 1px 3px rgba(0,0,0,0.4);"></div>
+<div class="hud" id="controls">
+  <button id="btn-ccw" aria-label="Rotate left">⟲</button>
+  <button id="btn-cw" aria-label="Rotate right">⟳</button>
+</div>
+<div class="hud" id="toolbar">
+  <button data-tool="road">🛣️<span>Road</span></button>
+  <button data-tool="house">🏠<span>House</span></button>
+  <button data-tool="shop">🏪<span>Shop</span></button>
+  <button data-tool="park">🏞️<span>Park</span></button>
+  <button data-tool="bulldoze">🧨<span>Clear</span></button>
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.164.1/three.module.min.js';
+
+/* ============================== CONFIG ============================== */
+const CONFIG = {
+  grid: { size: 20, tile: 1 },
+  colors: {
+    sky:       0xd7e8f2,
+    grass:     0x8fbf6b,
+    gridLine:  0x79a95c,
+    asphalt:   0x3a3f45,
+    dash:      0xe8d44d,
+    shoulder:  0x565c63,
+    road:      0x7a8087,
+    sidewalk:  0xb9bdc2,
+    wallL1:    0xf5e9d2,
+    roofL1:    0xd1604d,
+    wallL2:    0xefe0c3,
+    roofL2:    0xa34632,
+    shopBody:  0x6ea3c1,
+    shopRoof:  0xf2f5f7,
+    trunk:     0x7a5638,
+    leaves:    0x4f8a4c,
+    parkLawn:  0xa8d18a,
+    bench:     0x9a7a55,
+    ghostOk:   0x8fe08a,
+    ghostBad:  0xe07a6f,
+  },
+  highway: { edge: 'south', width: 1, depth: 2 },  // 1-tile stub from edge center
+  camera: {
+    yawAngles: [45, 135, 225, 315],
+    pitchDeg: 35.264,
+    dist: 60,
+    viewStart: 12,
+    viewMin: 5, viewMax: 22,
+    rotateDur: 0.45,
+    zoomLerp: 8,
+    panKeySpeed: 1.2,      // keyboard pan: fraction of view height per second
+  },
+  anim: { popDur: 0.3 },
+  growth: { upgradeSeconds: 12, tickSeconds: 1 },
+  input: { tapMaxMove: 10 },       // px; more = drag, not a tap
+  citizens: {
+    timeScale: 1, decisionHz: 2,
+    residentsPerLevel: [0, 3, 5],
+    carsPerLevel: [0, 1, 2],
+    jobsPerShop: 4,
+    rateJitter: 0.10,
+    energy:  { decay: 0.55, sleepFill: 1.8, sleepBelow: 25, wakeAt: 95 },
+    work:    { decay: 0.5, fill: 1.7, startBelow: 15 },
+    needs:   { errands: { decay: 0.4 }, fun: { decay: 0.5 } },
+    adverts: { shop: { need: 'errands', fillRate: 4, minStay: 15 },
+               park: { need: 'fun',     fillRate: 3, minStay: 8 } },
+    select:  { topK: 6, pickTemp: 1, distHalf: 8 },
+    move:    { walkSpeed: 1.2, driveSpeed: 4, carMinDist: 3, carFullDist: 12 },
+  },
+};
+
+/* ============================ WORLD STATE =========================== */
+// Single source of truth. Meshes are a projection of this array.
+const world = [];
+const S = CONFIG.grid.size;
+for (let x = 0; x < S; x++) {
+  world[x] = [];
+  for (let z = 0; z < S; z++) {
+    world[x][z] = { type: 'empty', level: 0, mesh: null, fixed: false,
+                    connected: false, timer: 0 };
+  }
+}
+const inBounds = (x, z) => x >= 0 && x < S && z >= 0 && z < S;
+const NB4 = [[1,0],[-1,0],[0,1],[0,-1]];
+
+/* ======================= RENDERER / SCENE SETUP ===================== */
+const app = document.getElementById('app');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+app.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(CONFIG.colors.sky);
+const CENTER = new THREE.Vector3(S / 2, 0, S / 2);
+
+const sun = new THREE.DirectionalLight(0xfff3e0, 2.6);
+sun.position.set(S * 0.9, S * 1.1, S * 0.4);
+sun.target.position.copy(CENTER);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+const sc = sun.shadow.camera;
+sc.left = -S * 0.85; sc.right = S * 0.85;
+sc.top = S * 0.85; sc.bottom = -S * 0.85;
+sc.near = 1; sc.far = S * 3;
+scene.add(sun, sun.target);
+scene.add(new THREE.AmbientLight(0xbfd4e6, 1.1));
+
+/* ============================== GROUND ============================== */
+const ground = new THREE.Mesh(
+  new THREE.PlaneGeometry(S, S),
+  new THREE.MeshLambertMaterial({ color: CONFIG.colors.grass })
+);
+ground.rotation.x = -Math.PI / 2;
+ground.position.copy(CENTER);
+ground.receiveShadow = true;
+scene.add(ground);
+
+const grid = new THREE.GridHelper(S, S, CONFIG.colors.gridLine, CONFIG.colors.gridLine);
+grid.position.set(S / 2, 0.005, S / 2);
+grid.material.opacity = 0.35;
+grid.material.transparent = true;
+scene.add(grid);
+
+/* ========================== MESH FACTORIES ========================== */
+const M = (c) => new THREE.MeshLambertMaterial({ color: c });
+const mats = {
+  asphalt: M(CONFIG.colors.asphalt), dash: M(CONFIG.colors.dash),
+  shoulder: M(CONFIG.colors.shoulder), road: M(CONFIG.colors.road),
+  wallL1: M(CONFIG.colors.wallL1), roofL1: M(CONFIG.colors.roofL1),
+  wallL2: M(CONFIG.colors.wallL2), roofL2: M(CONFIG.colors.roofL2),
+  shopBody: M(CONFIG.colors.shopBody), shopRoof: M(CONFIG.colors.shopRoof),
+  trunk: M(CONFIG.colors.trunk), leaves: M(CONFIG.colors.leaves),
+  sidewalk: M(CONFIG.colors.sidewalk),
+  parkLawn: M(CONFIG.colors.parkLawn), bench: M(CONFIG.colors.bench),
+};
+const geos = {
+  slab: new THREE.BoxGeometry(1, 0.06, 1),
+  roadSlab: new THREE.BoxGeometry(0.76, 0.06, 0.76),
+  walkSlab: new THREE.BoxGeometry(1, 0.045, 1),
+  houseBase: new THREE.BoxGeometry(0.6, 0.45, 0.6),
+  houseBase2: new THREE.BoxGeometry(0.62, 0.8, 0.62),
+  roof: new THREE.ConeGeometry(0.48, 0.32, 4),
+  shopBody: new THREE.BoxGeometry(0.8, 0.35, 0.8),
+  shopRoof: new THREE.BoxGeometry(0.86, 0.06, 0.86),
+  trunk: new THREE.CylinderGeometry(0.06, 0.08, 0.28, 6),
+  leaves: new THREE.IcosahedronGeometry(0.26, 0),
+  lawn: new THREE.BoxGeometry(0.94, 0.05, 0.94),
+  bench: new THREE.BoxGeometry(0.3, 0.08, 0.12),
+};
+
+function shadowed(m) { m.castShadow = true; m.receiveShadow = true; return m; }
+
+const factories = {
+  highway(x, z) {
+    const m = new THREE.Mesh(geos.slab, mats.asphalt);
+    m.position.set(x + 0.5, 0.03, z + 0.5);
+    m.receiveShadow = true;
+    return m;
+  },
+  road(x, z) {
+    // Sidewalk slab full-tile underneath, asphalt inset on top: reads as
+    // 2 lanes + sidewalks from any camera angle, no auto-tiling needed.
+    const g = new THREE.Group();
+    const walk = new THREE.Mesh(geos.walkSlab, mats.sidewalk);
+    walk.position.y = 0.0225; walk.receiveShadow = true;
+    const asphalt = new THREE.Mesh(geos.roadSlab, mats.road);
+    asphalt.position.y = 0.032; asphalt.receiveShadow = true;
+    g.add(walk, asphalt);
+    g.position.set(x + 0.5, 0, z + 0.5);
+    return g;
+  },
+  house(x, z, level) {
+    const g = new THREE.Group();
+    const two = level >= 2;
+    const base = shadowed(new THREE.Mesh(
+      two ? geos.houseBase2 : geos.houseBase, two ? mats.wallL2 : mats.wallL1));
+    base.position.y = two ? 0.4 : 0.225;
+    const roof = shadowed(new THREE.Mesh(geos.roof, two ? mats.roofL2 : mats.roofL1));
+    roof.position.y = (two ? 0.8 : 0.45) + 0.16;
+    roof.rotation.y = Math.PI / 4;
+    g.add(base, roof);
+    g.position.set(x + 0.5, 0, z + 0.5);
+    return g;
+  },
+  shop(x, z) {
+    const g = new THREE.Group();
+    const body = shadowed(new THREE.Mesh(geos.shopBody, mats.shopBody));
+    body.position.y = 0.175;
+    const roof = shadowed(new THREE.Mesh(geos.shopRoof, mats.shopRoof));
+    roof.position.y = 0.38;
+    g.add(body, roof);
+    g.position.set(x + 0.5, 0, z + 0.5);
+    return g;
+  },
+  park(x, z) {
+    const g = new THREE.Group();
+    const lawn = new THREE.Mesh(geos.lawn, mats.parkLawn);
+    lawn.position.y = 0.025; lawn.receiveShadow = true;
+    g.add(lawn);
+    for (const [ox, oz, s] of [[-0.22, -0.18, 1], [0.2, 0.15, 0.8]]) {
+      const trunk = shadowed(new THREE.Mesh(geos.trunk, mats.trunk));
+      trunk.position.set(ox, 0.14 * s, oz); trunk.scale.setScalar(s);
+      const leaves = shadowed(new THREE.Mesh(geos.leaves, mats.leaves));
+      leaves.position.set(ox, 0.42 * s, oz); leaves.scale.setScalar(s);
+      g.add(trunk, leaves);
+    }
+    const bench = shadowed(new THREE.Mesh(geos.bench, mats.bench));
+    bench.position.set(0.05, 0.09, -0.3);
+    g.add(bench);
+    g.rotation.y = Math.floor((x * 7 + z * 13) % 4) * Math.PI / 2;  // variety
+    g.position.set(x + 0.5, 0, z + 0.5);
+    return g;
+  },
+};
+
+/* ============================= syncTile ============================= */
+function syncTile(x, z, pop = false) {
+  const t = world[x][z];
+  if (t.mesh) { scene.remove(t.mesh); t.mesh = null; }
+  const make = factories[t.type];
+  if (make) {
+    t.mesh = make(x, z, t.level);
+    scene.add(t.mesh);
+    if (pop) startPop(t.mesh);
+  }
+}
+
+/* ========================== POP ANIMATION =========================== */
+const anims = [];
+function startPop(mesh) {
+  mesh.scale.setScalar(0.001);
+  anims.push({ mesh, t: 0 });
+}
+function backOut(t) {
+  const c1 = 1.70158, c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+}
+function updateAnims(dt) {
+  for (let i = anims.length - 1; i >= 0; i--) {
+    const a = anims[i];
+    a.t = Math.min(1, a.t + dt / CONFIG.anim.popDur);
+    a.mesh.scale.setScalar(Math.max(0.001, backOut(a.t)));
+    if (a.t >= 1) { a.mesh.scale.setScalar(1); anims.splice(i, 1); }
+  }
+}
+
+/* ======================= HIGHWAY (pre-placed) ======================= */
+// A stub entering from the center of one map edge: `width` tiles wide,
+// `depth` tiles into the map. Its outer end sits on the map edge — the
+// outside connection. Player roads attach to the inner end or sides.
+const HW = CONFIG.highway;
+const cs = Math.floor(S / 2 - HW.width / 2);      // centered span start
+const hwAxis = (HW.edge === 'south' || HW.edge === 'north') ? 'z' : 'x';
+const hwTiles = [];
+if (hwAxis === 'z') {
+  const z0 = HW.edge === 'south' ? 0 : S - HW.depth;
+  for (let dx = 0; dx < HW.width; dx++)
+    for (let dz = 0; dz < HW.depth; dz++) hwTiles.push([cs + dx, z0 + dz]);
+} else {
+  const x0 = HW.edge === 'west' ? 0 : S - HW.depth;
+  for (let dx = 0; dx < HW.depth; dx++)
+    for (let dz = 0; dz < HW.width; dz++) hwTiles.push([x0 + dx, cs + dz]);
+}
+for (const [x, z] of hwTiles) {
+  const t = world[x][z];
+  t.type = 'highway'; t.fixed = true;
+  syncTile(x, z);
+}
+// Dashed center seam + shoulder strips, oriented along the travel axis.
+const minX = Math.min(...hwTiles.map(t => t[0]));
+const minZ = Math.min(...hwTiles.map(t => t[1]));
+const dashGeo = hwAxis === 'z'
+  ? new THREE.BoxGeometry(0.07, 0.012, 0.45)
+  : new THREE.BoxGeometry(0.45, 0.012, 0.07);
+for (let i = 0; i < HW.depth; i++) {
+  const dash = new THREE.Mesh(dashGeo, mats.dash);
+  if (hwAxis === 'z') dash.position.set(minX + HW.width / 2, 0.065, minZ + i + 0.5);
+  else dash.position.set(minX + i + 0.5, 0.065, minZ + HW.width / 2);
+  scene.add(dash);
+}
+const shoulderGeo = hwAxis === 'z'
+  ? new THREE.BoxGeometry(0.1, 0.014, HW.depth)
+  : new THREE.BoxGeometry(HW.depth, 0.014, 0.1);
+for (const off of [0.06, HW.width - 0.06]) {
+  const strip = new THREE.Mesh(shoulderGeo, mats.shoulder);
+  if (hwAxis === 'z') strip.position.set(minX + off, 0.065, minZ + HW.depth / 2);
+  else strip.position.set(minX + HW.depth / 2, 0.065, minZ + off);
+  scene.add(strip);
+}
+
+/* ========================== CONNECTIVITY ============================ */
+// BFS from the highway over road+highway tiles. Run on road changes only.
+function recomputeConnectivity() {
+  const queue = [];
+  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
+    const t = world[x][z];
+    t.connected = false;
+    if (t.type === 'highway') { t.connected = true; queue.push([x, z]); }
+  }
+  while (queue.length) {
+    const [x, z] = queue.pop();
+    for (const [dx, dz] of NB4) {
+      const nx = x + dx, nz = z + dz;
+      if (!inBounds(nx, nz)) continue;
+      const n = world[nx][nz];
+      if (n.type === 'road' && !n.connected) {
+        n.connected = true;
+        queue.push([nx, nz]);
+      }
+    }
+  }
+}
+recomputeConnectivity();
+
+/* ========================= GROWTH (slow tick) ======================= */
+// v0.2 rule: building frontage requires a connected ROAD. Highway tiles
+// no longer count (no pedestrian access).
+function hasConnectedRoadNeighbor(x, z) {
+  return NB4.some(([dx, dz]) => {
+    const nx = x + dx, nz = z + dz;
+    if (!inBounds(nx, nz)) return false;
+    const n = world[nx][nz];
+    return n.type === 'road' && n.connected;
+  });
+}
+let growthAcc = 0;
+function growthTick(dt) {
+  growthAcc += dt;
+  if (growthAcc < CONFIG.growth.tickSeconds) return;
+  growthAcc = 0;
+  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
+    const t = world[x][z];
+    if (t.type !== 'house' || t.level >= 2) continue;
+    if (hasConnectedRoadNeighbor(x, z)) {
+      t.timer += CONFIG.growth.tickSeconds;
+      if (t.timer >= CONFIG.growth.upgradeSeconds) {
+        t.level = 2;
+        syncTile(x, z, true);
+        onHouseUpgraded(x, z);
+      }
+    }
+  }
+}
+
+/* ============================ SIM CORE (M5) ========================= */
+// Headless citizen simulation. No rendering — the census HUD is the proof.
+// All rates are per game-second; meters clamp 0..100.
+const CZ = CONFIG.citizens;
+let gameTime = 0;
+let nextCitizenId = 1;
+const citizens = [];
+const clamp01_100 = v => Math.max(0, Math.min(100, v));
+const rnd = (a, b) => a + Math.random() * (b - a);
+const key = (x, z) => x * S + z;
+
+/* ---- Dijkstra map: one BFS flood answers every distance query ---- */
+function dijkstraMap(sources, drive) {
+  const dist = new Int16Array(S * S).fill(-1);
+  const q = [];
+  for (const [x, z] of sources) {
+    const t = world[x][z];
+    if (t.type === 'road' || (drive && t.type === 'highway')) {
+      dist[key(x, z)] = 0; q.push([x, z]);
+    }
+  }
+  for (let h = 0; h < q.length; h++) {
+    const [x, z] = q[h];
+    const d = dist[key(x, z)];
+    for (const [dx, dz] of NB4) {
+      const nx = x + dx, nz = z + dz;
+      if (!inBounds(nx, nz) || dist[key(nx, nz)] !== -1) continue;
+      const n = world[nx][nz];
+      if (n.type === 'road' || (drive && n.type === 'highway')) {
+        dist[key(nx, nz)] = d + 1; q.push([nx, nz]);
+      }
+    }
+  }
+  return dist;
+}
+function roadAdjacents(x, z) {
+  const out = [];
+  for (const [dx, dz] of NB4) {
+    const nx = x + dx, nz = z + dz;
+    if (inBounds(nx, nz) && world[nx][nz].type === 'road') out.push([nx, nz]);
+  }
+  return out;
+}
+// Road distance from a flood to a building tile (min over its frontage).
+function tileDist(flood, x, z) {
+  let best = -1;
+  for (const [rx, rz] of roadAdjacents(x, z)) {
+    const d = flood[key(rx, rz)];
+    if (d !== -1 && (best === -1 || d < best)) best = d;
+  }
+  return best === -1 ? -1 : best + 1;
+}
+function floodFrom(x, z, drive) {           // flood from a building's frontage
+  return dijkstraMap(roadAdjacents(x, z), drive);
+}
+
+/* ---- Lifecycle: houses make citizens, shops make jobs ---- */
+function makeCitizen(hx, hz) {
+  const j = 1 + rnd(-CZ.rateJitter, CZ.rateJitter);   // per-citizen rate jitter
+  return {
+    id: nextCitizenId++, home: [hx, hz], at: [hx, hz], job: null,
+    state: 'sleep', phase: 'doing', mode: 'walk',
+    dest: null, travelT: 0, stayUntil: 0, activity: null,
+    meters: { energy: rnd(35, 90), work: rnd(10, 80),
+              errands: rnd(30, 80), fun: rnd(30, 80) },
+    rates: { energyDecay: CZ.energy.decay * j, sleepFill: CZ.energy.sleepFill * j,
+             workDecay: CZ.work.decay * j, workFill: CZ.work.fill * j,
+             errandsDecay: CZ.needs.errands.decay * j,
+             funDecay: CZ.needs.fun.decay * j },
+  };
+}
+function onHousePlaced(x, z) {
+  const t = world[x][z];
+  t.cars = { total: CZ.carsPerLevel[1], available: CZ.carsPerLevel[1] };
+  for (let i = 0; i < CZ.residentsPerLevel[1]; i++) {
+    const c = makeCitizen(x, z);
+    citizens.push(c); tryEmploy(c);
+  }
+}
+function onHouseUpgraded(x, z) {
+  const t = world[x][z];
+  const addCars = CZ.carsPerLevel[2] - CZ.carsPerLevel[1];
+  t.cars.total += addCars; t.cars.available += addCars;
+  const addRes = CZ.residentsPerLevel[2] - CZ.residentsPerLevel[1];
+  for (let i = 0; i < addRes; i++) {
+    const c = makeCitizen(x, z);
+    citizens.push(c); tryEmploy(c);
+  }
+}
+function onShopPlaced(x, z) {
+  world[x][z].jobs = { total: CZ.jobsPerShop, workers: [] };
+  // One flood from the shop hires the nearest unemployed (walk network).
+  const flood = floodFrom(x, z, false);
+  const open = citizens.filter(c => !c.job)
+    .map(c => [tileDist(flood, c.home[0], c.home[1]), c])
+    .filter(([d]) => d !== -1)
+    .sort((a, b) => a[0] - b[0]);
+  for (const [, c] of open.slice(0, CZ.jobsPerShop)) hire(c, x, z);
+}
+function hire(c, x, z) {
+  c.job = [x, z];
+  world[x][z].jobs.workers.push(c.id);
+}
+function tryEmploy(c) {
+  const flood = floodFrom(c.home[0], c.home[1], false);
+  let best = null, bestD = -1;
+  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
+    const t = world[x][z];
+    if (t.type !== 'shop' || !t.jobs || t.jobs.workers.length >= t.jobs.total) continue;
+    const d = tileDist(flood, x, z);
+    if (d !== -1 && (bestD === -1 || d < bestD)) { bestD = d; best = [x, z]; }
+  }
+  if (best) hire(c, best[0], best[1]);
+}
+function onHouseRemoved(x, z) {
+  for (let i = citizens.length - 1; i >= 0; i--) {
+    const c = citizens[i];
+    if (c.home[0] === x && c.home[1] === z) {
+      if (c.job) {
+        const jt = world[c.job[0]][c.job[1]];
+        if (jt.jobs) jt.jobs.workers = jt.jobs.workers.filter(id => id !== c.id);
+      }
+      citizens.splice(i, 1);
+    }
+  }
+}
+function onShopRemoved(x, z) {
+  const t = world[x][z];
+  if (!t.jobs) return;
+  for (const c of citizens) {
+    if (c.job && c.job[0] === x && c.job[1] === z) c.job = null;
+  }
+  delete t.jobs;
+}
+
+/* ---- Movement (M5: timers from real road distance; bodies in M6) ---- */
+function speedFor(mode) {
+  return mode === 'drive' ? CZ.move.driveSpeed : CZ.move.walkSpeed;
+}
+function beginTravel(c, dest, dist) {
+  c.dest = dest;
+  c.phase = 'traveling';
+  c.travelT = Math.max(0.3, dist / speedFor(c.mode));
+}
+// Mode roll happens ONCE, at home departure, gated by car availability.
+function rollModeAtDeparture(c, firstDist) {
+  const home = world[c.home[0]][c.home[1]];
+  c.mode = 'walk';
+  if (!home.cars || home.cars.available <= 0) return;
+  const p = Math.max(0, Math.min(1,
+    (firstDist - CZ.move.carMinDist) / (CZ.move.carFullDist - CZ.move.carMinDist)));
+  if (Math.random() < p) { c.mode = 'drive'; home.cars.available--; }
+}
+function returnCarIfAny(c) {
+  if (c.mode !== 'drive') return;
+  const home = world[c.home[0]][c.home[1]];
+  if (home.cars) home.cars.available = Math.min(home.cars.total, home.cars.available + 1);
+  c.mode = 'walk';
+}
+
+/* ---- Free-time decision procedure (locked spec) ---- */
+function chooseFreeTime(c) {
+  c.state = 'free_time';
+  const [cx, cz] = c.at;
+  const flood = floodFrom(cx, cz, c.mode === 'drive');
+  const cands = [];
+  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
+    const t = world[x][z], ad = CZ.adverts[t.type];
+    if (!ad) continue;
+    const here = (x === cx && z === cz);
+    const d = here ? 0 : tileDist(flood, x, z);
+    if (d === -1) continue;
+    const urgency = (100 - c.meters[ad.need]) / 100;
+    const proximity = 1 / (1 + d / CZ.select.distHalf);
+    const score = ad.fillRate * ad.minStay * urgency * proximity;
+    if (score > 0) cands.push({ x, z, d, ad, score });
+  }
+  if (cands.length === 0) {                 // nowhere to go: idle where we are
+    c.phase = 'doing'; c.activity = null;
+    c.stayUntil = gameTime + 5;
+    return;
+  }
+  cands.sort((a, b) => b.score - a.score);
+  const top = cands.slice(0, CZ.select.topK);
+  const weights = top.map(o => Math.pow(o.score, CZ.select.pickTemp));
+  let r = Math.random() * weights.reduce((a, b) => a + b, 0);
+  let pick = top[0];
+  for (let i = 0; i < top.length; i++) { r -= weights[i]; if (r <= 0) { pick = top[i]; break; } }
+  if (pick.x === cx && pick.z === cz) {     // stay: restart minStay commitment
+    c.phase = 'doing'; c.activity = pick.ad;
+    c.stayUntil = gameTime + pick.ad.minStay;
+  } else {
+    beginTravel(c, [pick.x, pick.z], pick.d);
+  }
+}
+function goWork(c) {
+  const flood = floodFrom(c.at[0], c.at[1], c.mode === 'drive');
+  const d = tileDist(flood, c.job[0], c.job[1]);
+  if (d === -1) { chooseFreeTime(c); return; }   // job unreachable right now
+  c.state = 'work';
+  beginTravel(c, [c.job[0], c.job[1]], d);
+}
+function goHome(c) {
+  const flood = floodFrom(c.at[0], c.at[1], c.mode === 'drive');
+  const d = tileDist(flood, c.home[0], c.home[1]);
+  c.state = 'sleep';
+  beginTravel(c, [c.home[0], c.home[1]], d === -1 ? 1 : d);
+}
+function departFromHome(c) {
+  // Waking up: pick first destination, roll travel mode once for the excursion.
+  const wantsWork = c.job && c.meters.work <= CZ.work.startBelow;
+  const flood = floodFrom(c.home[0], c.home[1], true);  // measure on drive net
+  let dest = null, d = -1;
+  if (wantsWork) { d = tileDist(flood, c.job[0], c.job[1]); dest = 'work'; }
+  if (d === -1) {
+    // No job trip — leave for free time (distance estimate for the roll: median-ish)
+    rollModeAtDeparture(c, 6);
+    chooseFreeTime(c);
+    return;
+  }
+  rollModeAtDeparture(c, d);
+  goWork(c);
+}
+function arrive(c) {
+  c.at = c.dest; c.dest = null; c.phase = 'doing';
+  const [x, z] = c.at;
+  const t = world[x][z];
+  if (c.state === 'free_time') {
+    const ad = CZ.adverts[t.type];
+    if (!ad) { chooseFreeTime(c); return; }       // venue bulldozed mid-walk
+    c.activity = ad;
+    c.stayUntil = gameTime + ad.minStay;
+  } else if (c.state === 'work') {
+    if (t.type !== 'shop' || !c.job) { chooseFreeTime(c); return; }
+  } else if (c.state === 'sleep') {
+    returnCarIfAny(c);                            // excursion over: car comes home
+  }
+}
+
+/* ---- The FSM tick ---- */
+function tickCitizen(c, dt) {
+  const m = c.meters, R = c.rates;
+  // Meters
+  if (c.state === 'sleep' && c.phase === 'doing') m.energy += R.sleepFill * dt;
+  else m.energy -= R.energyDecay * dt;
+  if (c.state === 'work' && c.phase === 'doing') m.work += R.workFill * dt;
+  else m.work -= R.workDecay * dt;
+  m.errands -= R.errandsDecay * dt;
+  m.fun -= R.funDecay * dt;
+  if (c.state === 'free_time' && c.phase === 'doing' && c.activity)
+    m[c.activity.need] += c.activity.fillRate * dt;
+  for (const k in m) m[k] = clamp01_100(m[k]);
+  // Travel
+  if (c.phase === 'traveling') {
+    c.travelT -= dt;
+    if (c.travelT <= 0) arrive(c);
+    return;
+  }
+  // Doing → transitions (hysteresis pairs; interrupts only at decision points)
+  if (c.state === 'sleep') {
+    if (m.energy >= CZ.energy.wakeAt) departFromHome(c);
+  } else if (c.state === 'work') {
+    if (m.work >= 100) chooseFreeTime(c);
+  } else if (c.state === 'free_time') {
+    if (gameTime >= c.stayUntil) {
+      if (m.energy <= CZ.energy.sleepBelow) goHome(c);
+      else if (c.job && m.work <= CZ.work.startBelow) goWork(c);
+      else chooseFreeTime(c);
+    }
+  }
+}
+
+/* ---- Sim tick + census ---- */
+const censusEl = document.getElementById('census');
+let simAcc = 0;
+const TICK = 1 / CZ.decisionHz;
+function simTick(dt) {
+  gameTime += dt * CZ.timeScale;
+  simAcc += dt * CZ.timeScale;
+  while (simAcc >= TICK) {
+    simAcc -= TICK;
+    for (const c of citizens) tickCitizen(c, TICK);
+  }
+  // Census (cheap enough to refresh per frame batch)
+  let sleep = 0, work = 0, free = 0, jobless = 0, carsOut = 0, carsTotal = 0;
+  for (const c of citizens) {
+    if (c.state === 'sleep') sleep++;
+    else if (c.state === 'work') work++;
+    else free++;
+    if (!c.job) jobless++;
+    if (c.mode === 'drive') carsOut++;
+  }
+  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++)
+    if (world[x][z].cars) carsTotal += world[x][z].cars.total;
+  censusEl.textContent = citizens.length === 0 ? '' :
+    `pop ${citizens.length} · 😴${sleep} · 💼${work} · 🚶${free}` +
+    ` · no-job ${jobless} · 🚗 ${carsOut}/${carsTotal}`;
+}
+// Dev console access
+window._sim = { CONFIG, world, citizens, get time() { return gameTime; } };
+
+/* ========================= PLACEMENT LOGIC ========================== */
+let tool = 'road';
+function canApply(x, z) {
+  if (!inBounds(x, z)) return false;
+  const t = world[x][z];
+  if (tool === 'bulldoze') return t.type !== 'empty' && !t.fixed;
+  return t.type === 'empty';
+}
+function applyTool(x, z) {
+  if (!canApply(x, z)) return;
+  const t = world[x][z];
+  if (tool === 'bulldoze') {
+    const was = t.type;
+    if (was === 'house') onHouseRemoved(x, z);
+    if (was === 'shop') onShopRemoved(x, z);
+    t.type = 'empty'; t.level = 0; t.timer = 0;
+    delete t.cars;
+    syncTile(x, z);
+    if (was === 'road') recomputeConnectivity();
+  } else {
+    t.type = tool;
+    t.level = tool === 'house' ? 1 : 0;
+    t.timer = 0;
+    syncTile(x, z, true);
+    if (tool === 'road') recomputeConnectivity();
+    if (tool === 'house') onHousePlaced(x, z);
+    if (tool === 'shop') onShopPlaced(x, z);
+  }
+}
+
+/* ============================== CAMERA ============================== */
+const camera = new THREE.OrthographicCamera();
+camera.near = 0.1; camera.far = 300;
+const camTarget = new THREE.Vector3(S / 2, 0, S / 2);  // pannable look-at point
+const keys = new Set();
+const camState = {
+  yaw: CONFIG.camera.yawAngles[0],
+  yawFrom: CONFIG.camera.yawAngles[0],
+  yawTo: CONFIG.camera.yawAngles[0],
+  tweenT: 1,
+  view: CONFIG.camera.viewStart,
+  viewTarget: CONFIG.camera.viewStart,
+};
+const easeInOutCubic = t =>
+  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+function rotateStep(dir) {
+  camState.yawFrom = camState.yaw;
+  camState.yawTo = camState.yawTo + 90 * dir;
+  camState.tweenT = 0;
+}
+function updateCamera(dt) {
+  if (camState.tweenT < 1) {
+    camState.tweenT = Math.min(1, camState.tweenT + dt / CONFIG.camera.rotateDur);
+    const e = easeInOutCubic(camState.tweenT);
+    camState.yaw = camState.yawFrom + (camState.yawTo - camState.yawFrom) * e;
+  }
+  camState.view += (camState.viewTarget - camState.view) *
+    Math.min(1, CONFIG.camera.zoomLerp * dt);
+  const yawRad = THREE.MathUtils.degToRad(camState.yaw);
+  const pitchRad = THREE.MathUtils.degToRad(CONFIG.camera.pitchDeg);
+
+  // Keyboard pan, camera-relative on the ground plane.
+  const fx = -Math.sin(yawRad), fz = -Math.cos(yawRad);   // screen-up
+  const rx = Math.cos(yawRad), rz = -Math.sin(yawRad);    // screen-right
+  let u = 0, v = 0;
+  if (keys.has('w') || keys.has('arrowup')) u += 1;
+  if (keys.has('s') || keys.has('arrowdown')) u -= 1;
+  if (keys.has('d') || keys.has('arrowright')) v += 1;
+  if (keys.has('a') || keys.has('arrowleft')) v -= 1;
+  if (u || v) {
+    const spd = camState.view * CONFIG.camera.panKeySpeed * dt;
+    camTarget.x += (fx * u + rx * v) * spd;
+    camTarget.z += (fz * u + rz * v) * spd;
+  }
+  camTarget.x = THREE.MathUtils.clamp(camTarget.x, 0, S);
+  camTarget.z = THREE.MathUtils.clamp(camTarget.z, 0, S);
+
+  const d = CONFIG.camera.dist;
+  camera.position.set(
+    camTarget.x + d * Math.cos(pitchRad) * Math.sin(yawRad),
+    d * Math.sin(pitchRad),
+    camTarget.z + d * Math.cos(pitchRad) * Math.cos(yawRad)
+  );
+  camera.lookAt(camTarget);
+  const aspect = window.innerWidth / window.innerHeight;
+  const h = camState.view;
+  camera.top = h; camera.bottom = -h;
+  camera.left = -h * aspect; camera.right = h * aspect;
+  camera.updateProjectionMatrix();
+}
+
+/* ====================== RAYCAST + GHOST PREVIEW ===================== */
+const raycaster = new THREE.Raycaster();
+const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const hitPoint = new THREE.Vector3();
+const ndc = new THREE.Vector2();
+
+function pickGround(clientX, clientY) {
+  ndc.set((clientX / window.innerWidth) * 2 - 1,
+          -(clientY / window.innerHeight) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  return raycaster.ray.intersectPlane(groundPlane, hitPoint)
+    ? hitPoint.clone() : null;
+}
+function pickTile(clientX, clientY) {
+  const p = pickGround(clientX, clientY);
+  if (!p) return null;
+  const x = Math.floor(p.x), z = Math.floor(p.z);  // floor, never round
+  return inBounds(x, z) ? [x, z] : null;
+}
+
+const ghostMat = new THREE.MeshBasicMaterial({
+  color: CONFIG.colors.ghostOk, transparent: true, opacity: 0.45, depthWrite: false });
+const ghost = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.1, 0.92), ghostMat);
+ghost.visible = false;
+scene.add(ghost);
+function updateGhost(tile) {
+  if (!tile) { ghost.visible = false; return; }
+  const [x, z] = tile;
+  ghost.visible = true;
+  ghost.position.set(x + 0.5, 0.08, z + 0.5);
+  ghostMat.color.setHex(canApply(x, z) ? CONFIG.colors.ghostOk : CONFIG.colors.ghostBad);
+}
+
+/* =============================== INPUT ============================== */
+document.getElementById('btn-cw').addEventListener('click', () => rotateStep(1));
+document.getElementById('btn-ccw').addEventListener('click', () => rotateStep(-1));
+window.addEventListener('keydown', (e) => {
+  const k = e.key.toLowerCase();
+  if (k === 'q') rotateStep(-1);
+  if (k === 'e') rotateStep(1);
+  keys.add(k);
+});
+window.addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()));
+window.addEventListener('blur', () => keys.clear());
+
+document.querySelectorAll('#toolbar button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    tool = btn.dataset.tool;
+    document.querySelectorAll('#toolbar button')
+      .forEach(b => b.classList.toggle('selected', b === btn));
+  });
+});
+document.querySelector('#toolbar button[data-tool="road"]').classList.add('selected');
+
+renderer.domElement.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const f = Math.exp(e.deltaY * 0.0012);
+  camState.viewTarget = THREE.MathUtils.clamp(
+    camState.viewTarget * f, CONFIG.camera.viewMin, CONFIG.camera.viewMax);
+}, { passive: false });
+
+// Pointer handling. Rules:
+// - 2 active pointers => pinch zoom; the gesture is poisoned for taps.
+// - 1 pointer, moved < tapMaxMove px, never multi-touch => tap => place.
+const pointers = new Map();
+let pinchStartDist = 0, pinchStartView = 0;
+let gestureMulti = false;
+
+renderer.domElement.addEventListener('pointerdown', (e) => {
+  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY,
+                              sx: e.clientX, sy: e.clientY });
+  if (pointers.size === 2) {
+    gestureMulti = true;
+    const [a, b] = [...pointers.values()];
+    pinchStartDist = Math.hypot(a.x - b.x, a.y - b.y);
+    pinchStartView = camState.viewTarget;
+  }
+});
+renderer.domElement.addEventListener('pointermove', (e) => {
+  if (e.pointerType === 'mouse' && pointers.size === 0) {
+    updateGhost(pickTile(e.clientX, e.clientY));  // desktop hover preview
+  }
+  const p = pointers.get(e.pointerId);
+  if (!p) return;
+  p.x = e.clientX; p.y = e.clientY;
+  // Single-pointer drag = pan. The grabbed ground point stays under the
+  // pointer; the tap threshold keeps small jitters as taps.
+  if (pointers.size === 1 && !gestureMulti) {
+    if (!p.pan && Math.hypot(p.x - p.sx, p.y - p.sy) >= CONFIG.input.tapMaxMove) {
+      p.pan = pickGround(p.sx, p.sy);
+      ghost.visible = false;
+    }
+    if (p.pan) {
+      const hit = pickGround(e.clientX, e.clientY);
+      if (hit) { camTarget.x += p.pan.x - hit.x; camTarget.z += p.pan.z - hit.z; }
+    }
+  }
+  if (pointers.size === 2 && pinchStartDist > 0) {
+    const [a, b] = [...pointers.values()];
+    const d = Math.hypot(a.x - b.x, a.y - b.y);
+    camState.viewTarget = THREE.MathUtils.clamp(
+      pinchStartView * (pinchStartDist / d),
+      CONFIG.camera.viewMin, CONFIG.camera.viewMax);
+  }
+});
+function releasePointer(e) {
+  const p = pointers.get(e.pointerId);
+  pointers.delete(e.pointerId);
+  if (pointers.size < 2) pinchStartDist = 0;
+  if (!p) return;
+  const moved = Math.hypot(p.x - p.sx, p.y - p.sy);
+  if (!gestureMulti && moved < CONFIG.input.tapMaxMove && e.type === 'pointerup') {
+    const tile = pickTile(e.clientX, e.clientY);
+    if (tile) applyTool(tile[0], tile[1]);
+    if (e.pointerType !== 'mouse') ghost.visible = false;
+  }
+  if (pointers.size === 0) gestureMulti = false;
+}
+renderer.domElement.addEventListener('pointerup', releasePointer);
+renderer.domElement.addEventListener('pointercancel', releasePointer);
+
+window.addEventListener('resize', () => {
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+/* ============================= MAIN LOOP ============================ */
+const clock = new THREE.Clock();
+function tick() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  updateCamera(dt);
+  updateAnims(dt);
+  growthTick(dt);
+  simTick(dt);
+  renderer.render(scene, camera);
+  requestAnimationFrame(tick);
+}
+tick();
+</script>
+</body>
+</html>
