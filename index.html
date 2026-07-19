@@ -95,17 +95,20 @@ const CONFIG = {
   input: { tapMaxMove: 10 },       // px; more = drag, not a tap
   citizens: {
     timeScale: 1, decisionHz: 2,
+    dayLength: 240,               // real seconds per in-game day (the anchor)
     residentsPerLevel: [0, 3, 5],
     carsPerLevel: [0, 1, 2],
     jobsPerShop: 4,
     rateJitter: 0.10,
-    energy:  { decay: 0.55, sleepFill: 1.8, sleepBelow: 25, wakeAt: 95 },
-    work:    { decay: 0.5, fill: 1.7, startBelow: 15 },
-    needs:   { errands: { decay: 0.4 }, fun: { decay: 0.5 } },
-    adverts: { shop: { need: 'errands', fillRate: 4, minStay: 15 },
-               park: { need: 'fun',     fillRate: 3, minStay: 8 } },
+    // Designer units below: hours and per-day amounts. Per-second rates
+    // are derived ONCE at boot (see RT in the sim core). Tune here only.
+    energy:  { sleepHours: 8, sleepBelow: 25, wakeAt: 95 },
+    work:    { shiftHours: 6, recoverHours: 14, startBelow: 15 },
+    needs:   { errands: { decayPerDay: 60 }, fun: { decayPerDay: 80 } },
+    adverts: { shop: { need: 'errands', visitHours: 1.5, restore: 60 },
+               park: { need: 'fun',     visitHours: 0.75, restore: 25 } },
     select:  { topK: 6, pickTemp: 1, distHalf: 8 },
-    move:    { walkSpeed: 1.2, driveSpeed: 4, carMinDist: 3, carFullDist: 12,
+    move:    { walkSpeed: 0.24, driveSpeed: 0.8, carMinDist: 3, carFullDist: 12,
                laneOffset: 0.18, walkOffset: 0.40 },   // right-hand traffic
   },
 };
@@ -392,6 +395,25 @@ function growthTick(dt) {
 // Headless citizen simulation. No rendering — the census HUD is the proof.
 // All rates are per game-second; meters clamp 0..100.
 const CZ = CONFIG.citizens;
+// Derived runtime rates: designer units (hours, per-day) -> per-second.
+const HOUR = CZ.dayLength / 24;
+const RT = {
+  energyDecay: (CZ.energy.wakeAt - CZ.energy.sleepBelow) /
+               ((24 - CZ.energy.sleepHours) * HOUR),
+  sleepFill:   (CZ.energy.wakeAt - CZ.energy.sleepBelow) /
+               (CZ.energy.sleepHours * HOUR),
+  workFill:    100 / (CZ.work.shiftHours * HOUR),
+  workDecay:   (100 - CZ.work.startBelow) / (CZ.work.recoverHours * HOUR),
+  needDecay:   Object.fromEntries(Object.entries(CZ.needs)
+                 .map(([k, v]) => [k, v.decayPerDay / CZ.dayLength])),
+  adverts:     Object.fromEntries(Object.entries(CZ.adverts)
+                 .map(([k, a]) => [k, {
+                   need: a.need,
+                   minStay: a.visitHours * HOUR,
+                   fillRate: a.restore / (a.visitHours * HOUR),
+                 }])),
+  minShift:    CZ.work.shiftHours * HOUR,
+};
 let gameTime = 0;
 let nextCitizenId = 1;
 const citizens = [];
@@ -456,10 +478,10 @@ function makeCitizen(hx, hz) {
     dest: null, travelT: 0, stayUntil: 0, activity: null,
     meters: { energy: rnd(35, 90), work: rnd(10, 80),
               errands: rnd(30, 80), fun: rnd(30, 80) },
-    rates: { energyDecay: CZ.energy.decay * j, sleepFill: CZ.energy.sleepFill * j,
-             workDecay: CZ.work.decay * j, workFill: CZ.work.fill * j,
-             errandsDecay: CZ.needs.errands.decay * j,
-             funDecay: CZ.needs.fun.decay * j },
+    rates: { energyDecay: RT.energyDecay * j, sleepFill: RT.sleepFill * j,
+             workDecay: RT.workDecay * j, workFill: RT.workFill * j,
+             errandsDecay: RT.needDecay.errands * j,
+             funDecay: RT.needDecay.fun * j },
   };
 }
 function onHousePlaced(x, z) {
@@ -626,7 +648,7 @@ function chooseFreeTime(c) {
   const flood = floodFrom(cx, cz, c.mode === 'drive');
   const cands = [];
   for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
-    const t = world[x][z], ad = CZ.adverts[t.type];
+    const t = world[x][z], ad = RT.adverts[t.type];
     if (!ad) continue;
     const here = (x === cx && z === cz);
     const d = here ? 0 : tileDist(flood, x, z);
@@ -689,12 +711,13 @@ function arrive(c) {
   if (x === c.home[0] && z === c.home[1]) returnCarIfAny(c);  // excursion over
   const t = world[x][z];
   if (c.state === 'free_time') {
-    const ad = CZ.adverts[t.type];
+    const ad = RT.adverts[t.type];
     if (!ad) { chooseFreeTime(c); return; }       // venue bulldozed mid-walk
     c.activity = ad;
     c.stayUntil = gameTime + ad.minStay;
   } else if (c.state === 'work') {
     if (t.type !== 'shop' || !c.job) { chooseFreeTime(c); return; }
+    c.stayUntil = gameTime + RT.minShift;   // a shift has a minimum length
   }
 }
 
@@ -717,7 +740,7 @@ function tickCitizen(c, dt) {
   if (c.state === 'sleep') {
     if (m.energy >= CZ.energy.wakeAt) departFromHome(c);
   } else if (c.state === 'work') {
-    if (m.work >= 100) chooseFreeTime(c);
+    if (m.work >= 100 && gameTime >= c.stayUntil) chooseFreeTime(c);
   } else if (c.state === 'free_time') {
     if (gameTime >= c.stayUntil) {
       if (m.energy <= CZ.energy.sleepBelow) goHome(c);
@@ -751,8 +774,9 @@ function simTick(dt) {
   }
   for (let x = 0; x < S; x++) for (let z = 0; z < S; z++)
     if (world[x][z].cars) carsTotal += world[x][z].cars.total;
+  const day = Math.floor(gameTime / CZ.dayLength) + 1;
   censusEl.textContent = citizens.length === 0 ? '' :
-    `pop ${citizens.length} · 😴${sleep} · 💼${work} · 🚶${free}` +
+    `day ${day} · pop ${citizens.length} · 😴${sleep} · 💼${work} · 🚶${free}` +
     ` · no-job ${jobless} · 🚗 ${carsOut}/${carsTotal}`;
 }
 // Dev console access

@@ -113,3 +113,14 @@ Walkers and cars are visible. Real paths replace travel timers:
 Headless test: 88,597 traveler position samples, 0 off-network; path
 segments clean; mid-travel road sever leaves 0 stuck; no NaN.
 M7 next: migration arrivals by car via highway. Then M8 tuning.
+
+## Day-anchored time system + 5x travel slowdown (2026-07-19)
+- CONFIG now designer units (hours/per-day), derived to RT at boot;
+  dayLength 240s anchors everything. Census shows day counter.
+- Work shift: 6h (60s) MINIMUM enforced at arrival; meter-full alone
+  does not release a worker.
+- Speeds: walk 0.24, drive 0.8 tiles/s (5x slower). Crossing the map
+  on foot ~ a full workday; cars now matter.
+- Tuning fix from test: recoverHours 18 -> 14 (drivers were arriving
+  home with work=~17 > startBelow 15 and skipping alternate days).
+  Verified: 4 shifts per worker over 4 days, exactly daily.

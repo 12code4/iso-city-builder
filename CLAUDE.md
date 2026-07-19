@@ -200,6 +200,25 @@ Citizen record additions for this: `stayUntil` (game time) and
 - Speeds: walk 1.2 tiles/s, drive 4 tiles/s (roads only for both).
 - Rendering (M6): walkers = small capsule dots, drivers = small car boxes.
 
+### Time system: day-anchored designer units (locked)
+
+CONFIG holds designer units — hours and per-day amounts — anchored by one
+number, `dayLength` (real seconds per in-game day, default 240). Per-second
+runtime rates are derived ONCE at boot into an `RT` object. Tuning happens
+only in designer units; never hand-edit derived rates.
+
+The day is a UNIT, not a clock: durations are day-fractions ("a shift is
+6 hours = 1/4 day") but nothing is scheduled to a time of day. The
+no-synchronized-schedules rule stands.
+
+Key derived relationships: shift = shiftHours minimum (enforced via
+stayUntil at work arrival — meter-full alone doesn't release a worker);
+sleep restores wakeAt-sleepBelow over sleepHours; work recovers to
+startBelow over recoverHours. Tuning lesson (found in test): recoverHours
+must be comfortably under (24 - shiftHours) or fast commutes leave the
+work meter just above startBelow at wake and citizens skip days — 14h
+gives reliably daily shifts.
+
 ### Config plan (v0.2)
 
 ```js
