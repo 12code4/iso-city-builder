@@ -98,3 +98,18 @@ Census legend: pop N, sleeping, working, free_time, no-job, cars out/total
 Watch for M8 tuning: errands/fun saturate near 100 in a tiny city -
 venue fill rates may be hot relative to decay. Judge at real scale.
 Next: M6 walkers.
+
+## M6 built + verified (2026-07-19)
+Walkers and cars are visible. Real paths replace travel timers:
+- beginTravel descends the Dijkstra map from dest frontage -> source,
+  then offsets the polyline (walk +/-0.40 sidewalk, drive +/-0.18 lane,
+  right-hand traffic by heading)
+- updateTravel advances positions per frame on game time; decisions
+  stay on the slow tick
+- Meshes are a pure projection: created while traveling, swept when
+  indoors/gone; material cache avoids churn
+- Road changes call replanTravelers: same trip re-routed, else walk
+  home, else idle-and-retry
+Headless test: 88,597 traveler position samples, 0 off-network; path
+segments clean; mid-travel road sever leaves 0 stuck; no NaN.
+M7 next: migration arrivals by car via highway. Then M8 tuning.

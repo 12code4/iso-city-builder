@@ -36,7 +36,7 @@
 </head>
 <body>
 <div id="app"></div>
-<div class="hud" id="title">City Builder — v0.2 M5</div>
+<div class="hud" id="title">City Builder — v0.2 M6</div>
 <div class="hud" id="hint">Q/E rotate · WASD or drag to pan · wheel/pinch zoom · tap to build</div>
 <div class="hud" id="census" style="top:12px; right:14px; font-size:12px; text-align:right; opacity:0.85; text-shadow:0 1px 3px rgba(0,0,0,0.4);"></div>
 <div class="hud" id="controls">
@@ -105,7 +105,8 @@ const CONFIG = {
     adverts: { shop: { need: 'errands', fillRate: 4, minStay: 15 },
                park: { need: 'fun',     fillRate: 3, minStay: 8 } },
     select:  { topK: 6, pickTemp: 1, distHalf: 8 },
-    move:    { walkSpeed: 1.2, driveSpeed: 4, carMinDist: 3, carFullDist: 12 },
+    move:    { walkSpeed: 1.2, driveSpeed: 4, carMinDist: 3, carFullDist: 12,
+               laneOffset: 0.18, walkOffset: 0.40 },   // right-hand traffic
   },
 };
 
@@ -439,8 +440,11 @@ function tileDist(flood, x, z) {
   }
   return best === -1 ? -1 : best + 1;
 }
-function floodFrom(x, z, drive) {           // flood from a building's frontage
-  return dijkstraMap(roadAdjacents(x, z), drive);
+function floodFrom(x, z, drive) {           // flood from a tile's frontage
+  const t = world[x][z];                    // (or the tile itself, if it's road)
+  const src = (t.type === 'road' || (drive && t.type === 'highway'))
+    ? [[x, z]] : roadAdjacents(x, z);
+  return dijkstraMap(src, drive);
 }
 
 /* ---- Lifecycle: houses make citizens, shops make jobs ---- */
@@ -522,14 +526,82 @@ function onShopRemoved(x, z) {
   delete t.jobs;
 }
 
-/* ---- Movement (M5: timers from real road distance; bodies in M6) ---- */
+/* ---- Movement: real paths (M6). Walk downhill through the flood. ---- */
 function speedFor(mode) {
   return mode === 'drive' ? CZ.move.driveSpeed : CZ.move.walkSpeed;
 }
-function beginTravel(c, dest, dist) {
-  c.dest = dest;
-  c.phase = 'traveling';
-  c.travelT = Math.max(0.3, dist / speedFor(c.mode));
+// Build the trip: descend the Dijkstra map from the destination's frontage
+// back to the source, then offset the polyline to sidewalk/lane, right-hand.
+function beginTravel(c, dest, flood) {
+  const dTile = world[dest[0]][dest[1]];
+  const front = (dTile.type === 'road' || dTile.type === 'highway')
+    ? [dest] : roadAdjacents(dest[0], dest[1]);
+  let bx = -1, bz = -1, bd = -1;
+  for (const [rx, rz] of front) {
+    const d = flood[key(rx, rz)];
+    if (d !== -1 && (bd === -1 || d < bd)) { bd = d; bx = rx; bz = rz; }
+  }
+  if (bd === -1) return false;
+  const tiles = [[bx, bz]];
+  let tx = bx, tz = bz, guard = S * S;
+  while (flood[key(tx, tz)] > 0 && guard-- > 0) {
+    const d = flood[key(tx, tz)];
+    for (const [dx, dz] of NB4) {
+      const nx = tx + dx, nz = tz + dz;
+      if (inBounds(nx, nz) && flood[key(nx, nz)] === d - 1) { tx = nx; tz = nz; break; }
+    }
+    tiles.push([tx, tz]);
+  }
+  tiles.reverse();                          // source frontage → dest frontage
+  const full = [c.at, ...tiles, dest];
+  const off = c.mode === 'drive' ? CZ.move.laneOffset : CZ.move.walkOffset;
+  const pts = [];
+  for (let i = 0; i < full.length - 1; i++) {
+    const [ax, az] = full[i], [bx2, bz2] = full[i + 1];
+    const hx = Math.sign(bx2 - ax), hz = Math.sign(bz2 - az);
+    if (hx === 0 && hz === 0) continue;     // duplicate tiles collapse
+    const rx = -hz * off, rz = hx * off;    // right-hand side of heading
+    pts.push([ax + 0.5 + rx, az + 0.5 + rz]);
+    pts.push([bx2 + 0.5 + rx, bz2 + 0.5 + rz]);
+  }
+  if (pts.length === 0)                     // zero-length trip: arrive in place
+    pts.push([c.at[0] + 0.5, c.at[1] + 0.5], [dest[0] + 0.5, dest[1] + 0.5]);
+  c.dest = dest; c.phase = 'traveling';
+  c.pathPts = pts; c.seg = 0;
+  c.pos = [pts[0][0], pts[0][1]];
+  c.heading = [1, 0];
+  return true;
+}
+// Per-frame advance along the polyline. Runs on game time, not tick time.
+function updateTravel(dtGame) {
+  for (const c of citizens) {
+    if (c.phase !== 'traveling' || !c.pathPts) continue;
+    let move = speedFor(c.mode) * dtGame;
+    while (move > 0) {
+      const b = c.pathPts[c.seg + 1];
+      if (!b) { c.pathPts = null; arrive(c); break; }
+      const dx = b[0] - c.pos[0], dz = b[1] - c.pos[1];
+      const len = Math.hypot(dx, dz);
+      if (len < 1e-6) { c.seg++; continue; }
+      c.heading = [dx / len, dz / len];
+      if (move >= len) { c.pos = [b[0], b[1]]; c.seg++; move -= len; }
+      else { c.pos = [c.pos[0] + dx / len * move, c.pos[1] + dz / len * move]; move = 0; }
+    }
+  }
+}
+// Road network changed under someone's feet: re-plan everyone traveling.
+function replanTravelers() {
+  for (const c of citizens) {
+    if (c.phase !== 'traveling') continue;
+    c.at = [Math.floor(c.pos[0]), Math.floor(c.pos[1])];
+    const flood = floodFrom(c.at[0], c.at[1], c.mode === 'drive');
+    if (beginTravel(c, c.dest, flood)) continue;      // same trip, new route
+    if (beginTravel(c, c.home, flood)) continue;      // trip dead: walk home
+    c.phase = 'doing'; c.activity = null;             // stranded: idle, retry
+    c.state = 'free_time';
+    c.stayUntil = gameTime + 5;
+    c.pathPts = null;
+  }
 }
 // Mode roll happens ONCE, at home departure, gated by car availability.
 function rollModeAtDeparture(c, firstDist) {
@@ -578,22 +650,23 @@ function chooseFreeTime(c) {
   if (pick.x === cx && pick.z === cz) {     // stay: restart minStay commitment
     c.phase = 'doing'; c.activity = pick.ad;
     c.stayUntil = gameTime + pick.ad.minStay;
-  } else {
-    beginTravel(c, [pick.x, pick.z], pick.d);
+  } else if (!beginTravel(c, [pick.x, pick.z], flood)) {
+    c.phase = 'doing'; c.activity = null;   // route vanished: idle and retry
+    c.stayUntil = gameTime + 5;
   }
 }
 function goWork(c) {
   const flood = floodFrom(c.at[0], c.at[1], c.mode === 'drive');
-  const d = tileDist(flood, c.job[0], c.job[1]);
-  if (d === -1) { chooseFreeTime(c); return; }   // job unreachable right now
   c.state = 'work';
-  beginTravel(c, [c.job[0], c.job[1]], d);
+  if (!beginTravel(c, c.job, flood)) chooseFreeTime(c);   // unreachable now
 }
 function goHome(c) {
   const flood = floodFrom(c.at[0], c.at[1], c.mode === 'drive');
-  const d = tileDist(flood, c.home[0], c.home[1]);
   c.state = 'sleep';
-  beginTravel(c, [c.home[0], c.home[1]], d === -1 ? 1 : d);
+  if (!beginTravel(c, c.home, flood)) {
+    c.state = 'free_time'; c.phase = 'doing'; c.activity = null;
+    c.stayUntil = gameTime + 5;                           // stranded: retry
+  }
 }
 function departFromHome(c) {
   // Waking up: pick first destination, roll travel mode once for the excursion.
@@ -613,6 +686,7 @@ function departFromHome(c) {
 function arrive(c) {
   c.at = c.dest; c.dest = null; c.phase = 'doing';
   const [x, z] = c.at;
+  if (x === c.home[0] && z === c.home[1]) returnCarIfAny(c);  // excursion over
   const t = world[x][z];
   if (c.state === 'free_time') {
     const ad = CZ.adverts[t.type];
@@ -621,8 +695,6 @@ function arrive(c) {
     c.stayUntil = gameTime + ad.minStay;
   } else if (c.state === 'work') {
     if (t.type !== 'shop' || !c.job) { chooseFreeTime(c); return; }
-  } else if (c.state === 'sleep') {
-    returnCarIfAny(c);                            // excursion over: car comes home
   }
 }
 
@@ -639,12 +711,8 @@ function tickCitizen(c, dt) {
   if (c.state === 'free_time' && c.phase === 'doing' && c.activity)
     m[c.activity.need] += c.activity.fillRate * dt;
   for (const k in m) m[k] = clamp01_100(m[k]);
-  // Travel
-  if (c.phase === 'traveling') {
-    c.travelT -= dt;
-    if (c.travelT <= 0) arrive(c);
-    return;
-  }
+  // Travel handled per-frame in updateTravel; no decisions mid-trip.
+  if (c.phase === 'traveling') return;
   // Doing → transitions (hysteresis pairs; interrupts only at decision points)
   if (c.state === 'sleep') {
     if (m.energy >= CZ.energy.wakeAt) departFromHome(c);
@@ -664,9 +732,11 @@ const censusEl = document.getElementById('census');
 let simAcc = 0;
 const TICK = 1 / CZ.decisionHz;
 function simTick(dt) {
-  gameTime += dt * CZ.timeScale;
-  simAcc += dt * CZ.timeScale;
-  while (simAcc >= TICK) {
+  const g = dt * CZ.timeScale;
+  gameTime += g;
+  updateTravel(g);                 // smooth movement, every frame
+  simAcc += g;
+  while (simAcc >= TICK) {         // decisions, on the slow tick
     simAcc -= TICK;
     for (const c of citizens) tickCitizen(c, TICK);
   }
@@ -706,13 +776,13 @@ function applyTool(x, z) {
     t.type = 'empty'; t.level = 0; t.timer = 0;
     delete t.cars;
     syncTile(x, z);
-    if (was === 'road') recomputeConnectivity();
+    if (was === 'road') { recomputeConnectivity(); replanTravelers(); }
   } else {
     t.type = tool;
     t.level = tool === 'house' ? 1 : 0;
     t.timer = 0;
     syncTile(x, z, true);
-    if (tool === 'road') recomputeConnectivity();
+    if (tool === 'road') { recomputeConnectivity(); replanTravelers(); }
     if (tool === 'house') onHousePlaced(x, z);
     if (tool === 'shop') onShopPlaced(x, z);
   }
@@ -810,6 +880,60 @@ function updateGhost(tile) {
   ghost.visible = true;
   ghost.position.set(x + 0.5, 0.08, z + 0.5);
   ghostMat.color.setHex(canApply(x, z) ? CONFIG.colors.ghostOk : CONFIG.colors.ghostBad);
+}
+
+/* ===================== WALKERS & CARS (M6 render) =================== */
+// Pure projection of sim state: meshes exist only while a citizen is
+// traveling; a per-frame sweep creates/moves/removes them. No sim logic here.
+const agentMeshes = new Map();              // citizen id -> { group, kind }
+const agentMatCache = new Map();
+const AM = c => {
+  if (!agentMatCache.has(c)) agentMatCache.set(c, M(c));
+  return agentMatCache.get(c);
+};
+const walkerPalette = [0xe2725b, 0x5b8ee2, 0x64b06a, 0xd9a441, 0x9a6fb8, 0x53b3ad];
+const carPalette = [0xc4544d, 0x4d7fc4, 0x58a05e, 0xd8c04f, 0x8a8f96, 0x4b4f55];
+const agentGeos = {
+  body: new THREE.BoxGeometry(0.09, 0.16, 0.09),
+  head: new THREE.SphereGeometry(0.045, 8, 6),
+  carBody: new THREE.BoxGeometry(0.34, 0.09, 0.17),
+  carTop: new THREE.BoxGeometry(0.17, 0.07, 0.14),
+};
+function makeAgentMesh(c) {
+  const g = new THREE.Group();
+  if (c.mode === 'drive') {
+    const body = shadowed(new THREE.Mesh(agentGeos.carBody, AM(carPalette[c.id % carPalette.length])));
+    body.position.y = 0.09;
+    const top = shadowed(new THREE.Mesh(agentGeos.carTop, AM(0xd8e2ea)));
+    top.position.set(-0.02, 0.17, 0);
+    g.add(body, top);
+  } else {
+    const body = shadowed(new THREE.Mesh(agentGeos.body, AM(walkerPalette[c.id % walkerPalette.length])));
+    body.position.y = 0.11;
+    const head = shadowed(new THREE.Mesh(agentGeos.head, AM(0xf2d6b3)));
+    head.position.y = 0.235;
+    g.add(body, head);
+  }
+  scene.add(g);
+  return g;
+}
+function updateAgentMeshes() {
+  const seen = new Set();
+  for (const c of citizens) {
+    if (c.phase !== 'traveling' || !c.pathPts) continue;
+    seen.add(c.id);
+    let e = agentMeshes.get(c.id);
+    if (!e || e.kind !== c.mode) {          // mode changed since last trip
+      if (e) scene.remove(e.group);
+      e = { group: makeAgentMesh(c), kind: c.mode };
+      agentMeshes.set(c.id, e);
+    }
+    e.group.position.set(c.pos[0], 0.06, c.pos[1]);
+    e.group.rotation.y = Math.atan2(-c.heading[1], c.heading[0]);
+  }
+  for (const [id, e] of agentMeshes) {      // indoors or gone: sweep away
+    if (!seen.has(id)) { scene.remove(e.group); agentMeshes.delete(id); }
+  }
 }
 
 /* =============================== INPUT ============================== */
@@ -912,6 +1036,7 @@ function tick() {
   updateAnims(dt);
   growthTick(dt);
   simTick(dt);
+  updateAgentMeshes();
   renderer.render(scene, camera);
   requestAnimationFrame(tick);
 }
