@@ -263,4 +263,24 @@ getter — exposed live state via plain functions (getInspected/getFollow/…).
 Debug surface on window._sim grew (inspect*, screenOf, getters, showBubble) —
 intentional, flagged for stripping before a public ship.
 Adversarial review of the full v0.3 diff run before final push (like M7).
+
+### v0.3 review + fixes (2026-07-20)
+14-agent adversarial review (3 lenses × find→verify) over the v0.3 diff found
+NO correctness/lifecycle bugs — inspector/follow/bubbles logic is sound. 11
+findings deduped to efficiency + 1 design-gap + 1 housekeeping, all low/med.
+Fixed:
+- computeServedNeeds was per-FRAME (in simTick, outside the slow-tick loop).
+  Made it event-driven: recompute only in applyTool (build/bulldoze/road) +
+  once at boot, matching the connectivity cache pattern. AND made it
+  reachability-aware (hasConnectedRoadNeighbor) so a shop placed-but-not-
+  connected still lets citizens complain — closes the review's design-gap.
+- updateBubbles rebuilt a whole-population Map every frame → added a
+  persistent citizenById index (maintained at the single push/splice sites),
+  used in bubbles, both card updaters, follow camera, worker/resident lookups.
+- Citizen card re-queried ~11 elements/frame → cache refs at open.
+- Housekeeping: roadmap "SHIPPED"→"BUILT" (debug hooks intentionally remain on
+  the dev branch; strip before any public ship).
+Left as documented-low: building-card signature filter runs per frame while a
+card is open (bounded to one open card on a 20×20 map).
+Re-verified: all v0.3 a/b/c suites + M7 teardown/sever + reachability gate green.
 Next: v0.4 "Payday" (economy + needs-loop refactor + diner) per roadmap.

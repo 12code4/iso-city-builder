@@ -14,7 +14,7 @@ v0.2 is COMPLETE (M1–M8). v0.3 "Alive" (Pillar A) is built. Status:
 - ~~**M8** — playtest tuning~~ ✅ DONE (2026-07-20): headless scale test; sim
   holds at ~435 pop; fixed startup truck swarm (migration.maxConcurrent). Meter
   feel left as documented knobs (see plan.md).
-- ~~**Pillar A — Charm & observability**~~ ✅ SHIPPED as v0.3 "Alive" (2026-07-20):
+- ~~**Pillar A — Charm & observability**~~ ✅ BUILT as v0.3 "Alive" (2026-07-20):
   names, citizen + building inspectors, follow camera, thought + complaint
   bubbles. All browser-verified. Complaint-as-tutorial closed the empty-streets
   "player guidance" gap. Next up per sequencing: v0.4 "Payday" (Pillar C + F).

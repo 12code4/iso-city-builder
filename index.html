@@ -462,6 +462,7 @@ let gameTime = 0;
 let nextCitizenId = 1;
 let nextTruckId = 1;
 const citizens = [];
+const citizenById = new Map();     // id -> citizen, for O(1) lookups (bubbles, cards)
 const trucks = [];      // transient moving-truck deliveries (not citizens)
 const clamp01_100 = v => Math.max(0, Math.min(100, v));
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -580,6 +581,7 @@ function onHouseRemoved(x, z) {
         const jt = world[c.job[0]][c.job[1]];
         if (jt.jobs) jt.jobs.workers = jt.jobs.workers.filter(id => id !== c.id);
       }
+      citizenById.delete(c.id);
       citizens.splice(i, 1);
     }
   }
@@ -724,7 +726,7 @@ function truckArrive(truck) {
       for (let i = 0; i < truck.load && (ht.pending || 0) > 0; i++) {
         ht.pending--;
         const c = makeCitizen(hx, hz);
-        citizens.push(c); tryEmploy(c);
+        citizens.push(c); citizenById.set(c.id, c); tryEmploy(c);
       }
       ht.truckInFlight = false;
       const j = CZ.migration.dispatchJitter;   // stagger the next run (no shared clock)
@@ -929,7 +931,6 @@ function simTick(dt) {
   updateTravel(g);                 // smooth movement, every frame
   updateTrucks(g);
   simAcc += g;
-  computeServedNeeds();            // which advert needs have a venue (for complaints)
   while (simAcc >= TICK) {         // decisions, on the slow tick
     simAcc -= TICK;
     for (const c of citizens) tickCitizen(c, TICK);
@@ -987,6 +988,7 @@ function applyTool(x, z) {
     if (tool === 'house') onHousePlaced(x, z);
     if (tool === 'shop') onShopPlaced(x, z);
   }
+  computeServedNeeds();   // venue set changed (build/bulldoze) or reachability did (road)
 }
 
 /* ============================== CAMERA ============================== */
@@ -1023,7 +1025,7 @@ function updateCamera(dt) {
   // Follow camera: slide the look-at toward the inspected citizen (indoors →
   // their tile center, traveling → their live position). Any manual pan cancels it.
   if (follow && inspected && inspected.kind === 'citizen') {
-    const c = citizens.find(c => c.id === inspected.id);
+    const c = citizenById.get(inspected.id);
     if (!c) { follow = false; }
     else {
       const moving = c.phase === 'traveling' && c.pos;
@@ -1229,23 +1231,33 @@ function openCitizenCard(c) {
     `<button class="follow" data-follow></button>`;
   insEl.querySelector('.ins-close').onclick = closeCard;
   wireFollowButton();
+  // Cache element refs once (avoids ~11 querySelector calls per frame).
+  const refs = { state: insEl.querySelector('[data-state]'), foot: insEl.querySelector('[data-foot]'),
+                 follow: insEl.querySelector('[data-follow]'), mf: {}, mv: {} };
+  for (const [k] of METERS) {
+    refs.mf[k] = insEl.querySelector(`[data-mf="${k}"]`);
+    refs.mv[k] = insEl.querySelector(`[data-mv="${k}"]`);
+  }
+  inspected.refs = refs;
   updateInspector();
 }
 function updateCitizenCard() {
-  const c = citizens.find(c => c.id === inspected.id);
+  const c = citizenById.get(inspected.id);
   if (!c) { closeCard(); return; }                 // citizen despawned (home bulldozed)
+  const r = inspected.refs;
   const [icon, text] = describeState(c);
-  const st = insEl.querySelector('[data-state]'); if (st) st.textContent = `${icon} ${text}`;
+  if (r.state) r.state.textContent = `${icon} ${text}`;
   for (const [k] of METERS) {
     const v = Math.round(c.meters[k]);
-    const mf = insEl.querySelector(`[data-mf="${k}"]`); if (mf) mf.style.width = v + '%';
-    const mv = insEl.querySelector(`[data-mv="${k}"]`); if (mv) mv.textContent = v;
+    if (r.mf[k]) r.mf[k].style.width = v + '%';
+    if (r.mv[k]) r.mv[k].textContent = v;
   }
-  const foot = insEl.querySelector('[data-foot]');
-  if (foot) foot.textContent = `home ${c.home[0]},${c.home[1]} · ` +
+  if (r.foot) r.foot.textContent = `home ${c.home[0]},${c.home[1]} · ` +
     (c.job ? `job ${c.job[0]},${c.job[1]}` : 'no job');
-  const fb = insEl.querySelector('[data-follow]');   // keep label in sync (pan cancels follow)
-  if (fb) { fb.textContent = follow ? '● Following' : '◎ Follow'; fb.classList.toggle('on', follow); }
+  if (r.follow) {   // keep label in sync (pan cancels follow)
+    r.follow.textContent = follow ? '● Following' : '◎ Follow';
+    r.follow.classList.toggle('on', follow);
+  }
 }
 
 function openBuildingCard(x, z) {
@@ -1273,7 +1285,7 @@ function updateBuildingCard(force) {
         ? res.map(c => `<a data-cid="${c.id}">${nameFor(c.id)}</a>`).join('<br>')
         : `<i style="opacity:.6">nobody home yet</i>`) + `</div>`;
   } else if (t.type === 'shop') {
-    const workers = (t.jobs ? t.jobs.workers : []).map(id => citizens.find(c => c.id === id)).filter(Boolean);
+    const workers = (t.jobs ? t.jobs.workers : []).map(id => citizenById.get(id)).filter(Boolean);
     sig = `S|${workers.map(c => c.id).join(',')}`;
     if (sig === inspected.sig && !force) return;
     html = `<span class="ins-close">✕</span><div class="ins-name">🏪 Shop</div>` +
@@ -1293,7 +1305,7 @@ function updateBuildingCard(force) {
   insEl.innerHTML = html;
   insEl.querySelector('.ins-close').onclick = closeCard;
   insEl.querySelectorAll('[data-cid]').forEach(a => a.onclick = () => {
-    const c = citizens.find(c => c.id === +a.dataset.cid);
+    const c = citizenById.get(+a.dataset.cid);
     if (c) openCitizenCard(c);
   });
 }
@@ -1389,11 +1401,14 @@ function showBubble(c, str, dur = CZ.bubbles.showSeconds) {
 const COMPLAINT_ICON = { errands: '🛒❓', fun: '🎈❓' };
 let servedNeeds = new Set();
 let complaintCount = 0;             // debug/test counter
+// Which advert-needs have a REACHABLE venue. Reachability-gated so a shop you
+// placed but never connected still lets citizens grumble (visible consequence).
+// Recomputed on world change only (via applyTool), not per frame.
 function computeServedNeeds() {
   servedNeeds.clear();
   for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
     const ad = RT.adverts[world[x][z].type];
-    if (ad) servedNeeds.add(ad.need);
+    if (ad && hasConnectedRoadNeighbor(x, z)) servedNeeds.add(ad.need);
   }
 }
 function maybeComplain(c) {
@@ -1411,9 +1426,8 @@ function maybeComplain(c) {
 }
 function updateBubbles() {
   if (bubbles.size === 0) return;
-  const byId = new Map(citizens.map(c => [c.id, c]));
   for (const [id, b] of bubbles) {
-    const c = byId.get(id);
+    const c = citizenById.get(id);
     if (!c || gameTime > b.until) {
       scene.remove(b.sprite); b.sprite.material.dispose(); bubbles.delete(id); continue;
     }
@@ -1524,6 +1538,7 @@ window.addEventListener('resize', () => {
 });
 
 /* ============================= MAIN LOOP ============================ */
+computeServedNeeds();          // initialize the complaint gate before the loop
 const clock = new THREE.Clock();
 function tick() {
   const dt = Math.min(clock.getDelta(), 0.05);
