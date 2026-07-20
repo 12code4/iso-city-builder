@@ -342,7 +342,40 @@ v0.2 — Citizens:
 7. **M7 — Free time + migration:** building advertisements + free_time choice
    (done in M5). Migration ✅: moving trucks deliver residents from the highway
    edge; reachability gates arrival; disruptions handled. Browser-verified.
-8. **M8 — v0.2 playtest:** meter rate tuning, walker readability at zoom levels.
+8. **M8 — v0.2 playtest:** ✅ headless scale test (87 houses, pop ~435, 4 days);
+   sim holds at scale, streets lively. Fixed a startup truck swarm
+   (migration.maxConcurrent cap). Meter feel (fun/energy) left as documented
+   playtest knobs. See plan.md.
+
+v0.3 — Alive (Pillar A — charm & observability):
+
+9. **v0.3a — Inspectors:** ✅ deterministic citizen names; 🔍 Inspect tool; live
+   DOM cards for citizens (name, state, meter bars, home/job) and buildings
+   (residents/workers/visitors, clickable names). Browser-verified.
+10. **v0.3b — Follow camera:** ✅ Follow button tracks a citizen; manual pan
+    cancels. Browser-verified.
+11. **v0.3c — Bubbles:** ✅ thought bubbles at decision points; complaint bubbles
+    (starved need + no venue) as diegetic tutorial. Browser-verified.
+
+## v0.3 architecture notes (Alive)
+
+- **Inspector = pure reading surface.** DOM card (#inspector), consistent with
+  the DOM-not-in-scene UI rule. Reads `world`/`citizens`, never writes. Citizen
+  pick = screen-space nearest walker within CONFIG.input.pickRadius (generous at
+  far zoom); building pick = mesh raycast (meshes tagged `userData.kind`). Cards
+  live-update each frame; building cards rebuild innerHTML only on a content-
+  signature change (stable click handlers). Card self-closes when its subject is
+  bulldozed. All state in a single `inspected` descriptor.
+- **Follow camera** only slides `camTarget` (never zoom/yaw — the fragile tween
+  composition is untouched). Any manual pan clears the `follow` flag.
+- **Bubbles are billboard sprites** (THREE.Sprite), a projection of sim state —
+  NOT a new citizen state. Thought bubbles are emitted at existing decision
+  points (goWork/goHome/chooseFreeTime); complaints are emitted by `maybeComplain`
+  from meter thresholds + a `servedNeeds` set (which advert-needs have a venue),
+  gated by a per-citizen cooldown. No shared clock. Emoji textures cached/shared;
+  sprite materials disposed on expiry. All tuning in CONFIG.citizens.bubbles.
+- **Debug surface:** `window._sim` carries test/debug hooks (apply, inspect*,
+  screenOf, getters, showBubble). Intentional; strip before a public ship.
 
 ## Backlog (not current version)
 

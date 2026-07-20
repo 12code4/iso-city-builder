@@ -239,3 +239,28 @@ the validated day-anchored system stays intact:
   is high, so the question is legibility-when-crowded, not emptiness.
 M8 verdict: one real fix (truck cap) shipped; meter feel is a play-and-judge
 pass with the knobs above. v0.2 sim is solid at scale.
+
+## v0.3 "Alive" — Pillar A built (2026-07-20)
+Long autonomous session: both M8 and v0.3 in one go. v0.3 = the whole of
+roadmap Pillar A minus the ice cream truck / stray dog (player-shelved).
+Three committed, browser-verified stages:
+- v0.3a — Names + inspectors (fccb37f): deterministic nameFor(id); 🔍 Inspect
+  tool; live DOM cards for citizens (name, friendly state line, 4 meter bars,
+  home/job) and buildings (house residents / shop workers / park visitors,
+  clickable names → citizen card). Citizen pick = screen-space nearest within
+  CONFIG.input.pickRadius; building pick = raycast. Cards live-update; building
+  cards rebuild only on a signature change; self-close on bulldoze.
+- v0.3b — Follow camera (d74cacd): Follow button chases a citizen (both phases);
+  manual pan cancels; clears on close/bulldoze. Only camTarget moves.
+- v0.3c — Bubbles (cf9febd): thought bubbles at decision points (💼/😴/🛒/🎈);
+  complaint bubbles (🛒❓/🎈❓) when a need is starved AND no venue exists —
+  the city grumbling what to build. servedNeeds recomputed each simTick; per-
+  citizen cooldown; no shared clock. Sprites are pure projection; textures
+  cached, materials disposed. Closes the empty-streets "player guidance" gap.
+Verification: dedicated Playwright harnesses per stage (verify-v03a/b/c.mjs),
+all green. Test hook lesson: Object.assign copies a getter's VALUE not the
+getter — exposed live state via plain functions (getInspected/getFollow/…).
+Debug surface on window._sim grew (inspect*, screenOf, getters, showBubble) —
+intentional, flagged for stripping before a public ship.
+Adversarial review of the full v0.3 diff run before final push (like M7).
+Next: v0.4 "Payday" (economy + needs-loop refactor + diner) per roadmap.

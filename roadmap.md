@@ -7,12 +7,17 @@ locked) and this file keeps only the not-yet-scheduled ideas.
 
 ## Where we are
 
-v0.2 is built through M7. Remaining before anything below starts:
+v0.2 is COMPLETE (M1–M8). v0.3 "Alive" (Pillar A) is built. Status:
 - ~~**M7** — migration~~ ✅ DONE (2026-07-20): moving trucks deliver residents
   from the highway edge (1–3 per trip); reachability gates arrival. The truck
   is the minimal seed of Pillar B's visitor framework.
-- **M8** — playtest tuning: meter rates at real city scale, walker readability,
-  migration pacing (dispatchHours / maxLoad / truckSpeed).
+- ~~**M8** — playtest tuning~~ ✅ DONE (2026-07-20): headless scale test; sim
+  holds at ~435 pop; fixed startup truck swarm (migration.maxConcurrent). Meter
+  feel left as documented knobs (see plan.md).
+- ~~**Pillar A — Charm & observability**~~ ✅ SHIPPED as v0.3 "Alive" (2026-07-20):
+  names, citizen + building inspectors, follow camera, thought + complaint
+  bubbles. All browser-verified. Complaint-as-tutorial closed the empty-streets
+  "player guidance" gap. Next up per sequencing: v0.4 "Payday" (Pillar C + F).
 
 ## The filter — every feature must pass all five
 
@@ -30,7 +35,12 @@ v0.2 is built through M7. Remaining before anything below starts:
 
 ---
 
-## Pillar A — Charm & observability ("who ARE these people")
+## Pillar A — Charm & observability ("who ARE these people")  ✅ BUILT (v0.3)
+
+Shipped 2026-07-20 as v0.3 "Alive": names, citizen + building inspectors,
+follow camera, thought + complaint bubbles. The design below is retained as
+the record; everything except "visitors-today for parks" (approximated as
+current visitors) landed. Architecture notes now live in CLAUDE.md.
 
 The sim already generates stories; nobody can read them. This pillar is pure
 reading surface — zero new sim mechanics, biggest emergent-fun payoff per line.
