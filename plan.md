@@ -137,3 +137,30 @@ a shop+park present.
 Player guidance to keep in mind for UI later: buildings need road
 frontage; citizens need destinations. Backlog idea: idle "stroll"
 behavior so even venue-less towns show some foot traffic.
+
+## Feature planning session (2026-07-20)
+
+New doc: **roadmap.md** — six designed-ahead pillars for v0.3+, each vetted
+against a five-rule filter (one authority / adverts-only / no shared clocks /
+visible consequence / observable before economic):
+- A: Charm & observability — names, citizen+building inspectors, follow-cam,
+  thought bubbles; complaint bubbles double as diegetic tutorial (closes the
+  "player guidance" note above).
+- B: Visitors & events — data-driven visitor framework (enter via highway,
+  do a thing, leave). Ice cream truck = proof-of-the-advert-rule feature;
+  stray dog; street musician (advert modification as event mechanic).
+- C: Money — treasury, build costs, income only on physical arrivals
+  (shift/errand completions), shop supply meters + delivery trucks making
+  the highway the real import artery. Broke = can't build, never a spiral.
+- D: Traffic — v1 same-lane spacing only (no intersection logic, ever, until
+  it proves stable); v2 trip-time memory nudging mode choice.
+- E: Land value — desirability field (parks +, highway noise −) gating L3
+  apartments; residents [0,3,5,8], cars capped at 2 (walking stays alive).
+- F: New needs — generalize tickCitizen's hardcoded errands/fun loop first,
+  then food need + diner as pure data.
+
+Proposed order: finish M7+M8, then v0.3 "Alive" (A + truck/dog), v0.4
+"Payday" (C + F), v0.5 "Rush Hour" (D then E). Four direction questions for
+the player are OPEN in roadmap.md (headline pillar, failure stakes, humor
+register, map growth) — sequencing runs on flagged working assumptions until
+answered; interactive ask failed twice this session (tool stream closed).
