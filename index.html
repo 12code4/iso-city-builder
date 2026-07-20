@@ -32,13 +32,36 @@
   }
   #toolbar button span { font-size: 9px; margin-top: 4px; opacity: 0.75; font-family: inherit; }
   #toolbar button.selected { background: rgba(120, 170, 220, 0.55); }
+  #inspector {
+    top: 54px; left: 14px; width: 208px; padding: 12px 14px; border-radius: 14px;
+    background: rgba(20, 26, 34, 0.72);
+    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+    font-size: 12px; display: none;
+  }
+  #inspector.show { display: block; }
+  #inspector .ins-name { font-size: 14px; font-weight: 600; margin-bottom: 3px; padding-right: 16px; }
+  #inspector .ins-close { position: absolute; top: 9px; right: 11px; cursor: pointer; opacity: 0.55; font-size: 13px; }
+  #inspector .ins-close:hover { opacity: 1; }
+  #inspector .ins-state { opacity: 0.85; margin-bottom: 9px; }
+  #inspector .lbl { display: flex; justify-content: space-between; font-size: 10px; opacity: 0.72; }
+  #inspector .bar { height: 7px; border-radius: 4px; background: rgba(255,255,255,0.14); margin: 2px 0 7px; overflow: hidden; }
+  #inspector .bar > i { display: block; height: 100%; border-radius: 4px; transition: width 0.15s linear; }
+  #inspector .ins-foot { margin-top: 4px; font-size: 11px; opacity: 0.72; line-height: 1.5; }
+  #inspector .ins-list { margin-top: 4px; font-size: 11px; opacity: 0.88; line-height: 1.6; }
+  #inspector .ins-list a { color: #9fd0ff; cursor: pointer; }
+  #inspector button.follow {
+    margin-top: 11px; width: 100%; padding: 7px; border: none; border-radius: 9px;
+    background: rgba(120, 170, 220, 0.5); color: #fff; cursor: pointer; font-size: 12px;
+  }
+  #inspector button.follow.on { background: rgba(120, 220, 150, 0.55); }
 </style>
 </head>
 <body>
 <div id="app"></div>
 <div class="hud" id="title">City Builder — v0.2 M7</div>
-<div class="hud" id="hint">Q/E rotate · WASD or drag to pan · wheel/pinch zoom · tap to build</div>
+<div class="hud" id="hint">Q/E rotate · WASD or drag to pan · wheel/pinch zoom · tap to build · 🔍 to inspect</div>
 <div class="hud" id="census" style="top:12px; right:14px; font-size:12px; text-align:right; opacity:0.85; text-shadow:0 1px 3px rgba(0,0,0,0.4);"></div>
+<div class="hud" id="inspector"></div>
 <div class="hud" id="controls">
   <button id="btn-ccw" aria-label="Rotate left">⟲</button>
   <button id="btn-cw" aria-label="Rotate right">⟳</button>
@@ -49,6 +72,7 @@
   <button data-tool="shop">🏪<span>Shop</span></button>
   <button data-tool="park">🏞️<span>Park</span></button>
   <button data-tool="bulldoze">🧨<span>Clear</span></button>
+  <button data-tool="inspect">🔍<span>Inspect</span></button>
 </div>
 
 <script type="module">
@@ -92,7 +116,7 @@ const CONFIG = {
   },
   anim: { popDur: 0.3 },
   growth: { upgradeSeconds: 12, tickSeconds: 1 },
-  input: { tapMaxMove: 10 },       // px; more = drag, not a tap
+  input: { tapMaxMove: 10, pickRadius: 28 },   // px; pickRadius = inspect tap tolerance
   citizens: {
     timeScale: 1, decisionHz: 2,
     dayLength: 240,               // real seconds per in-game day (the anchor)
@@ -114,6 +138,14 @@ const CONFIG = {
     // highway edge, one truck in flight per house, staggered by dispatchHours.
     migration: { dispatchHours: 1.5, maxLoad: 3, truckSpeed: 0.7, dispatchJitter: 0.3,
                  maxConcurrent: 8 },   // ceiling on trucks on the map at once (anti-swarm)
+    // Deterministic names from citizen id (first[id%N] + last[floor(id/N)%M]).
+    names: {
+      first: ['Ava','Ben','Cleo','Dan','Eve','Finn','Gia','Hugo','Ivy','Jack',
+              'Kira','Leo','Mara','Nils','Ola','Pia','Quinn','Rex','Sara','Theo',
+              'Uma','Vic','Wren','Xan','Yara','Zed'],
+      last: ['Ash','Brook','Cole','Dune','Elm','Frost','Gale','Hart','Isle','Jung',
+             'Knox','Lark','Moss','Nash','Oak','Poole','Reed','Stone','Vale','West'],
+    },
   },
 };
 
@@ -273,6 +305,7 @@ function syncTile(x, z, pop = false) {
   const make = factories[t.type];
   if (make) {
     t.mesh = make(x, z, t.level);
+    t.mesh.userData = { kind: 'building', x, z };   // for inspector raycast
     scene.add(t.mesh);
     if (pop) startPop(t.mesh);
   }
@@ -1032,7 +1065,7 @@ const ghost = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.1, 0.92), ghostMat);
 ghost.visible = false;
 scene.add(ghost);
 function updateGhost(tile) {
-  if (!tile) { ghost.visible = false; return; }
+  if (tool === 'inspect' || !tile) { ghost.visible = false; return; }
   const [x, z] = tile;
   ghost.visible = true;
   ghost.position.set(x + 0.5, 0.08, z + 0.5);
@@ -1126,6 +1159,169 @@ function updateTruckMeshes() {
   for (const [id, m] of truckMeshes) if (!seen.has(id)) { scene.remove(m); truckMeshes.delete(id); }
 }
 
+/* ============================ INSPECTOR ============================= */
+// Tap a walker/car or a building (with the 🔍 tool) to open a live DOM card.
+// Pure reading surface: reads sim state, never writes it.
+const insEl = document.getElementById('inspector');
+let inspected = null;                 // {kind:'citizen', id} | {kind:'building', x, z, sig}
+let follow = false;                   // wired by the follow camera (v0.3b)
+
+function nameFor(id) {
+  const F = CZ.names.first, L = CZ.names.last;
+  return F[id % F.length] + ' ' + L[Math.floor(id / F.length) % L.length];
+}
+const METERS = [
+  ['energy', 'Energy', '#5b8ee2'], ['work', 'Work', '#d9a441'],
+  ['errands', 'Errands', '#64b06a'], ['fun', 'Fun', '#c77dd0'],
+];
+function describeState(c) {
+  const mv = c.mode === 'drive' ? '🚗' : '🚶';
+  if (c.state === 'sleep')
+    return c.phase === 'traveling' ? [mv, 'heading home to sleep'] : ['😴', 'asleep at home'];
+  if (c.state === 'work')
+    return c.phase === 'traveling' ? [mv, 'commuting to work'] : ['💼', 'at work'];
+  if (c.phase === 'traveling') return [mv, 'out and about'];
+  if (c.activity && c.activity.need === 'errands') return ['🛒', 'running errands'];
+  if (c.activity && c.activity.need === 'fun') return ['🎡', 'relaxing at the park'];
+  return ['🚶', 'wandering'];
+}
+function closeCard() { inspected = null; follow = false; insEl.classList.remove('show'); }
+
+function openCitizenCard(c) {
+  inspected = { kind: 'citizen', id: c.id };
+  insEl.classList.add('show');
+  insEl.innerHTML =
+    `<span class="ins-close">✕</span>` +
+    `<div class="ins-name">${nameFor(c.id)}</div>` +
+    `<div class="ins-state" data-state></div>` +
+    METERS.map(([k, label, col]) =>
+      `<div class="lbl"><span>${label}</span><span data-mv="${k}"></span></div>` +
+      `<div class="bar"><i data-mf="${k}" style="background:${col}"></i></div>`).join('') +
+    `<div class="ins-foot" data-foot></div>` +
+    `<button class="follow" data-follow></button>`;
+  insEl.querySelector('.ins-close').onclick = closeCard;
+  wireFollowButton();
+  updateInspector();
+}
+function updateCitizenCard() {
+  const c = citizens.find(c => c.id === inspected.id);
+  if (!c) { closeCard(); return; }                 // citizen despawned (home bulldozed)
+  const [icon, text] = describeState(c);
+  const st = insEl.querySelector('[data-state]'); if (st) st.textContent = `${icon} ${text}`;
+  for (const [k] of METERS) {
+    const v = Math.round(c.meters[k]);
+    const mf = insEl.querySelector(`[data-mf="${k}"]`); if (mf) mf.style.width = v + '%';
+    const mv = insEl.querySelector(`[data-mv="${k}"]`); if (mv) mv.textContent = v;
+  }
+  const foot = insEl.querySelector('[data-foot]');
+  if (foot) foot.textContent = `home ${c.home[0]},${c.home[1]} · ` +
+    (c.job ? `job ${c.job[0]},${c.job[1]}` : 'no job');
+}
+
+function openBuildingCard(x, z) {
+  if (!['house', 'shop', 'park'].includes(world[x][z].type)) { closeCard(); return; }
+  inspected = { kind: 'building', x, z, sig: '' };
+  insEl.classList.add('show');
+  updateBuildingCard(true);
+}
+function updateBuildingCard(force) {
+  const { x, z } = inspected;
+  const t = world[x][z];
+  if (!['house', 'shop', 'park'].includes(t.type)) { closeCard(); return; }  // bulldozed
+  let html, sig;
+  if (t.type === 'house') {
+    const res = citizens.filter(c => c.home[0] === x && c.home[1] === z);
+    const cap = CZ.residentsPerLevel[t.level] || res.length;
+    sig = `H${t.level}|${res.map(c => c.id).join(',')}|${t.pending || 0}|${t.cars ? t.cars.available : 0}`;
+    if (sig === inspected.sig && !force) return;
+    html = `<span class="ins-close">✕</span><div class="ins-name">🏠 House · L${t.level}</div>` +
+      `<div class="ins-state">${res.length}/${cap} residents` +
+      (t.pending ? ` · 🚚 ${t.pending} arriving` : ``) +
+      (t.cars ? ` · 🚗 ${t.cars.available}/${t.cars.total}` : ``) + `</div>` +
+      `<div class="ins-list">` + (res.length
+        ? res.map(c => `<a data-cid="${c.id}">${nameFor(c.id)}</a>`).join('<br>')
+        : `<i style="opacity:.6">nobody home yet</i>`) + `</div>`;
+  } else if (t.type === 'shop') {
+    const workers = (t.jobs ? t.jobs.workers : []).map(id => citizens.find(c => c.id === id)).filter(Boolean);
+    sig = `S|${workers.map(c => c.id).join(',')}`;
+    if (sig === inspected.sig && !force) return;
+    html = `<span class="ins-close">✕</span><div class="ins-name">🏪 Shop</div>` +
+      `<div class="ins-state">${t.jobs ? t.jobs.workers.length : 0}/${t.jobs ? t.jobs.total : 0} jobs filled</div>` +
+      `<div class="ins-list">` + (workers.length
+        ? workers.map(c => `<a data-cid="${c.id}">${nameFor(c.id)}</a>`).join('<br>')
+        : `<i style="opacity:.6">no workers yet</i>`) + `</div>`;
+  } else {   // park
+    const visitors = citizens.filter(c =>
+      c.at && c.at[0] === x && c.at[1] === z && c.state === 'free_time' && c.phase === 'doing');
+    sig = `P|${visitors.length}`;
+    if (sig === inspected.sig && !force) return;
+    html = `<span class="ins-close">✕</span><div class="ins-name">🏞️ Park</div>` +
+      `<div class="ins-state">${visitors.length} ${visitors.length === 1 ? 'person' : 'people'} relaxing here</div>`;
+  }
+  inspected.sig = sig;
+  insEl.innerHTML = html;
+  insEl.querySelector('.ins-close').onclick = closeCard;
+  insEl.querySelectorAll('[data-cid]').forEach(a => a.onclick = () => {
+    const c = citizens.find(c => c.id === +a.dataset.cid);
+    if (c) openCitizenCard(c);
+  });
+}
+function wireFollowButton() {}   // filled in by the follow camera (v0.3b)
+
+function updateInspector() {
+  if (!inspected) return;
+  if (inspected.kind === 'citizen') updateCitizenCard();
+  else updateBuildingCard(false);
+}
+
+// Picking. Citizens: nearest screen-projected walker within pickRadius px
+// (generous, works at far zoom). Buildings: raycast against tile meshes.
+const _projV = new THREE.Vector3();
+function pickCitizen(cx, cy) {
+  let best = null, bestD = CONFIG.input.pickRadius;
+  for (const c of citizens) {
+    if (c.phase !== 'traveling' || !c.pos) continue;
+    _projV.set(c.pos[0], 0.3, c.pos[1]).project(camera);
+    if (_projV.z > 1) continue;                     // behind the camera
+    const sx = (_projV.x * 0.5 + 0.5) * window.innerWidth;
+    const sy = (-_projV.y * 0.5 + 0.5) * window.innerHeight;
+    const d = Math.hypot(sx - cx, sy - cy);
+    if (d < bestD) { bestD = d; best = c; }
+  }
+  return best;
+}
+function pickBuilding(cx, cy) {
+  ndc.set((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
+  raycaster.setFromCamera(ndc, camera);
+  const roots = [];
+  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
+    const t = world[x][z];
+    if (t.mesh && (t.type === 'house' || t.type === 'shop' || t.type === 'park')) roots.push(t.mesh);
+  }
+  const hits = raycaster.intersectObjects(roots, true);
+  for (const h of hits) {
+    let o = h.object;
+    while (o && !(o.userData && o.userData.kind)) o = o.parent;
+    if (o) return o.userData;
+  }
+  return null;
+}
+function handleInspectTap(cx, cy) {
+  const c = pickCitizen(cx, cy);
+  if (c) { openCitizenCard(c); return; }
+  const b = pickBuilding(cx, cy);
+  if (b) openBuildingCard(b.x, b.z);
+  else closeCard();
+}
+// Debug/test surface (paired with window._sim.apply; stripped before v0.2/v0.3 ship).
+Object.assign(window._sim, { nameFor, inspectCitizen: openCitizenCard,
+  inspectBuilding: openBuildingCard, closeCard, handleInspectTap, pickCitizen,
+  screenOf: (c) => {
+    _projV.set(c.pos[0], 0.3, c.pos[1]).project(camera);
+    return [(_projV.x * 0.5 + 0.5) * window.innerWidth, (-_projV.y * 0.5 + 0.5) * window.innerHeight];
+  },
+  getInspected: () => inspected });
+
 /* =============================== INPUT ============================== */
 document.getElementById('btn-cw').addEventListener('click', () => rotateStep(1));
 document.getElementById('btn-ccw').addEventListener('click', () => rotateStep(-1));
@@ -1205,8 +1401,12 @@ function releasePointer(e) {
   if (!p) return;
   const moved = Math.hypot(p.x - p.sx, p.y - p.sy);
   if (!gestureMulti && moved < CONFIG.input.tapMaxMove && e.type === 'pointerup') {
-    const tile = pickTile(e.clientX, e.clientY);
-    if (tile) applyTool(tile[0], tile[1]);
+    if (tool === 'inspect') {
+      handleInspectTap(e.clientX, e.clientY);
+    } else {
+      const tile = pickTile(e.clientX, e.clientY);
+      if (tile) applyTool(tile[0], tile[1]);
+    }
     if (e.pointerType !== 'mouse') ghost.visible = false;
   }
   if (pointers.size === 0) gestureMulti = false;
@@ -1228,6 +1428,7 @@ function tick() {
   simTick(dt);
   updateAgentMeshes();
   updateTruckMeshes();
+  updateInspector();
   renderer.render(scene, camera);
   requestAnimationFrame(tick);
 }
