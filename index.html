@@ -112,7 +112,7 @@ const CONFIG = {
                laneOffset: 0.18, walkOffset: 0.40 },   // right-hand traffic
     // Migration: moving trucks bring 1..maxLoad new residents in from the
     // highway edge, one truck in flight per house, staggered by dispatchHours.
-    migration: { dispatchHours: 1.5, maxLoad: 3, truckSpeed: 0.7 },
+    migration: { dispatchHours: 1.5, maxLoad: 3, truckSpeed: 0.7, dispatchJitter: 0.3 },
   },
 };
 
@@ -505,7 +505,7 @@ function onHouseUpgraded(x, z) {
   const addCars = CZ.carsPerLevel[2] - CZ.carsPerLevel[1];
   t.cars.total += addCars; t.cars.available += addCars;
   t.pending = (t.pending || 0) + (CZ.residentsPerLevel[2] - CZ.residentsPerLevel[1]);
-  if (t.nextDispatch === undefined) t.nextDispatch = gameTime;
+  if (!t.truckInFlight) t.nextDispatch = gameTime;   // new residents eligible now
 }
 function onShopPlaced(x, z) {
   world[x][z].jobs = { total: CZ.jobsPerShop, workers: [] };
@@ -653,9 +653,8 @@ function bestFrontageTile(x, z, flood) {       // reachable road tile at a curb
   }
   return bd === -1 ? null : [bx, bz];
 }
-function dispatchTruck(x, z) {
+function dispatchTruck(x, z, flood) {           // flood = HW_EDGE drive flood, shared per tick
   const t = world[x][z];
-  const flood = floodFrom(HW_EDGE[0], HW_EDGE[1], true);   // drive net from edge
   const front = bestFrontageTile(x, z, flood);
   if (!front) return false;                    // house unreachable: wait for a road
   const load = 1 + Math.floor(Math.random() * Math.min(CZ.migration.maxLoad, t.pending));
@@ -667,11 +666,13 @@ function dispatchTruck(x, z) {
   return true;
 }
 function migrationTick() {
+  let flood = null;                            // build the HW_EDGE flood once per tick
   for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
     const t = world[x][z];
     if (t.type !== 'house' || !t.pending || t.pending <= 0) continue;
     if (t.truckInFlight || gameTime < (t.nextDispatch || 0)) continue;
-    if (!dispatchTruck(x, z)) t.nextDispatch = gameTime + RT.dispatchInterval;
+    if (!flood) flood = floodFrom(HW_EDGE[0], HW_EDGE[1], true);
+    if (!dispatchTruck(x, z, flood)) t.nextDispatch = gameTime + RT.dispatchInterval;
   }
 }
 function truckArrive(truck) {
@@ -684,7 +685,8 @@ function truckArrive(truck) {
         citizens.push(c); tryEmploy(c);
       }
       ht.truckInFlight = false;
-      ht.nextDispatch = gameTime + RT.dispatchInterval * (0.7 + Math.random() * 0.6);
+      const j = CZ.migration.dispatchJitter;   // stagger the next run (no shared clock)
+      ht.nextDispatch = gameTime + RT.dispatchInterval * (1 - j + Math.random() * 2 * j);
     }
     truck.leg = 'outbound';                     // head back to the highway edge
     truck.at = [truck.frontage[0], truck.frontage[1]];
@@ -700,8 +702,10 @@ function despawnTruck(truck) {
   removeTruckMesh(truck.id);
 }
 function updateTrucks(dtGame) {
+  if (trucks.length === 0) return;
   const spd = CZ.migration.truckSpeed;
-  for (const truck of [...trucks]) {
+  for (let i = trucks.length - 1; i >= 0; i--) {   // reverse: safe against despawn splices
+    const truck = trucks[i];
     if (!truck.pathPts) continue;
     if (advanceAlong(truck, spd * dtGame)) { truck.pathPts = null; truckArrive(truck); }
   }
@@ -722,7 +726,7 @@ function replanTrucks() {
       if (beginTravel(truck, HW_EDGE, flood)) continue;
       despawnTruck(truck);
     } else if (!beginTravel(truck, HW_EDGE, flood)) {
-      truck.pathPts = null;                    // stranded on an orphaned road: idle
+      despawnTruck(truck);                     // orphaned from the edge: leave cleanly
     }
   }
 }
