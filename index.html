@@ -112,7 +112,8 @@ const CONFIG = {
                laneOffset: 0.18, walkOffset: 0.40 },   // right-hand traffic
     // Migration: moving trucks bring 1..maxLoad new residents in from the
     // highway edge, one truck in flight per house, staggered by dispatchHours.
-    migration: { dispatchHours: 1.5, maxLoad: 3, truckSpeed: 0.7, dispatchJitter: 0.3 },
+    migration: { dispatchHours: 1.5, maxLoad: 3, truckSpeed: 0.7, dispatchJitter: 0.3,
+                 maxConcurrent: 8 },   // ceiling on trucks on the map at once (anti-swarm)
   },
 };
 
@@ -666,8 +667,10 @@ function dispatchTruck(x, z, flood) {           // flood = HW_EDGE drive flood, 
   return true;
 }
 function migrationTick() {
+  const cap = CZ.migration.maxConcurrent;
   let flood = null;                            // build the HW_EDGE flood once per tick
   for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
+    if (trucks.length >= cap) return;          // concurrency ceiling: rest wait a tick
     const t = world[x][z];
     if (t.type !== 'house' || !t.pending || t.pending <= 0) continue;
     if (t.truckInFlight || gameTime < (t.nextDispatch || 0)) continue;

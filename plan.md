@@ -205,3 +205,37 @@ connecting; bulldoze of a 5-resident house → pop drop, 0 ghosts; road sever �
 0 stuck trucks; 0 NaN. Adversarial code-review pass run over the diff.
 Next: M8 (v0.2 playtest / meter tuning). dispatchHours=1.5, maxLoad=3,
 truckSpeed=0.7 are the migration knobs to tune there.
+
+## M8 scale test + tuning (2026-07-20)
+Built a headless scale harness (scratchpad/scale-test.mjs): road grid off the
+highway, auto-filled adjacent tiles → 87 houses / 14 shops / 14 parks, ran
+~4.5 in-game days at timeScale 30, pop reached 375–435 (all houses hit L2).
+Findings at real scale:
+- LIVELINESS is strong: ~25–43% of citizens on the street on average. The
+  "alive" feel is there; walker density is high, not sparse.
+- MIGRATION keeps up: all residents delivered, pending drains to 0; jobs fill
+  fully (56/56). No NaN over 4 days.
+- BUG FOUND + FIXED — startup truck SWARM: peakTrucks was 87 (every house
+  dispatches on the same frame after a bulk placement). Added
+  CONFIG.citizens.migration.maxConcurrent (8): migrationTick stops dispatching
+  once the map is at the cap; remaining houses wait a tick. Re-test: peak 87→8,
+  city still populates, all M7 behaviors still pass. Real incremental play
+  rarely hits the cap; it's insurance for bulk placement + the larger-map
+  backlog.
+- The old M5 worry ("errands/fun saturate near 100 at scale") did NOT
+  materialize — errands mean 69 (19% ≥90), not pinned.
+TASTE CALLS left for the human playtest (with exact knobs), NOT auto-tuned so
+the validated day-anchored system stays intact:
+- fun runs lower than errands (mean 33 vs 69; 38% of citizens fun-starved).
+  Structural: park restore=25 vs shop restore=60, and fun decays faster
+  (80/day vs 60). If citizens read as joyless, bump CONFIG.citizens.adverts
+  .park.restore (25→~40) or visitHours, or lower needs.fun.decayPerDay.
+- energy sits low (mean 45, 25% deeply tired) — long walk commutes drain it
+  in transit. Levers: move.walkSpeed/driveSpeed up, or energy.sleepHours, or
+  accept it as the intended slow-travel tax (it drives cars mattering).
+- joblessness ~85% here is an artifact of the test's house-heavy mix
+  (1 shop per ~6 houses); jobsPerShop=4 is fine — real cities choose their mix.
+- Walker readability at zoom is a VISUAL check only a human can make; density
+  is high, so the question is legibility-when-crowded, not emptiness.
+M8 verdict: one real fix (truck cap) shipped; meter feel is a play-and-judge
+pass with the knobs above. v0.2 sim is solid at scale.
