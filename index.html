@@ -113,6 +113,7 @@ const CONFIG = {
     rotateDur: 0.45,
     zoomLerp: 8,
     panKeySpeed: 1.2,      // keyboard pan: fraction of view height per second
+    followLerp: 3,         // follow-camera: how fast the look-at chases a citizen
   },
   anim: { popDur: 0.3 },
   growth: { upgradeSeconds: 12, tickSeconds: 1 },
@@ -1009,6 +1010,21 @@ function updateCamera(dt) {
   const yawRad = THREE.MathUtils.degToRad(camState.yaw);
   const pitchRad = THREE.MathUtils.degToRad(CONFIG.camera.pitchDeg);
 
+  // Follow camera: slide the look-at toward the inspected citizen (indoors →
+  // their tile center, traveling → their live position). Any manual pan cancels it.
+  if (follow && inspected && inspected.kind === 'citizen') {
+    const c = citizens.find(c => c.id === inspected.id);
+    if (!c) { follow = false; }
+    else {
+      const moving = c.phase === 'traveling' && c.pos;
+      const px = moving ? c.pos[0] : c.at[0] + 0.5;
+      const pz = moving ? c.pos[1] : c.at[1] + 0.5;
+      const k = Math.min(1, CONFIG.camera.followLerp * dt);
+      camTarget.x += (px - camTarget.x) * k;
+      camTarget.z += (pz - camTarget.z) * k;
+    }
+  }
+
   // Keyboard pan, camera-relative on the ground plane.
   const fx = -Math.sin(yawRad), fz = -Math.cos(yawRad);   // screen-up
   const rx = Math.cos(yawRad), rz = -Math.sin(yawRad);    // screen-right
@@ -1018,6 +1034,7 @@ function updateCamera(dt) {
   if (keys.has('d') || keys.has('arrowright')) v += 1;
   if (keys.has('a') || keys.has('arrowleft')) v -= 1;
   if (u || v) {
+    follow = false;                       // manual pan cancels follow
     const spd = camState.view * CONFIG.camera.panKeySpeed * dt;
     camTarget.x += (fx * u + rx * v) * spd;
     camTarget.z += (fz * u + rz * v) * spd;
@@ -1189,6 +1206,7 @@ function closeCard() { inspected = null; follow = false; insEl.classList.remove(
 
 function openCitizenCard(c) {
   inspected = { kind: 'citizen', id: c.id };
+  follow = false;                     // fresh subject: don't inherit follow state
   insEl.classList.add('show');
   insEl.innerHTML =
     `<span class="ins-close">✕</span>` +
@@ -1216,11 +1234,14 @@ function updateCitizenCard() {
   const foot = insEl.querySelector('[data-foot]');
   if (foot) foot.textContent = `home ${c.home[0]},${c.home[1]} · ` +
     (c.job ? `job ${c.job[0]},${c.job[1]}` : 'no job');
+  const fb = insEl.querySelector('[data-follow]');   // keep label in sync (pan cancels follow)
+  if (fb) { fb.textContent = follow ? '● Following' : '◎ Follow'; fb.classList.toggle('on', follow); }
 }
 
 function openBuildingCard(x, z) {
   if (!['house', 'shop', 'park'].includes(world[x][z].type)) { closeCard(); return; }
   inspected = { kind: 'building', x, z, sig: '' };
+  follow = false;
   insEl.classList.add('show');
   updateBuildingCard(true);
 }
@@ -1266,7 +1287,10 @@ function updateBuildingCard(force) {
     if (c) openCitizenCard(c);
   });
 }
-function wireFollowButton() {}   // filled in by the follow camera (v0.3b)
+function wireFollowButton() {
+  const btn = insEl.querySelector('[data-follow]');
+  if (btn) btn.onclick = () => { follow = !follow; };
+}
 
 function updateInspector() {
   if (!inspected) return;
@@ -1320,7 +1344,8 @@ Object.assign(window._sim, { nameFor, inspectCitizen: openCitizenCard,
     _projV.set(c.pos[0], 0.3, c.pos[1]).project(camera);
     return [(_projV.x * 0.5 + 0.5) * window.innerWidth, (-_projV.y * 0.5 + 0.5) * window.innerHeight];
   },
-  getInspected: () => inspected });
+  getInspected: () => inspected, getFollow: () => follow,
+  getCamTarget: () => [camTarget.x, camTarget.z] });
 
 /* =============================== INPUT ============================== */
 document.getElementById('btn-cw').addEventListener('click', () => rotateStep(1));
@@ -1382,6 +1407,7 @@ renderer.domElement.addEventListener('pointermove', (e) => {
       ghost.visible = false;
     }
     if (p.pan) {
+      follow = false;                     // drag pan cancels follow
       const hit = pickGround(e.clientX, e.clientY);
       if (hit) { camTarget.x += p.pan.x - hit.x; camTarget.z += p.pan.z - hit.z; }
     }
