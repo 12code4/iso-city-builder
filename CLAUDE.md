@@ -178,15 +178,33 @@ Citizen record additions for this: `stayUntil` (game time) and
 ### Population, jobs, migration
 
 - Residents per house: L1 = 3, L2 = 5 (CONFIG.citizens.residentsPerLevel).
-  Citizens are created on house placement/upgrade, removed on bulldoze.
+  Residents are DELIVERED by moving truck (see Migration), removed on bulldoze.
 - Cars per house: L1 = 1, L2 = 2 (carsPerLevel). Scarcity is structural —
-  residents always outnumber cars, so walking stays alive.
+  residents always outnumber cars, so walking stays alive. Cars are tied to
+  house level (present from placement); the moving truck is NOT a household car.
 - Jobs per shop: 4 (≈ one L1 house per shop, with some joblessness left
   over as the future unhappiness hook). Assignment: nearest open job by
-  road distance. Jobless citizens skip the work state.
-- Migration: new arrivals enter BY VEHICLE down the highway from its edge
-  endpoint (no pedestrians on highway) and become walkers at the stub's
-  inner end where it meets the road network.
+  road distance (assigned when the resident arrives). Jobless citizens skip
+  the work state.
+- **Migration (M7, moving-truck model — locked 2026-07-20):** a house does not
+  spawn residents instantly. It holds `pending` (residents owed) and the city
+  dispatches a **moving truck** per delivery: the truck enters at the highway
+  edge tile (HW_EDGE), drives the road+highway network to the house's curb
+  (its best-reachable frontage road tile), drops off `1..migration.maxLoad`
+  new residents (house resident count += load), then drives back out to the
+  edge and despawns. One inbound truck per house at a time; the next dispatch
+  waits a jittered `migration.dispatchHours` cooldown — natural stagger, no
+  shared clock. A truck is a transient entity in a flat `trucks` array, not a
+  citizen (no meters, no FSM — the three-state rule is untouched); it is the
+  minimal seed of the future visitor framework (roadmap Pillar B).
+  - **Reachability gates arrival (behavior change from M5/M6):** a truck can
+    only deliver where it can drive. A house with no road path from the highway
+    stays EMPTY, its residents waiting in `pending`, until a road connects it —
+    then trucks stream in. This replaces the old instant "shut-in" spawn.
+  - Disruptions resolve by visible consequence: bulldoze a house mid-delivery →
+    its inbound truck abandons and drives back out empty; sever the road under a
+    truck → it re-routes, or leaves if the house became unreachable, or idles if
+    stranded on an orphaned segment.
 
 ### Cars & mode choice
 
@@ -321,8 +339,9 @@ v0.2 — Citizens:
    assignment. No rendering — HUD population counter proves it works.
 6. **M6 — Walkers:** road BFS pathfinding, visible walkers with interpolated
    movement, traveling/doing phases, severed-path re-planning.
-7. **M7 — Free time + migration:** building advertisements, free_time choice,
-   arrivals walking in from the highway.
+7. **M7 — Free time + migration:** building advertisements + free_time choice
+   (done in M5). Migration ✅: moving trucks deliver residents from the highway
+   edge; reachability gates arrival; disruptions handled. Browser-verified.
 8. **M8 — v0.2 playtest:** meter rate tuning, walker readability at zoom levels.
 
 ## Backlog (not current version)

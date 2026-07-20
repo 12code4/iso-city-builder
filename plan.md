@@ -175,3 +175,33 @@ answered; interactive ask failed twice this session (tool stream closed).
 - Humor: grounded with rare absurdity for now; silliness may layer in later.
 - Map: 20×20 until a playtest feels cramped.
 roadmap.md sequencing + decisions sections updated to match.
+
+## M7 migration built + verified (2026-07-20)
+Player override of the old locked spec: no drive→walk hand-off. A MOVING
+TRUCK enters at the highway edge, drives (road+highway net) to a house's curb,
+drops off 1..maxLoad residents (house resident count += load), then drives
+back out and despawns. One truck bought a random 1–3 people, IRL-style.
+Design vetted first via a multi-agent design pass (3 approaches + adversarial
+critique) before the player simplified it to the truck model.
+Implementation (index.html, ~+130 lines, now ~1200):
+- Houses hold t.pending / t.nextDispatch / t.truckInFlight; onHousePlaced +
+  onHouseUpgraded queue arrivals instead of spawning instantly.
+- Flat `trucks` array; a truck is NOT a citizen (no meters/FSM — 3-state rule
+  intact). Reuses beginTravel + a new shared advanceAlong() mover; drive-net
+  floods. Rendered as a bigger van box via updateTruckMeshes (projection).
+- dispatchTruck / migrationTick (slow tick) / truckArrive (deliver + turn
+  around) / despawnTruck / replanTrucks / cancelArrivalsFor / nudgeMigration.
+- BEHAVIOR CHANGE: reachability now gates arrival. An unconnected house stays
+  empty (residents wait in pending) until a road links it to the highway —
+  replaces the old instant shut-in spawn. Trucks turn back on bulldoze/sever.
+- Census gained a 🚚 count of in-transit arrivals. window._sim.apply() added
+  as a debug/test hook. Title → v0.2 M7.
+Verification: real-browser Playwright harness (THREE served from npm — cdnjs
+is blocked by the egress proxy, app file untouched). Results: trucks drive in
+AND back out, always on-network (0 off-network samples); pop climbs as trucks
+deliver, incl. L2-upgrade re-deliveries; isolated house stayed pending 3 /
+residents 0 while unreachable, then filled to 3 within seconds of a road
+connecting; bulldoze of a 5-resident house → pop drop, 0 ghosts; road sever →
+0 stuck trucks; 0 NaN. Adversarial code-review pass run over the diff.
+Next: M8 (v0.2 playtest / meter tuning). dispatchHours=1.5, maxLoad=3,
+truckSpeed=0.7 are the migration knobs to tune there.

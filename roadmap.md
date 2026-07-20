@@ -7,9 +7,12 @@ locked) and this file keeps only the not-yet-scheduled ideas.
 
 ## Where we are
 
-v0.2 is built through M6. Remaining before anything below starts:
-- **M7** — migration: arrivals enter by vehicle via the highway edge.
-- **M8** — playtest tuning: meter rates at real city scale, walker readability.
+v0.2 is built through M7. Remaining before anything below starts:
+- ~~**M7** — migration~~ ✅ DONE (2026-07-20): moving trucks deliver residents
+  from the highway edge (1–3 per trip); reachability gates arrival. The truck
+  is the minimal seed of Pillar B's visitor framework.
+- **M8** — playtest tuning: meter rates at real city scale, walker readability,
+  migration pacing (dispatchHours / maxLoad / truckSpeed).
 
 ## The filter — every feature must pass all five
 

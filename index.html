@@ -36,7 +36,7 @@
 </head>
 <body>
 <div id="app"></div>
-<div class="hud" id="title">City Builder — v0.2 M6</div>
+<div class="hud" id="title">City Builder — v0.2 M7</div>
 <div class="hud" id="hint">Q/E rotate · WASD or drag to pan · wheel/pinch zoom · tap to build</div>
 <div class="hud" id="census" style="top:12px; right:14px; font-size:12px; text-align:right; opacity:0.85; text-shadow:0 1px 3px rgba(0,0,0,0.4);"></div>
 <div class="hud" id="controls">
@@ -110,6 +110,9 @@ const CONFIG = {
     select:  { topK: 6, pickTemp: 1, distHalf: 8 },
     move:    { walkSpeed: 0.24, driveSpeed: 0.8, carMinDist: 3, carFullDist: 12,
                laneOffset: 0.18, walkOffset: 0.40 },   // right-hand traffic
+    // Migration: moving trucks bring 1..maxLoad new residents in from the
+    // highway edge, one truck in flight per house, staggered by dispatchHours.
+    migration: { dispatchHours: 1.5, maxLoad: 3, truckSpeed: 0.7 },
   },
 };
 
@@ -413,10 +416,13 @@ const RT = {
                    fillRate: a.restore / (a.visitHours * HOUR),
                  }])),
   minShift:    CZ.work.shiftHours * HOUR,
+  dispatchInterval: CZ.migration.dispatchHours * HOUR,   // secs between truck runs
 };
 let gameTime = 0;
 let nextCitizenId = 1;
+let nextTruckId = 1;
 const citizens = [];
+const trucks = [];      // transient moving-truck deliveries (not citizens)
 const clamp01_100 = v => Math.max(0, Math.min(100, v));
 const rnd = (a, b) => a + Math.random() * (b - a);
 const key = (x, z) => x * S + z;
@@ -485,23 +491,21 @@ function makeCitizen(hx, hz) {
              funDecay: RT.needDecay.fun * j },
   };
 }
+// Residents no longer appear instantly: the house queues `pending` arrivals
+// and moving trucks deliver them from the highway (see MIGRATION section).
 function onHousePlaced(x, z) {
   const t = world[x][z];
   t.cars = { total: CZ.carsPerLevel[1], available: CZ.carsPerLevel[1] };
-  for (let i = 0; i < CZ.residentsPerLevel[1]; i++) {
-    const c = makeCitizen(x, z);
-    citizens.push(c); tryEmploy(c);
-  }
+  t.pending = CZ.residentsPerLevel[1];
+  t.nextDispatch = gameTime;       // eligible for a truck right away
+  t.truckInFlight = false;
 }
 function onHouseUpgraded(x, z) {
   const t = world[x][z];
   const addCars = CZ.carsPerLevel[2] - CZ.carsPerLevel[1];
   t.cars.total += addCars; t.cars.available += addCars;
-  const addRes = CZ.residentsPerLevel[2] - CZ.residentsPerLevel[1];
-  for (let i = 0; i < addRes; i++) {
-    const c = makeCitizen(x, z);
-    citizens.push(c); tryEmploy(c);
-  }
+  t.pending = (t.pending || 0) + (CZ.residentsPerLevel[2] - CZ.residentsPerLevel[1]);
+  if (t.nextDispatch === undefined) t.nextDispatch = gameTime;
 }
 function onShopPlaced(x, z) {
   world[x][z].jobs = { total: CZ.jobsPerShop, workers: [] };
@@ -539,6 +543,7 @@ function onHouseRemoved(x, z) {
       citizens.splice(i, 1);
     }
   }
+  cancelArrivalsFor(x, z);   // send any inbound truck back out empty-handed
 }
 function onShopRemoved(x, z) {
   const t = world[x][z];
@@ -595,21 +600,26 @@ function beginTravel(c, dest, flood) {
   c.heading = [1, 0];
   return true;
 }
+// Advance any mover (citizen or truck) along its polyline. Returns true once
+// the polyline is exhausted. Shared by updateTravel and updateTrucks.
+function advanceAlong(m, move) {
+  while (move > 0) {
+    const b = m.pathPts[m.seg + 1];
+    if (!b) return true;
+    const dx = b[0] - m.pos[0], dz = b[1] - m.pos[1];
+    const len = Math.hypot(dx, dz);
+    if (len < 1e-6) { m.seg++; continue; }
+    m.heading = [dx / len, dz / len];
+    if (move >= len) { m.pos = [b[0], b[1]]; m.seg++; move -= len; }
+    else { m.pos = [m.pos[0] + dx / len * move, m.pos[1] + dz / len * move]; move = 0; }
+  }
+  return false;
+}
 // Per-frame advance along the polyline. Runs on game time, not tick time.
 function updateTravel(dtGame) {
   for (const c of citizens) {
     if (c.phase !== 'traveling' || !c.pathPts) continue;
-    let move = speedFor(c.mode) * dtGame;
-    while (move > 0) {
-      const b = c.pathPts[c.seg + 1];
-      if (!b) { c.pathPts = null; arrive(c); break; }
-      const dx = b[0] - c.pos[0], dz = b[1] - c.pos[1];
-      const len = Math.hypot(dx, dz);
-      if (len < 1e-6) { c.seg++; continue; }
-      c.heading = [dx / len, dz / len];
-      if (move >= len) { c.pos = [b[0], b[1]]; c.seg++; move -= len; }
-      else { c.pos = [c.pos[0] + dx / len * move, c.pos[1] + dz / len * move]; move = 0; }
-    }
+    if (advanceAlong(c, speedFor(c.mode) * dtGame)) { c.pathPts = null; arrive(c); }
   }
 }
 // Road network changed under someone's feet: re-plan everyone traveling.
@@ -626,6 +636,114 @@ function replanTravelers() {
     c.pathPts = null;
   }
 }
+
+/* -------------------- MIGRATION: moving trucks --------------------- */
+// A truck is a transient delivery vehicle: not a citizen, so no meters and no
+// FSM (the "exactly three states" rule is untouched). It drives in from the
+// highway edge, parks at a house's curb, drops off 1..maxLoad new residents,
+// then drives back out and despawns. This is the minimal seed of the later
+// "visitor framework" (roadmap Pillar B).
+const HW_EDGE = hwTiles.find(([x, z]) => x === 0 || x === S - 1 || z === 0 || z === S - 1)
+                || hwTiles[0];
+function bestFrontageTile(x, z, flood) {       // reachable road tile at a curb
+  let bx = -1, bz = -1, bd = -1;
+  for (const [rx, rz] of roadAdjacents(x, z)) {
+    const d = flood[key(rx, rz)];
+    if (d !== -1 && (bd === -1 || d < bd)) { bd = d; bx = rx; bz = rz; }
+  }
+  return bd === -1 ? null : [bx, bz];
+}
+function dispatchTruck(x, z) {
+  const t = world[x][z];
+  const flood = floodFrom(HW_EDGE[0], HW_EDGE[1], true);   // drive net from edge
+  const front = bestFrontageTile(x, z, flood);
+  if (!front) return false;                    // house unreachable: wait for a road
+  const load = 1 + Math.floor(Math.random() * Math.min(CZ.migration.maxLoad, t.pending));
+  const truck = { id: nextTruckId++, target: [x, z], frontage: front,
+                  leg: 'inbound', load, at: [HW_EDGE[0], HW_EDGE[1]], mode: 'drive' };
+  if (!beginTravel(truck, front, flood)) return false;
+  trucks.push(truck);
+  t.truckInFlight = true;
+  return true;
+}
+function migrationTick() {
+  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
+    const t = world[x][z];
+    if (t.type !== 'house' || !t.pending || t.pending <= 0) continue;
+    if (t.truckInFlight || gameTime < (t.nextDispatch || 0)) continue;
+    if (!dispatchTruck(x, z)) t.nextDispatch = gameTime + RT.dispatchInterval;
+  }
+}
+function truckArrive(truck) {
+  if (truck.leg === 'inbound') {
+    const [hx, hz] = truck.target, ht = world[hx][hz];
+    if (ht.type === 'house') {                 // still a house (not bulldozed)
+      for (let i = 0; i < truck.load && (ht.pending || 0) > 0; i++) {
+        ht.pending--;
+        const c = makeCitizen(hx, hz);
+        citizens.push(c); tryEmploy(c);
+      }
+      ht.truckInFlight = false;
+      ht.nextDispatch = gameTime + RT.dispatchInterval * (0.7 + Math.random() * 0.6);
+    }
+    truck.leg = 'outbound';                     // head back to the highway edge
+    truck.at = [truck.frontage[0], truck.frontage[1]];
+    const flood = floodFrom(truck.at[0], truck.at[1], true);
+    if (!beginTravel(truck, HW_EDGE, flood)) despawnTruck(truck);
+  } else {
+    despawnTruck(truck);                        // reached the edge: gone
+  }
+}
+function despawnTruck(truck) {
+  const i = trucks.indexOf(truck);
+  if (i >= 0) trucks.splice(i, 1);
+  removeTruckMesh(truck.id);
+}
+function updateTrucks(dtGame) {
+  const spd = CZ.migration.truckSpeed;
+  for (const truck of [...trucks]) {
+    if (!truck.pathPts) continue;
+    if (advanceAlong(truck, spd * dtGame)) { truck.pathPts = null; truckArrive(truck); }
+  }
+}
+// Road network changed: re-route trucks (the truck analogue of replanTravelers).
+function replanTrucks() {
+  for (const truck of [...trucks]) {
+    truck.at = [Math.floor(truck.pos[0]), Math.floor(truck.pos[1])];
+    const flood = floodFrom(truck.at[0], truck.at[1], true);
+    if (truck.leg === 'inbound') {
+      const ht = world[truck.target[0]][truck.target[1]];
+      if (ht.type === 'house') {
+        const front = bestFrontageTile(truck.target[0], truck.target[1], flood);
+        if (front) { truck.frontage = front; if (beginTravel(truck, front, flood)) continue; }
+        ht.truckInFlight = false;              // house unreachable now: give up, re-queue later
+      }
+      truck.leg = 'outbound';
+      if (beginTravel(truck, HW_EDGE, flood)) continue;
+      despawnTruck(truck);
+    } else if (!beginTravel(truck, HW_EDGE, flood)) {
+      truck.pathPts = null;                    // stranded on an orphaned road: idle
+    }
+  }
+}
+function cancelArrivalsFor(x, z) {              // house bulldozed mid-delivery
+  for (const truck of [...trucks]) {
+    if (truck.leg === 'inbound' && truck.target[0] === x && truck.target[1] === z) {
+      truck.leg = 'outbound';
+      truck.at = [Math.floor(truck.pos[0]), Math.floor(truck.pos[1])];
+      const flood = floodFrom(truck.at[0], truck.at[1], true);
+      if (!beginTravel(truck, HW_EDGE, flood)) despawnTruck(truck);
+    }
+  }
+}
+// A road was just placed/removed: let waiting houses try for a truck at once.
+function nudgeMigration() {
+  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
+    const t = world[x][z];
+    if (t.type === 'house' && t.pending > 0 && !t.truckInFlight) t.nextDispatch = gameTime;
+  }
+}
+
 // Mode roll happens ONCE, at home departure, gated by car availability.
 function rollModeAtDeparture(c, firstDist) {
   const home = world[c.home[0]][c.home[1]];
@@ -759,10 +877,12 @@ function simTick(dt) {
   const g = dt * CZ.timeScale;
   gameTime += g;
   updateTravel(g);                 // smooth movement, every frame
+  updateTrucks(g);
   simAcc += g;
   while (simAcc >= TICK) {         // decisions, on the slow tick
     simAcc -= TICK;
     for (const c of citizens) tickCitizen(c, TICK);
+    migrationTick();
   }
   // Census (cheap enough to refresh per frame batch)
   let sleep = 0, work = 0, free = 0, jobless = 0, carsOut = 0, carsTotal = 0;
@@ -775,13 +895,18 @@ function simTick(dt) {
   }
   for (let x = 0; x < S; x++) for (let z = 0; z < S; z++)
     if (world[x][z].cars) carsTotal += world[x][z].cars.total;
+  let arriving = 0;
+  for (const tr of trucks) if (tr.leg === 'inbound') arriving += tr.load;
   const day = Math.floor(gameTime / CZ.dayLength) + 1;
-  censusEl.textContent = citizens.length === 0 ? '' :
-    `day ${day} · pop ${citizens.length} · 😴${sleep} · 💼${work} · 🚶${free}` +
-    ` · no-job ${jobless} · 🚗 ${carsOut}/${carsTotal}`;
+  const parts = [`day ${day}`, `pop ${citizens.length}`];
+  if (citizens.length)
+    parts.push(`😴${sleep}`, `💼${work}`, `🚶${free}`, `no-job ${jobless}`, `🚗 ${carsOut}/${carsTotal}`);
+  if (arriving) parts.push(`🚚 ${arriving}`);
+  censusEl.textContent = (citizens.length === 0 && arriving === 0) ? '' : parts.join(' · ');
 }
 // Dev console access
-window._sim = { CONFIG, world, citizens, get time() { return gameTime; } };
+window._sim = { CONFIG, world, citizens, trucks, get time() { return gameTime; },
+  apply: (t, x, z) => { const prev = tool; tool = t; applyTool(x, z); tool = prev; } };
 
 /* ========================= PLACEMENT LOGIC ========================== */
 let tool = 'road';
@@ -799,15 +924,15 @@ function applyTool(x, z) {
     if (was === 'house') onHouseRemoved(x, z);
     if (was === 'shop') onShopRemoved(x, z);
     t.type = 'empty'; t.level = 0; t.timer = 0;
-    delete t.cars;
+    delete t.cars; delete t.pending; delete t.truckInFlight; delete t.nextDispatch;
     syncTile(x, z);
-    if (was === 'road') { recomputeConnectivity(); replanTravelers(); }
+    if (was === 'road') { recomputeConnectivity(); replanTravelers(); replanTrucks(); nudgeMigration(); }
   } else {
     t.type = tool;
     t.level = tool === 'house' ? 1 : 0;
     t.timer = 0;
     syncTile(x, z, true);
-    if (tool === 'road') { recomputeConnectivity(); replanTravelers(); }
+    if (tool === 'road') { recomputeConnectivity(); replanTravelers(); replanTrucks(); nudgeMigration(); }
     if (tool === 'house') onHousePlaced(x, z);
     if (tool === 'shop') onShopPlaced(x, z);
   }
@@ -961,6 +1086,39 @@ function updateAgentMeshes() {
   }
 }
 
+// Moving trucks — same pure-projection pattern as walkers/cars.
+const truckMeshes = new Map();
+const truckGeos = {
+  body: new THREE.BoxGeometry(0.5, 0.24, 0.3),
+  cab:  new THREE.BoxGeometry(0.16, 0.2, 0.28),
+};
+function makeTruckMesh() {
+  const g = new THREE.Group();
+  const body = shadowed(new THREE.Mesh(truckGeos.body, AM(0xe0b23c)));
+  body.position.y = 0.17;
+  const cab = shadowed(new THREE.Mesh(truckGeos.cab, AM(0xd3dae0)));
+  cab.position.set(0.33, 0.13, 0);          // cab at the front of the box
+  g.add(body, cab);
+  scene.add(g);
+  return g;
+}
+function removeTruckMesh(id) {
+  const m = truckMeshes.get(id);
+  if (m) { scene.remove(m); truckMeshes.delete(id); }
+}
+function updateTruckMeshes() {
+  const seen = new Set();
+  for (const truck of trucks) {
+    if (!truck.pathPts) continue;
+    seen.add(truck.id);
+    let m = truckMeshes.get(truck.id);
+    if (!m) { m = makeTruckMesh(); truckMeshes.set(truck.id, m); }
+    m.position.set(truck.pos[0], 0.06, truck.pos[1]);
+    m.rotation.y = Math.atan2(-truck.heading[1], truck.heading[0]);
+  }
+  for (const [id, m] of truckMeshes) if (!seen.has(id)) { scene.remove(m); truckMeshes.delete(id); }
+}
+
 /* =============================== INPUT ============================== */
 document.getElementById('btn-cw').addEventListener('click', () => rotateStep(1));
 document.getElementById('btn-ccw').addEventListener('click', () => rotateStep(-1));
@@ -1062,6 +1220,7 @@ function tick() {
   growthTick(dt);
   simTick(dt);
   updateAgentMeshes();
+  updateTruckMeshes();
   renderer.render(scene, camera);
   requestAnimationFrame(tick);
 }
