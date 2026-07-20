@@ -53,6 +53,11 @@ No config beyond bubble timing + name syllables. No new citizen logic.
 
 ## Pillar B — Visitors & events (the fun kind of chaos)
 
+**Status (2026-07-20): descheduled from v0.3 by player decision.** The fun
+visitors (truck, dog, musician) wait until more silliness is wanted. The
+*framework* still gets built in v0.4 — delivery trucks (Pillar C) are
+visitors — so these become cheap data rows whenever they're greenlit.
+
 A **visitor** = an agent that enters by highway, does one thing, and leaves.
 Not a citizen: no meters, no FSM — a scripted route plus (usually) an advert.
 Visitors interact with citizens ONLY via advertisements (filter rule 2). Flat
@@ -140,38 +145,32 @@ The classic city-builder emergence engine. Also the riskiest pillar.
 
 ---
 
-## Sequencing (proposal)
+## Sequencing (decided 2026-07-20)
 
 Finish v0.2 (M7 → M8) first, then:
 
-- **v0.3 — "Alive":** Pillar A + ice cream truck & stray dog from B.
-  Rationale: cheapest, funniest, and the inspector/bubbles become the debug
-  UI every later pillar needs anyway. The truck stress-tests the advert rule
-  before the economy leans on it.
-- **v0.4 — "Payday":** Pillar C (+ delivery trucks reuse B's visitor
-  framework). F's needs-loop refactor lands here too (diner = first paid
-  venue addition).
+- **v0.3 — "Alive":** Pillar A in full — names, citizen + building
+  inspectors, follow-cam, thought bubbles, complaint-bubbles-as-tutorial.
+  No visitors (truck/dog cut from this version by player decision). The
+  inspector/bubbles become the debug UI every later pillar needs anyway.
+- **v0.4 — "Payday":** Pillar C. Delivery trucks introduce the visitor
+  framework (B) as working infrastructure. F's needs-loop refactor lands
+  here too (diner = first paid venue addition).
 - **v0.5 — "Rush Hour":** D v1 spacing, then E — density creates the traffic
   that makes D worth watching.
+- **Unscheduled:** B's fun visitors (ice cream truck, stray dog, street
+  musician) — one data row each once v0.4's framework exists; add when the
+  player wants more silliness.
 - Backlog unchanged (day/night visual, save/load, sound, bigger map) —
   day/night pairs naturally with v0.5 headlights if it ever gets pulled in.
 
-## Open questions for the player-designer
+## Direction decisions (player, 2026-07-20)
 
-Still OPEN as of 2026-07-20 — the sequencing above runs on these working
-assumptions until overruled. Overriding any answer only reshuffles the
-version ordering; the pillar designs themselves don't change.
-
-1. **v0.3 headline pillar?** Working assumption: A + B-lite ("Alive").
-   Alternatives: economy first ("Payday"), traffic first ("Rush Hour"),
-   density first.
-2. **Can the city fail?** Working assumption: cozy — broke pauses building,
-   activity refills the treasury, the city never collapses. Alternatives:
-   soft failure (unhappy citizens visibly emigrate down the highway, city can
-   shrink) or real failure (debt, abandonment cascades).
-3. **Humor register?** Working assumption: grounded world, rare absurd
-   visitors — comedy comes from the sim being earnest about an ice cream
-   truck. Alternatives: openly silly, or fully grounded (cut truck/dog).
-4. **Map growth beyond 20×20?** Working assumption: stays backlog until a
-   playtest actually feels cramped. Alternatives: bump soon, or make land
-   purchase an economy money-sink mechanic (ties into Pillar C).
+1. **v0.3 headline:** "Alive" — all of Pillar A, minus the ice cream truck
+   and stray dog.
+2. **Can the city fail?** Deferred — it's an economic decision, to be made
+   when Pillar C is scheduled (v0.4 planning). Until then nothing in Pillar
+   C's design may assume failure exists.
+3. **Humor register:** grounded with rare absurdity for now; more silliness
+   may be layered in later. Fun visitors stay designed-but-shelved.
+4. **Map growth:** stays 20×20 until a playtest actually feels cramped.

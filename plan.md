@@ -164,3 +164,14 @@ Proposed order: finish M7+M8, then v0.3 "Alive" (A + truck/dog), v0.4
 the player are OPEN in roadmap.md (headline pillar, failure stakes, humor
 register, map growth) — sequencing runs on flagged working assumptions until
 answered; interactive ask failed twice this session (tool stream closed).
+
+## Direction decisions from the player (2026-07-20)
+
+- v0.3 = "Alive", Pillar A in full, but NO ice cream truck / stray dog.
+  Fun visitors shelved (designed, unscheduled) until more silliness is
+  wanted; the visitor framework still arrives via v0.4 delivery trucks.
+- Failure stakes: deferred to v0.4 planning — an economic decision. Pillar
+  C design must not assume failure exists until then.
+- Humor: grounded with rare absurdity for now; silliness may layer in later.
+- Map: 20×20 until a playtest feels cramped.
+roadmap.md sequencing + decisions sections updated to match.
