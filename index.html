@@ -147,6 +147,10 @@ const CONFIG = {
       last: ['Ash','Brook','Cole','Dune','Elm','Frost','Gale','Hart','Isle','Jung',
              'Knox','Lark','Moss','Nash','Oak','Poole','Reed','Stone','Vale','West'],
     },
+    // Emoji bubbles: brief thought at decision points; complaint when a need is
+    // starved with NO venue for it in town (diegetic "build a shop/park" hint).
+    bubbles: { showSeconds: 3, starvedBelow: 22, complaintChance: 0.35,
+               complaintCooldownHours: 5 },
   },
 };
 
@@ -452,6 +456,7 @@ const RT = {
                  }])),
   minShift:    CZ.work.shiftHours * HOUR,
   dispatchInterval: CZ.migration.dispatchHours * HOUR,   // secs between truck runs
+  complaintCooldown: CZ.bubbles.complaintCooldownHours * HOUR,
 };
 let gameTime = 0;
 let nextCitizenId = 1;
@@ -832,7 +837,9 @@ function chooseFreeTime(c) {
   if (pick.x === cx && pick.z === cz) {     // stay: restart minStay commitment
     c.phase = 'doing'; c.activity = pick.ad;
     c.stayUntil = gameTime + pick.ad.minStay;
-  } else if (!beginTravel(c, [pick.x, pick.z], flood)) {
+  } else if (beginTravel(c, [pick.x, pick.z], flood)) {
+    showBubble(c, pick.ad.need === 'errands' ? '🛒' : '🎈');   // off to a venue
+  } else {
     c.phase = 'doing'; c.activity = null;   // route vanished: idle and retry
     c.stayUntil = gameTime + 5;
   }
@@ -841,6 +848,7 @@ function goWork(c) {
   const flood = floodFrom(c.at[0], c.at[1], c.mode === 'drive');
   c.state = 'work';
   if (!beginTravel(c, c.job, flood)) chooseFreeTime(c);   // unreachable now
+  else showBubble(c, '💼');
 }
 function goHome(c) {
   const flood = floodFrom(c.at[0], c.at[1], c.mode === 'drive');
@@ -848,7 +856,7 @@ function goHome(c) {
   if (!beginTravel(c, c.home, flood)) {
     c.state = 'free_time'; c.phase = 'doing'; c.activity = null;
     c.stayUntil = gameTime + 5;                           // stranded: retry
-  }
+  } else showBubble(c, '😴');
 }
 function departFromHome(c) {
   // Waking up: pick first destination, roll travel mode once for the excursion.
@@ -894,6 +902,7 @@ function tickCitizen(c, dt) {
   if (c.state === 'free_time' && c.phase === 'doing' && c.activity)
     m[c.activity.need] += c.activity.fillRate * dt;
   for (const k in m) m[k] = clamp01_100(m[k]);
+  maybeComplain(c);                  // grumble if a need is starved with no venue
   // Travel handled per-frame in updateTravel; no decisions mid-trip.
   if (c.phase === 'traveling') return;
   // Doing → transitions (hysteresis pairs; interrupts only at decision points)
@@ -920,6 +929,7 @@ function simTick(dt) {
   updateTravel(g);                 // smooth movement, every frame
   updateTrucks(g);
   simAcc += g;
+  computeServedNeeds();            // which advert needs have a venue (for complaints)
   while (simAcc >= TICK) {         // decisions, on the slow tick
     simAcc -= TICK;
     for (const c of citizens) tickCitizen(c, TICK);
@@ -1347,6 +1357,75 @@ Object.assign(window._sim, { nameFor, inspectCitizen: openCitizenCard,
   getInspected: () => inspected, getFollow: () => follow,
   getCamTarget: () => [camTarget.x, camTarget.z] });
 
+/* ============================= BUBBLES ============================= */
+// Billboard emoji above heads. Thought bubbles fire at decision points (sparse
+// — no per-frame cost); complaint bubbles fire when a need is starved AND no
+// venue for it exists in town — the city grumbling what to build next.
+const bubbleTex = new Map();
+function emojiTexture(str) {
+  let tex = bubbleTex.get(str);
+  if (tex) return tex;
+  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
+  const ctx = cv.getContext('2d');
+  ctx.font = '42px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(str, 32, 36);
+  tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
+  bubbleTex.set(str, tex); return tex;                 // cached + shared, never disposed
+}
+const bubbles = new Map();          // citizen id -> { sprite, until }
+function showBubble(c, str, dur = CZ.bubbles.showSeconds) {
+  let b = bubbles.get(c.id);
+  if (!b) {
+    const mat = new THREE.SpriteMaterial({ map: emojiTexture(str), transparent: true, depthTest: false });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(0.55, 0.55, 0.55); sprite.renderOrder = 999;
+    scene.add(sprite);
+    b = { sprite }; bubbles.set(c.id, b);
+  } else {
+    b.sprite.material.map = emojiTexture(str);
+  }
+  b.until = gameTime + dur;
+}
+const COMPLAINT_ICON = { errands: '🛒❓', fun: '🎈❓' };
+let servedNeeds = new Set();
+let complaintCount = 0;             // debug/test counter
+function computeServedNeeds() {
+  servedNeeds.clear();
+  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
+    const ad = RT.adverts[world[x][z].type];
+    if (ad) servedNeeds.add(ad.need);
+  }
+}
+function maybeComplain(c) {
+  if (gameTime < (c.nextComplaint || 0)) return;
+  for (const need in COMPLAINT_ICON) {
+    if (c.meters[need] <= CZ.bubbles.starvedBelow && !servedNeeds.has(need)) {
+      if (Math.random() < CZ.bubbles.complaintChance) {
+        showBubble(c, COMPLAINT_ICON[need]);
+        c.nextComplaint = gameTime + RT.complaintCooldown;
+        complaintCount++;
+      }
+      return;
+    }
+  }
+}
+function updateBubbles() {
+  if (bubbles.size === 0) return;
+  const byId = new Map(citizens.map(c => [c.id, c]));
+  for (const [id, b] of bubbles) {
+    const c = byId.get(id);
+    if (!c || gameTime > b.until) {
+      scene.remove(b.sprite); b.sprite.material.dispose(); bubbles.delete(id); continue;
+    }
+    const moving = c.phase === 'traveling' && c.pos;
+    const x = moving ? c.pos[0] : c.at[0] + 0.5;
+    const z = moving ? c.pos[1] : c.at[1] + 0.5;
+    b.sprite.position.set(x, 0.75, z);
+  }
+}
+Object.assign(window._sim, { showBubble, getBubbleCount: () => bubbles.size,
+  getServedNeeds: () => [...servedNeeds], getComplaintCount: () => complaintCount });
+
 /* =============================== INPUT ============================== */
 document.getElementById('btn-cw').addEventListener('click', () => rotateStep(1));
 document.getElementById('btn-ccw').addEventListener('click', () => rotateStep(-1));
@@ -1454,6 +1533,7 @@ function tick() {
   simTick(dt);
   updateAgentMeshes();
   updateTruckMeshes();
+  updateBubbles();
   updateInspector();
   renderer.render(scene, camera);
   requestAnimationFrame(tick);
