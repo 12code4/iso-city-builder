@@ -3,6 +3,40 @@
 Stable architecture reference. Session-by-session notes live in plan.md, not here.
 Update this file only when an architectural decision changes.
 
+## Repository & release hygiene (STANDING PROCESS — check every session)
+
+Goal: a well-organized GitHub with clean version history and current docs. Verify
+this at the start of a session and satisfy it before wrapping up. Do not leave
+finished work stranded on a branch or a version untagged.
+
+**`main` is the source of truth.** It must always reflect the latest *completed*
+version. Never let it fall behind shipped work. Do WIP on a feature branch; when a
+version (or a self-contained chunk) is done + verified + reviewed, merge it to
+`main` via PR. If a session starts and `main` is behind finished work, opening that
+PR is the first housekeeping task.
+
+**Tag every version.** When `vX.Y` is feature-complete, tag it annotated at that
+commit (`git tag -a vX.Y -m "…"`) and push tags (`git push --tags`). A version is
+not "done" until it is tagged — tags are the checkout-able record of each release.
+
+**Commits stay granular.** One clear commit per milestone / feature / fix. Never
+squash unrelated work together (the early history fused v0.1 + v0.2-M5 into a single
+"Initial commit" — that history is unrecoverable; don't repeat it).
+
+**Docs stay in sync, every version:**
+- `README.md` — front page: bump the current-version line + feature list each release.
+- `CLAUDE.md` — architecture; update when a decision changes.
+- `roadmap.md` — future pillars; move a pillar out once it's built.
+- `plan.md` — append a session-log entry every session (what, why, verification).
+
+**Definition of done for a version** — all true before calling it shipped:
+verified (browser/headless) → adversarially reviewed + fixes applied → docs updated
+→ granular commits → pushed → tagged `vX.Y` → merged to `main`.
+
+**Known repo debt:** v0.1 + v0.2-M5 are fused in the initial commit (no clean
+per-version tags there — leave as-is, don't rewrite history). `window._sim` debug
+hooks remain in `index.html` — strip before any public ship.
+
 ## Project summary
 
 Browser-based isometric city builder. Three.js (ES module build), true 3D with an

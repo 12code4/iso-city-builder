@@ -283,4 +283,14 @@ Fixed:
 Left as documented-low: building-card signature filter runs per frame while a
 card is open (bounded to one open card on a 20×20 map).
 Re-verified: all v0.3 a/b/c suites + M7 teardown/sever + reachability gate green.
+
+### Repo hygiene convention adopted (2026-07-20)
+Player wants a well-organized GitHub going forward: clean version history +
+current docs. Added a STANDING PROCESS block to the top of CLAUDE.md (checked
+every session): main always reflects the latest completed version (merge via
+PR, don't strand work on branches); tag every version vX.Y annotated + push
+tags; granular commits (never squash unrelated work); keep README/CLAUDE/
+roadmap/plan in sync each version; a per-version definition-of-done checklist.
+Applying it retroactively now: tag v0.2 (a18e2c4 = M8) and v0.3 (86bcdd0), and
+bring main current (it was stuck at 4bc83e0, ~mid-v0.2, missing M7/M8/v0.3).
 Next: v0.4 "Payday" (economy + needs-loop refactor + diner) per roadmap.
