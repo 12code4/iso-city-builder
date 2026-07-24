@@ -9,6 +9,12 @@ answered here. Keep this short, opinionated, and true.
 **A cozy, living miniature town you love watching as much as building** — where
 every little person is real, has a name, and lives a small story you can follow.
 
+Cozy at its core, mischievous at the edges: charm and quirk everywhere, a thread
+of gentle, playful "cozy-horror," and easter eggs galore — some silly, some
+tender, more warmth hidden in it than it lets on. *(This game is made with heart,
+as a gift. The specific secret surprises live in the owner's private notes, not in
+the repo, so they stay surprises.)*
+
 ## The feeling we're chasing
 
 You place a road, a house, a shop. A moving truck trundles in and a family
@@ -38,10 +44,13 @@ who wants a game that's kind to them.
 2. **Intimacy over scale.** Most city builders zoom out to a management dashboard.
    We zoom *in*. The camera, the art, the inspectors, the follow-cam all pull you
    toward the individual and the street-level moment.
-3. **Charm and heart over stress.** Cozy failure only — a broke or struggling city
-   slows down, it never punishes or collapses on you. The tone is gentle, the
-   world is earnest, and the comedy comes from that earnestness (a whole
-   neighborhood mobbing an ice-cream truck, played completely straight).
+3. **Charm and heart over stress.** Cozy failure only — a struggling city slows
+   down, it never punishes or collapses on you. The tone is gentle and earnest,
+   and the comedy comes from that earnestness (a whole neighborhood mobbing an
+   ice-cream truck, played completely straight). On top of the cozy base:
+   **quirk, whimsy, and a thread of playful "cozy-horror"** — the uncanny used for
+   delight, never dread — and **easter eggs galore**, hidden triggers that reward
+   the curious with special little moments, some silly, some heartfelt.
 4. **The town tells its own stories, legibly.** Emergent behavior is worthless if
    no one can read it. Names, thought bubbles, complaint bubbles, inspectors, and
    follow-cam exist to surface the stories the simulation is already generating.
@@ -77,27 +86,26 @@ version of the near-term; this is the whole horizon.
   by moving truck. Scale-tested to hundreds of residents.
 - **v0.3 — Alive:** names, inspectors, follow-camera, thought & complaint bubbles.
 
-**Next**
+**Next** *(reshuffled: charm ahead of economy — see roadmap.md)*
 - **v0.4 — Look & Life (current):** a committed art direction; detailed models;
   reworked tiles; deep immersive zoom; a visual day/night cycle; a living map
   (per-building variation, ambient props, gentle motion). *Make it beautiful.*
-- **v0.5 — Payday:** money, build costs, income from *real* citizen visits (a
-  completed shift, a satisfied errand), shop supply via delivery trucks. Cozy
-  failure — broke pauses building, never collapses.
-- **v0.6 — Needs & Nooks:** the needs-loop refactor (needs become pure data),
-  a food need + diner, small venues (plaza, fountain), the beginnings of
-  happiness. More reasons to build, more stories.
-- **v0.7 — Rush Hour & Roots:** traffic congestion (emergent queues), then land
-  value & density (apartments) — the feedback loops that make layout matter.
-- **v0.8 — Comings & Goings:** the visitor framework — ice-cream truck, stray
-  dog, street musician, seasonal events & festivals. Charm and delightful chaos.
-- **v0.9 — A Place of Your Own:** gentle goals & milestones, unlocks, naming your
-  town, a light mayor identity — progression that never turns into pressure.
+- **v0.5+ — Charm & Secrets:** the heart of this game's identity —
+  - an **events & visitors framework** (scripted moments: friendly, quirky, and
+    gently uncanny) and an **easter-egg framework** (hidden triggers → special
+    scripted scenes: citizen gatherings, sign/heart props, secret messages —
+    reusing the bubble & agent systems). Charm-first, some tender.
+  - **more venues & needs** (diner, plaza, fountain; needs-loop refactor) —
+    reasons to build, decoupled from money.
+- **v0.6 — Rush Hour & Roots:** traffic congestion, then land value & density.
+- **v0.9 — A Place of Your Own:** gentle goals, unlocks, naming your town — soft
+  progression that never becomes pressure.
 - **v1.0 — Standalone:** sound & music, save/load, settings & accessibility, a
   diegetic tutorial, a title screen, performance hardened at scale, a larger /
-  expandable map, and a proper self-hosted build. Ship it as a real game.
-- **Beyond:** seasons & weather, tourism, citizen relationships & families,
-  moddable content packs.
+  expandable map, a proper self-hosted build. Ship it as a real game.
+- **Tabled:** **Economy "Payday"** (money, costs, income) — designed in roadmap
+  Pillar C, deprioritized by the owner; build it someday if it earns its place.
+- **Beyond:** seasons & weather, citizen relationships & families, more secrets.
 
 ## Standalone-game architecture (what "full-fledged" needs — plan now, build later)
 
@@ -127,8 +135,12 @@ Decisions to make deliberately so we don't paint ourselves in:
 
 ## Tone bible (so everything feels like one thing)
 
-- Earnest, warm, a little whimsical. Never cynical, never punishing.
+- **Cozy-core, mischievous accents.** Earnest, warm, whimsical — with occasional
+  quirky or gently uncanny surprises used to *delight*, never to frighten. Cute
+  first; spooky is a wink, not a threat. Never cynical, never punishing.
 - Citizens are endearing, slightly silly, and taken seriously by the world.
 - Text is friendly and human ("heading home to sleep", not "state: SLEEP").
+- **Easter eggs are the soul's signature** — hidden, hand-placed moments of
+  charm, humor, and (sometimes) tenderness. Reward curiosity. Sweat the payoff.
 - Delight lives in small details: a name you recognize, a light at dusk, a dog
-  that adopts a commuter. Sweat those.
+  that adopts a commuter, a secret only a few will ever find.

@@ -178,32 +178,38 @@ The classic city-builder emergence engine. Also the riskiest pillar.
 
 ---
 
-## Sequencing (decided 2026-07-20)
+## Sequencing (updated 2026-07-20 — charm over economy)
 
-Finish v0.2 (M7 → M8) first, then:
+Big direction shift: the game's identity is now **a cozy game with tons of charm,
+quirk, and a thread of playful "cozy-horror," plus easter eggs galore** (some
+tender, hidden delights). The **economy is TABLED** — the player decided it "won't
+be as important." Charm/secrets/events move ahead of it.
 
-- **v0.3 — "Alive":** Pillar A in full — names, citizen + building
-  inspectors, follow-cam, thought bubbles, complaint-bubbles-as-tutorial.
-  No visitors (truck/dog cut from this version by player decision). The
-  inspector/bubbles become the debug UI every later pillar needs anyway.
-- **v0.4 — "Payday":** Pillar C. Delivery trucks introduce the visitor
-  framework (B) as working infrastructure. F's needs-loop refactor lands
-  here too (diner = first paid venue addition).
-- **v0.5 — "Rush Hour":** D v1 spacing, then E — density creates the traffic
-  that makes D worth watching.
-- **Unscheduled:** B's fun visitors (ice cream truck, stray dog, street
-  musician) — one data row each once v0.4's framework exists; add when the
-  player wants more silliness.
-- Backlog unchanged (day/night visual, save/load, sound, bigger map) —
-  day/night pairs naturally with v0.5 headlights if it ever gets pulled in.
+- **v0.3 — "Alive"** ✅ Pillar A (names, inspectors, follow-cam, bubbles).
+- **v0.4 — "Look & Life"** (current) — art direction, deep zoom, visual day/night,
+  living map. *Make it beautiful.* (Detailed spec in the v0.4 section above.)
+- **v0.5+ — "Charm & Secrets"** (the new priority after v0.4):
+  - **Events & visitors framework (Pillar B)** — scripted agents/moments: friendly
+    ones AND quirky/uncanny ones (cozy-core, gently spooky accents). One data row
+    per event once the framework exists.
+  - **Easter-egg framework** — hidden triggers → special scripted moments (citizen
+    gatherings, sign props, heart/emote bursts reusing the bubble system, secret
+    messages). Charm-first, some tender. *(Personal/spoiler-sensitive specifics
+    are kept OUT of the repo — see the owner's private design notes.)*
+  - **More venues & needs (Pillar F)** — reasons-to-build charm (diner, plaza,
+    fountain), needs-loop refactor. (Now decoupled from money.)
+- **Later / tabled:** Economy "Payday" (Pillar C) — designed, deprioritized, built
+  someday. Traffic & density (D/E). Standalone polish (sound, save/load) toward v1.0.
 
-## Direction decisions (player, 2026-07-20)
+## Direction decisions (player)
 
-1. **v0.3 headline:** "Alive" — all of Pillar A, minus the ice cream truck
-   and stray dog.
-2. **Can the city fail?** Deferred — it's an economic decision, to be made
-   when Pillar C is scheduled (v0.4 planning). Until then nothing in Pillar
-   C's design may assume failure exists.
-3. **Humor register:** grounded with rare absurdity for now; more silliness
-   may be layered in later. Fun visitors stay designed-but-shelved.
-4. **Map growth:** stays 20×20 until a playtest actually feels cramped.
+1. **Identity (2026-07-20):** a cozy game, heavy on charm, quirkiness, and playful
+   cozy-horror; easter eggs galore, some with heartfelt hidden messages. Built as
+   a gift — treat the surprise details as confidential (not committed to git).
+2. **Economy:** tabled — not a near-term priority.
+3. **v0.4 art direction:** ⏳ PENDING — awaiting the player's pick from the 5
+   rendered prototypes (blocks the v0.4 build).
+4. **Humor/tone register (superseded):** was "grounded, rare absurdity"; now
+   leans into charm + quirk + gentle horror per the identity above.
+5. **Map growth:** stays 20×20 until a playtest feels cramped.
+6. **Failure stakes:** moot for now (economy tabled); revisit if/when economy is.

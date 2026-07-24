@@ -37,6 +37,24 @@ verified (browser/headless) → adversarially reviewed + fixes applied → docs 
 per-version tags there — leave as-is, don't rewrite history). `window._sim` debug
 hooks remain in `index.html` — strip before any public ship.
 
+## Working with the owner (manager-in-training — STANDING PROCESS)
+
+The owner is learning to oversee a software project. Help them manage, and teach
+as you go. Every substantive update to them must include:
+
+- **A condensed "📋 For your review" queue at the top** — a short numbered list of
+  things awaiting *their* decision or sign-off (open PRs, design choices, blockers),
+  each one line: what it is · why it needs them · where (link/branch) · your
+  recommendation. Detailed outlines go *below* the queue, not instead of it.
+- **Proactive PR notice.** Whenever a PR is opened/updated or something needs
+  review, surface it explicitly and early — never let a PR sit silently. State
+  what merging it will do, in plain terms.
+- **Teach the concept in one line** when a new GitHub/PM idea comes up (what a PR
+  is, what a merge/tag/branch does, why review matters) — briefly, in context, so
+  they learn the craft of oversight without being lectured.
+- Keep it **scannable**: condensed lists for decisions, deeper detail on request.
+  Be the employee who makes their job of overseeing easy.
+
 ## Project summary
 
 Browser-based isometric city builder. Three.js (ES module build), true 3D with an
