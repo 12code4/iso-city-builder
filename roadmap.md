@@ -178,38 +178,51 @@ The classic city-builder emergence engine. Also the riskiest pillar.
 
 ---
 
-## Sequencing (updated 2026-07-20 — charm over economy)
+## The 4-patch roadmap (v0.4 → v0.7) — decided 2026-07-20
 
-Big direction shift: the game's identity is now **a cozy game with tons of charm,
-quirk, and a thread of playful "cozy-horror," plus easter eggs galore** (some
-tender, hidden delights). The **economy is TABLED** — the player decided it "won't
-be as important." Charm/secrets/events move ahead of it.
+Identity: a cozy, cute, **anime-flavored town-builder with a slow-burn DDLC-style
+psychological-horror layer** and easter eggs galore — made as a gift. Economy is
+TABLED. The four patches build one emotional arc:
+**make it beautiful → make them love it → unsettle them → the hidden hearts.**
 
-- **v0.3 — "Alive"** ✅ Pillar A (names, inspectors, follow-cam, bubbles).
-- **v0.4 — "Look & Life"** (current) — art direction, deep zoom, visual day/night,
-  living map. *Make it beautiful.* (Detailed spec in the v0.4 section above.)
-- **v0.5+ — "Charm & Secrets"** (the new priority after v0.4):
-  - **Events & visitors framework (Pillar B)** — scripted agents/moments: friendly
-    ones AND quirky/uncanny ones (cozy-core, gently spooky accents). One data row
-    per event once the framework exists.
-  - **Easter-egg framework** — hidden triggers → special scripted moments (citizen
-    gatherings, sign props, heart/emote bursts reusing the bubble system, secret
-    messages). Charm-first, some tender. *(Personal/spoiler-sensitive specifics
-    are kept OUT of the repo — see the owner's private design notes.)*
-  - **More venues & needs (Pillar F)** — reasons-to-build charm (diner, plaza,
-    fountain), needs-loop refactor. (Now decoupled from money.)
-- **Later / tabled:** Economy "Payday" (Pillar C) — designed, deprioritized, built
-  someday. Traffic & density (D/E). Standalone polish (sound, save/load) toward v1.0.
+**Patch 1 — v0.4 "Look & Life"** *(current — the beautiful cozy surface)*
+Art direction (from prototypes), detailed models, reworked tiles, deep immersive
+zoom, visual day/night, living map (variation, props, gentle motion). The horror
+only lands if the cuteness is sincere — so nail the cuteness first. (Full spec in
+the v0.4 section above.)
+
+**Patch 2 — v0.5 "Charm & Critters"** *(make them love the town)*
+Ambient life (pets, birds, quirky citizen micro-behaviors), more charm props, and
+the **events/visitor framework** — the scripted-moment engine everything below
+reuses (Pillar B). First friendly **anime character(s)** as 2D portraits/sprites
+(a layer distinct from the 3D town). Establish attachment; seed a few gentle
+easter eggs.
+
+**Patch 3 — v0.6 "Something's Off"** *(the dread creeps in)*
+The horror layer debuts through the events framework: subtle wrong details (a
+watcher at night, a resident facing the wall, a name you didn't type), atmosphere,
+and the first **cute-but-dangerous character**. Slow, deniable, DDLC-restrained
+(dread > gore) — plus scaffolding for rare meta touches.
+
+**Patch 4 — v0.7 "Hidden Hearts"** *(the love letter pays off)*
+The **easter-egg framework** and the flagship hidden moments: the citizens-gather-
+and-raise-hearts scene (red + pastel-pink), secret messages, and the tender
+payoffs that tie the warmth and the dread together. *(Personal specifics live in
+the owner's private notes, not the repo.)*
+
+**After / tabled:** economy "Payday" (Pillar C, deprioritized); traffic & density
+(D/E); then v1.0 standalone polish — **sound (huge for horror)**, save/load, title
+screen, diegetic tutorial.
 
 ## Direction decisions (player)
 
-1. **Identity (2026-07-20):** a cozy game, heavy on charm, quirkiness, and playful
-   cozy-horror; easter eggs galore, some with heartfelt hidden messages. Built as
-   a gift — treat the surprise details as confidential (not committed to git).
-2. **Economy:** tabled — not a near-term priority.
-3. **v0.4 art direction:** ⏳ PENDING — awaiting the player's pick from the 5
-   rendered prototypes (blocks the v0.4 build).
-4. **Humor/tone register (superseded):** was "grounded, rare absurdity"; now
-   leans into charm + quirk + gentle horror per the identity above.
-5. **Map growth:** stays 20×20 until a playtest feels cramped.
-6. **Failure stakes:** moot for now (economy tabled); revisit if/when economy is.
+1. **Identity (2026-07-20):** cozy, cute, anime-flavored town-builder with a
+   slow-burn **DDLC-style psychological horror** layer (dread, cute-but-dangerous
+   characters, restraint over gore) + easter eggs galore. A gift; horror/surprise
+   specifics stay in private notes, not git.
+2. **Economy:** tabled.
+3. **v0.4 art direction:** ⏳ PENDING — awaiting the pick from the rendered
+   prototypes (blocks the build). Cel (③) is the most anime-native for the 3D
+   town; any style pairs with 2D anime character art for the horror layer.
+4. **Map growth:** 20×20 until a playtest feels cramped.
+5. **Sound:** deferred to a later patch — flagged high-value for the horror.

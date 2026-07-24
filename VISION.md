@@ -9,11 +9,12 @@ answered here. Keep this short, opinionated, and true.
 **A cozy, living miniature town you love watching as much as building** — where
 every little person is real, has a name, and lives a small story you can follow.
 
-Cozy at its core, mischievous at the edges: charm and quirk everywhere, a thread
-of gentle, playful "cozy-horror," and easter eggs galore — some silly, some
-tender, more warmth hidden in it than it lets on. *(This game is made with heart,
-as a gift. The specific secret surprises live in the owner's private notes, not in
-the repo, so they stay surprises.)*
+Cozy and cute on the surface — and, like *Doki Doki Literature Club*, something
+quietly *wrong* underneath. Charm and anime warmth everywhere, threaded with a
+slow-building layer of genuine dread and cute-but-dangerous characters, plus
+easter eggs galore — some silly, some tender. It looks like a hug; it remembers
+you looked away. *(Made with heart, as a gift. The specific secret surprises live
+in the owner's private notes, not the repo, so they stay surprises.)*
 
 ## The feeling we're chasing
 
@@ -44,13 +45,15 @@ who wants a game that's kind to them.
 2. **Intimacy over scale.** Most city builders zoom out to a management dashboard.
    We zoom *in*. The camera, the art, the inspectors, the follow-cam all pull you
    toward the individual and the street-level moment.
-3. **Charm and heart over stress.** Cozy failure only — a struggling city slows
-   down, it never punishes or collapses on you. The tone is gentle and earnest,
-   and the comedy comes from that earnestness (a whole neighborhood mobbing an
-   ice-cream truck, played completely straight). On top of the cozy base:
-   **quirk, whimsy, and a thread of playful "cozy-horror"** — the uncanny used for
-   delight, never dread — and **easter eggs galore**, hidden triggers that reward
-   the curious with special little moments, some silly, some heartfelt.
+3. **Charm and heart — with dread underneath.** The *building* is always kind:
+   cozy failure only, a struggling city slows down, never punishes or collapses.
+   But the *world* has a second layer. Under the cute anime surface runs a
+   slow-building psychological horror in the vein of *Doki Doki Literature Club* —
+   the sweetness is sincere, and that's exactly what makes the wrongness land.
+   Cute-but-dangerous characters, details that shouldn't be, the game noticing
+   you. Restraint over gore: dread, unease, the uncanny. And woven through it all,
+   **easter eggs** — some silly, some frightening, some tender — that reward the
+   curious.
 4. **The town tells its own stories, legibly.** Emergent behavior is worthless if
    no one can read it. Names, thought bubbles, complaint bubbles, inspectors, and
    follow-cam exist to surface the stories the simulation is already generating.
@@ -133,14 +136,39 @@ Decisions to make deliberately so we don't paint ourselves in:
 - **Audio, settings, accessibility, title/menu** — the connective tissue that
   turns a sandbox into a game people can sit down with. Scheduled around v1.0.
 
+## The horror layer (DDLC-adjacent)
+
+She loves horror and anime; the dark side is built for that. The design north:
+
+- **Cute anime surface, psychological horror underneath.** Slow build. Most of the
+  time it's a cozy town; the wrongness creeps in — an off detail, a citizen
+  behaving wrong, a name you didn't type, the UI flickering, the sense of being
+  watched. The night prototypes (red-eyed watchers in a lamp-lit street) are a
+  first taste.
+- **Cute-but-dangerous characters.** Anime-style special characters — rendered as
+  **2D portraits/sprites for dialogue & events, a layer distinct from the 3D
+  town** — who are adorable and *not safe*. Build attachment first, then unease.
+- **Meta touches, sparingly.** DDLC's power is breaking the frame. Use rarely and
+  deliberately: the game remembering, addressing the player, "editing" itself.
+- **Restraint.** Dread > gore. Atmosphere, sound, and the contrast with the cozy
+  base do the work — one perfect wrong thing beats ten jump scares.
+- **Always in service of the gift.** The scares are a love language here; every
+  dark arc bends back toward warmth and the hidden messages for her.
+
+Specific scares, characters, and meta beats live in the owner's PRIVATE notes,
+not the repo — spoilers ruin horror.
+
 ## Tone bible (so everything feels like one thing)
 
-- **Cozy-core, mischievous accents.** Earnest, warm, whimsical — with occasional
-  quirky or gently uncanny surprises used to *delight*, never to frighten. Cute
-  first; spooky is a wink, not a threat. Never cynical, never punishing.
-- Citizens are endearing, slightly silly, and taken seriously by the world.
-- Text is friendly and human ("heading home to sleep", not "state: SLEEP").
-- **Easter eggs are the soul's signature** — hidden, hand-placed moments of
-  charm, humor, and (sometimes) tenderness. Reward curiosity. Sweat the payoff.
-- Delight lives in small details: a name you recognize, a light at dusk, a dog
-  that adopts a commuter, a secret only a few will ever find.
+- **Cute surface, real dread beneath (the DDLC rule).** Genuinely warm, cozy, and
+  anime-adorable on top — and genuinely unsettling underneath. The horror works
+  *because* the cuteness is sincere; never wink-and-nudge "spooky", never gore.
+  Dread, wrongness, the uncanny, and characters who are lovable AND dangerous.
+- **Kind to the PLAYER even while unsettling them.** The unease is the gift, not
+  cruelty — a horror game she'll love, made with love.
+- Citizens are endearing and taken seriously — which is why it lands when one is
+  standing in your yard at 3am, facing the wall.
+- Text is friendly and human ("heading home to sleep", not "state: SLEEP") —
+  until, rarely and deliberately, it isn't.
+- **Easter eggs are the soul's signature** — hidden moments of charm, humor,
+  fright, and tenderness. Reward curiosity. Sweat every payoff.
