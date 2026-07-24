@@ -317,3 +317,21 @@ _sim.setDayT/getDayT/camView/camTarget/refreshChimneys. File now ~1650 lines
 (past the 1500 split point — kept single-file through v0.4 as decided; ES-module
 split is the next structural step). Title -> v0.4. Adversarial review of the diff
 run before final push. Next: v0.5 "Charm & Critters" per the 4-patch roadmap.
+
+## v0.5 "Charm & Critters" built + verified (2026-07-24, branch claude/v0.5-charm-critters)
+The love layer, and the scripted-moment engine everything later rides on:
+- CATS (2): ambient wanderers strolling sidewalk edges of the road network,
+  random adjacent-tile walks, occasional sits; respawn if stranded. Render-only.
+- BUTTERFLIES (6, pooled): pastel flutters over door gardens + parks
+  (flowerSpots rebuilt with chimneys on world change), daytime only (fxLight).
+- QUIRK: walkers occasionally pause mid-street for a beat
+  (CONFIG.citizens.quirks, random per citizen, no shared clock, FSM untouched).
+- EVENTS ENGINE: tiny data-driven rows {key, chance, cooldownHours, canRun,
+  run} evaluated on the slow tick; run()===false doesn't burn the cooldown.
+  Future charm/easter eggs/horror = new ROWS, not new systems.
+- First two rows: 💕 passing-hearts (two travelers within heartDist share
+  heart bubbles, per-citizen cooldown) and ⭐ shooting star (night only).
+Verified headless (pop 16+, zero errors): butterflies spawn, cats visible +
+moving + on-network, staged hearts fire (+2 bubbles), star runs at night only,
+pause quirk observed. Screenshots delivered. Deferred from the patch: the first
+2D anime character (needs the character-art layer; scheduled with v0.6+'s).

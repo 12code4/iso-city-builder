@@ -192,7 +192,10 @@ boxes, gardens, lamps), pink-awning shop, flowerbed parks; deep immersive zoom
 map (per-home variation, chimney smoke, birds). Real-game verified + reviewed. The
 cuteness is sincere → the horror will land. (Anime characters = a later 2D layer.)
 
-**Patch 2 — v0.5 "Charm & Critters"** *(make them love the town)*
+**Patch 2 — v0.5 "Charm & Critters"** ✅ BUILT (branch claude/v0.5-charm-critters) —
+cats, butterflies, pause quirk, 💕 passing-hearts, shooting star, and the
+EVENTS ENGINE (data rows on the slow tick) that v0.6+ scares and easter eggs
+ride on. 2D anime character deferred to the character-art slice. Original spec:
 Ambient life (pets, birds, quirky citizen micro-behaviors), more charm props, and
 the **events/visitor framework** — the scripted-moment engine everything below
 reuses (Pillar B). First friendly **anime character(s)** as 2D portraits/sprites
