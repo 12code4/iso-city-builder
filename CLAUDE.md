@@ -41,10 +41,28 @@ hooks remain in `index.html` — strip before any public ship.
 
 Browser-based isometric city builder. Three.js (ES module build), true 3D with an
 orthographic camera locked to isometric angles. Place buildings on a grid, watch the
-city grow. Economy and population systems planned for later versions — v0.1 is
-placement and growth only.
+city grow. Economy and population systems planned for later versions.
 
-Targets: desktop browser + mobile touch. Single HTML file until size forces a split.
+**The soul of the game lives in `VISION.md`** — read it for the *why*. One-liner: a
+cozy, living miniature town you love watching as much as building, where every
+citizen is a real simulated individual with a name and a story. Intimacy over
+scale; charm over stress.
+
+Targets: desktop browser + mobile touch.
+
+## Scaling & structure commitments (locked)
+
+- **Every citizen is simulated individually — never faked with statistics.**
+  (Player-locked.) We earn scale with engineering, not shortcuts: amortized
+  decision ticks (done), cache-on-change floods/paths (done), and — as the city
+  grows — spatial partitioning, InstancedMesh + LOD + culling for crowds, and Web
+  Workers for the sim if needed. Target: thousands of citizens, smooth.
+- **File structure path:** single `index.html` **through v0.4**; then split into
+  ES modules (config / world / sim / render / camera / input / main); then a light
+  bundler (Vite/esbuild) when an asset+audio pipeline lands (~v0.9–v1.0). The
+  meshes-are-a-projection rule keeps this refactor safe.
+- **Save/load** (self-hosted build): serialize `world`/`citizens`/`trucks`/time;
+  meshes rebuild from state. Version the save format from day one.
 
 ## Locked decisions
 

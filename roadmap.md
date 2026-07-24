@@ -1,23 +1,43 @@
 # roadmap.md — designed-ahead features (v0.3 and beyond)
 
-Division of labor between docs: CLAUDE.md = locked architecture, plan.md =
-session log, **roadmap.md = features designed ahead of their build**. When a
-pillar here gets scheduled, its spec moves into CLAUDE.md (trimmed to what's
-locked) and this file keeps only the not-yet-scheduled ideas.
+Division of labor between docs: **VISION.md = the north star** (soul + full arc),
+CLAUDE.md = locked architecture, plan.md = session log, **roadmap.md = features
+designed ahead of their build**. When a pillar here gets scheduled, its spec moves
+into CLAUDE.md (trimmed to what's locked) and this file keeps only the not-yet-
+scheduled ideas.
 
 ## Where we are
 
-v0.2 is COMPLETE (M1–M8). v0.3 "Alive" (Pillar A) is built. Status:
-- ~~**M7** — migration~~ ✅ DONE (2026-07-20): moving trucks deliver residents
-  from the highway edge (1–3 per trip); reachability gates arrival. The truck
-  is the minimal seed of Pillar B's visitor framework.
-- ~~**M8** — playtest tuning~~ ✅ DONE (2026-07-20): headless scale test; sim
-  holds at ~435 pop; fixed startup truck swarm (migration.maxConcurrent). Meter
-  feel left as documented knobs (see plan.md).
-- ~~**Pillar A — Charm & observability**~~ ✅ BUILT as v0.3 "Alive" (2026-07-20):
-  names, citizen + building inspectors, follow camera, thought + complaint
-  bubbles. All browser-verified. Complaint-as-tutorial closed the empty-streets
-  "player guidance" gap. Next up per sequencing: v0.4 "Payday" (Pillar C + F).
+v0.2 COMPLETE (M1–M8). v0.3 "Alive" BUILT. **v0.4 "Look & Life" is the current
+build** (art direction + immersion) — a deliberate reshuffle: the player chose a
+look-and-feel release before the economy, so **economy "Payday" moves to v0.5**.
+- ~~**M7** — migration~~ ✅ moving trucks deliver residents; reachability-gated.
+- ~~**M8** — scale tuning~~ ✅ sim holds at ~435 pop; truck-swarm cap.
+- ~~**Pillar A — Charm & observability**~~ ✅ BUILT as v0.3 "Alive": names,
+  inspectors, follow camera, thought + complaint bubbles.
+
+## v0.4 — "Look & Life" (current release: make it beautiful and alive)
+
+A look-and-feel release. Four updates, each shipped + verified (verification =
+rendered screenshots, since beauty can't be judged headlessly):
+
+1. **Art-direction overhaul** — one committed style applied to every model
+   (houses L1/L2, shop, park, walkers, cars, trucks) and every tile (grass, road,
+   sidewalk, highway, park). Detailed, characterful geometry + material/lighting
+   polish. Direction chosen from rendered prototypes (5 candidates: Cozy Miniature
+   Diorama, Storybook Papercraft, Cel-shaded Toytown, Handmade Clay, Cozy Lowpoly).
+2. **Deep immersive zoom** — extend the zoom far past the current clamp toward
+   street level; retune frustum/clamps so it stays smooth and readable all the way
+   in. The payoff for the detailed models.
+3. **Day/night cycle (visual only)** — animated sun, sky gradient dawn→day→dusk→
+   night, warm golden-hour light, window + lamp glow after dark. NEVER drives
+   citizen behavior (no-shared-clock rule holds — it's pure lighting/skybox state).
+4. **Living map** — per-building procedural variation (no two identical), ambient
+   props (street lamps, hedges, flowers, benches), and gentle ambient motion
+   (chimney smoke, birds). Handmade, inhabited feel.
+
+Deferred by player choice: **sound** → a later update; **charm visitors** (dog /
+ice-cream truck) → stay tabled for the v0.8 visitor framework.
 
 ## The filter — every feature must pass all five
 
