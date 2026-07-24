@@ -145,6 +145,16 @@ She loves horror and anime; the dark side is built for that. The design north:
   behaving wrong, a name you didn't type, the UI flickering, the sense of being
   watched. The night prototypes (red-eyed watchers in a lamp-lit street) are a
   first taste.
+- **A layered, unlockable reveal (the core horror mechanic).** Horror is *earned,
+  not given*, and never fully peeled back at the start. The game ships with only
+  **1–2 subtle "seed" scares** active from Layer 1; the rest of the layer stays
+  **locked** until she *notices and interacts with the seeds enough*, which
+  unlocks the full pool for the game to draw from. Deeper layers unlock later.
+  **Every horror element is low-probability AND fleeting** — blink-and-miss, easy
+  to dismiss as a glitch or bug ("...wait, did that just happen?"). *Deniability
+  is the horror.* Data-driven: each element is an event row tagged
+  `{layer, unlockedBy, prob, duration}` — richness without bloat, no new citizen
+  states, no shared clock (probabilistic, not scheduled). Progression saved.
 - **Cute-but-dangerous characters.** Anime-style special characters — rendered as
   **2D portraits/sprites for dialogue & events, a layer distinct from the 3D
   town** — who are adorable and *not safe*. Build attachment first, then unease.

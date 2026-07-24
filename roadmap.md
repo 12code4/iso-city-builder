@@ -199,10 +199,14 @@ reuses (Pillar B). First friendly **anime character(s)** as 2D portraits/sprites
 easter eggs.
 
 **Patch 3 — v0.6 "Something's Off"** *(the dread creeps in)*
-The horror layer debuts through the events framework: subtle wrong details (a
-watcher at night, a resident facing the wall, a name you didn't type), atmosphere,
-and the first **cute-but-dangerous character**. Slow, deniable, DDLC-restrained
-(dread > gore) — plus scaffolding for rare meta touches.
+The **layered horror system** debuts: ships with only 1–2 subtle *seed* scares
+active; noticing/interacting with them enough unlocks the rest of Layer 1 for the
+game to use (deeper layers later). Every element is **low-probability + fleeting**
+— deniable as a glitch. Content rides the events framework: subtle wrong details
+(a watcher at night, a resident facing the wall, a name you didn't type),
+atmosphere, and the first **cute-but-dangerous character**. DDLC-restrained
+(dread > gore); each scare is a data row `{layer, unlockedBy, prob, duration}`, so
+it's richness not bloat.
 
 **Patch 4 — v0.7 "Hidden Hearts"** *(the love letter pays off)*
 The **easter-egg framework** and the flagship hidden moments: the citizens-gather-
@@ -224,5 +228,9 @@ screen, diegetic tutorial.
 3. **v0.4 art direction:** ⏳ PENDING — awaiting the pick from the rendered
    prototypes (blocks the build). Cel (③) is the most anime-native for the 3D
    town; any style pairs with 2D anime character art for the horror layer.
+   **Palette locked toward cute pastels — pastel pinks, purples, blues** — with
+   flowery, detailed, adorable homes (window boxes, gardens). Whatever style
+   wins, it wears this cute pastel skin. The cuter the surface, the harder the
+   horror lands.
 4. **Map growth:** 20×20 until a playtest feels cramped.
 5. **Sound:** deferred to a later patch — flagged high-value for the horror.
