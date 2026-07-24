@@ -3,6 +3,40 @@
 Stable architecture reference. Session-by-session notes live in plan.md, not here.
 Update this file only when an architectural decision changes.
 
+## Repository & release hygiene (STANDING PROCESS — check every session)
+
+Goal: a well-organized GitHub with clean version history and current docs. Verify
+this at the start of a session and satisfy it before wrapping up. Do not leave
+finished work stranded on a branch or a version untagged.
+
+**`main` is the source of truth.** It must always reflect the latest *completed*
+version. Never let it fall behind shipped work. Do WIP on a feature branch; when a
+version (or a self-contained chunk) is done + verified + reviewed, merge it to
+`main` via PR. If a session starts and `main` is behind finished work, opening that
+PR is the first housekeeping task.
+
+**Tag every version.** When `vX.Y` is feature-complete, tag it annotated at that
+commit (`git tag -a vX.Y -m "…"`) and push tags (`git push --tags`). A version is
+not "done" until it is tagged — tags are the checkout-able record of each release.
+
+**Commits stay granular.** One clear commit per milestone / feature / fix. Never
+squash unrelated work together (the early history fused v0.1 + v0.2-M5 into a single
+"Initial commit" — that history is unrecoverable; don't repeat it).
+
+**Docs stay in sync, every version:**
+- `README.md` — front page: bump the current-version line + feature list each release.
+- `CLAUDE.md` — architecture; update when a decision changes.
+- `roadmap.md` — future pillars; move a pillar out once it's built.
+- `plan.md` — append a session-log entry every session (what, why, verification).
+
+**Definition of done for a version** — all true before calling it shipped:
+verified (browser/headless) → adversarially reviewed + fixes applied → docs updated
+→ granular commits → pushed → tagged `vX.Y` → merged to `main`.
+
+**Known repo debt:** v0.1 + v0.2-M5 are fused in the initial commit (no clean
+per-version tags there — leave as-is, don't rewrite history). `window._sim` debug
+hooks remain in `index.html` — strip before any public ship.
+
 ## Project summary
 
 Browser-based isometric city builder. Three.js (ES module build), true 3D with an
@@ -178,15 +212,33 @@ Citizen record additions for this: `stayUntil` (game time) and
 ### Population, jobs, migration
 
 - Residents per house: L1 = 3, L2 = 5 (CONFIG.citizens.residentsPerLevel).
-  Citizens are created on house placement/upgrade, removed on bulldoze.
+  Residents are DELIVERED by moving truck (see Migration), removed on bulldoze.
 - Cars per house: L1 = 1, L2 = 2 (carsPerLevel). Scarcity is structural —
-  residents always outnumber cars, so walking stays alive.
+  residents always outnumber cars, so walking stays alive. Cars are tied to
+  house level (present from placement); the moving truck is NOT a household car.
 - Jobs per shop: 4 (≈ one L1 house per shop, with some joblessness left
   over as the future unhappiness hook). Assignment: nearest open job by
-  road distance. Jobless citizens skip the work state.
-- Migration: new arrivals enter BY VEHICLE down the highway from its edge
-  endpoint (no pedestrians on highway) and become walkers at the stub's
-  inner end where it meets the road network.
+  road distance (assigned when the resident arrives). Jobless citizens skip
+  the work state.
+- **Migration (M7, moving-truck model — locked 2026-07-20):** a house does not
+  spawn residents instantly. It holds `pending` (residents owed) and the city
+  dispatches a **moving truck** per delivery: the truck enters at the highway
+  edge tile (HW_EDGE), drives the road+highway network to the house's curb
+  (its best-reachable frontage road tile), drops off `1..migration.maxLoad`
+  new residents (house resident count += load), then drives back out to the
+  edge and despawns. One inbound truck per house at a time; the next dispatch
+  waits a jittered `migration.dispatchHours` cooldown — natural stagger, no
+  shared clock. A truck is a transient entity in a flat `trucks` array, not a
+  citizen (no meters, no FSM — the three-state rule is untouched); it is the
+  minimal seed of the future visitor framework (roadmap Pillar B).
+  - **Reachability gates arrival (behavior change from M5/M6):** a truck can
+    only deliver where it can drive. A house with no road path from the highway
+    stays EMPTY, its residents waiting in `pending`, until a road connects it —
+    then trucks stream in. This replaces the old instant "shut-in" spawn.
+  - Disruptions resolve by visible consequence: bulldoze a house mid-delivery →
+    its inbound truck abandons and drives back out empty; sever the road under a
+    truck → it re-routes, or leaves if the house became unreachable, or idles if
+    stranded on an orphaned segment.
 
 ### Cars & mode choice
 
@@ -321,9 +373,43 @@ v0.2 — Citizens:
    assignment. No rendering — HUD population counter proves it works.
 6. **M6 — Walkers:** road BFS pathfinding, visible walkers with interpolated
    movement, traveling/doing phases, severed-path re-planning.
-7. **M7 — Free time + migration:** building advertisements, free_time choice,
-   arrivals walking in from the highway.
-8. **M8 — v0.2 playtest:** meter rate tuning, walker readability at zoom levels.
+7. **M7 — Free time + migration:** building advertisements + free_time choice
+   (done in M5). Migration ✅: moving trucks deliver residents from the highway
+   edge; reachability gates arrival; disruptions handled. Browser-verified.
+8. **M8 — v0.2 playtest:** ✅ headless scale test (87 houses, pop ~435, 4 days);
+   sim holds at scale, streets lively. Fixed a startup truck swarm
+   (migration.maxConcurrent cap). Meter feel (fun/energy) left as documented
+   playtest knobs. See plan.md.
+
+v0.3 — Alive (Pillar A — charm & observability):
+
+9. **v0.3a — Inspectors:** ✅ deterministic citizen names; 🔍 Inspect tool; live
+   DOM cards for citizens (name, state, meter bars, home/job) and buildings
+   (residents/workers/visitors, clickable names). Browser-verified.
+10. **v0.3b — Follow camera:** ✅ Follow button tracks a citizen; manual pan
+    cancels. Browser-verified.
+11. **v0.3c — Bubbles:** ✅ thought bubbles at decision points; complaint bubbles
+    (starved need + no venue) as diegetic tutorial. Browser-verified.
+
+## v0.3 architecture notes (Alive)
+
+- **Inspector = pure reading surface.** DOM card (#inspector), consistent with
+  the DOM-not-in-scene UI rule. Reads `world`/`citizens`, never writes. Citizen
+  pick = screen-space nearest walker within CONFIG.input.pickRadius (generous at
+  far zoom); building pick = mesh raycast (meshes tagged `userData.kind`). Cards
+  live-update each frame; building cards rebuild innerHTML only on a content-
+  signature change (stable click handlers). Card self-closes when its subject is
+  bulldozed. All state in a single `inspected` descriptor.
+- **Follow camera** only slides `camTarget` (never zoom/yaw — the fragile tween
+  composition is untouched). Any manual pan clears the `follow` flag.
+- **Bubbles are billboard sprites** (THREE.Sprite), a projection of sim state —
+  NOT a new citizen state. Thought bubbles are emitted at existing decision
+  points (goWork/goHome/chooseFreeTime); complaints are emitted by `maybeComplain`
+  from meter thresholds + a `servedNeeds` set (which advert-needs have a venue),
+  gated by a per-citizen cooldown. No shared clock. Emoji textures cached/shared;
+  sprite materials disposed on expiry. All tuning in CONFIG.citizens.bubbles.
+- **Debug surface:** `window._sim` carries test/debug hooks (apply, inspect*,
+  screenOf, getters, showBubble). Intentional; strip before a public ship.
 
 ## Backlog (not current version)
 

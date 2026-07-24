@@ -137,3 +137,160 @@ a shop+park present.
 Player guidance to keep in mind for UI later: buildings need road
 frontage; citizens need destinations. Backlog idea: idle "stroll"
 behavior so even venue-less towns show some foot traffic.
+
+## Feature planning session (2026-07-20)
+
+New doc: **roadmap.md** — six designed-ahead pillars for v0.3+, each vetted
+against a five-rule filter (one authority / adverts-only / no shared clocks /
+visible consequence / observable before economic):
+- A: Charm & observability — names, citizen+building inspectors, follow-cam,
+  thought bubbles; complaint bubbles double as diegetic tutorial (closes the
+  "player guidance" note above).
+- B: Visitors & events — data-driven visitor framework (enter via highway,
+  do a thing, leave). Ice cream truck = proof-of-the-advert-rule feature;
+  stray dog; street musician (advert modification as event mechanic).
+- C: Money — treasury, build costs, income only on physical arrivals
+  (shift/errand completions), shop supply meters + delivery trucks making
+  the highway the real import artery. Broke = can't build, never a spiral.
+- D: Traffic — v1 same-lane spacing only (no intersection logic, ever, until
+  it proves stable); v2 trip-time memory nudging mode choice.
+- E: Land value — desirability field (parks +, highway noise −) gating L3
+  apartments; residents [0,3,5,8], cars capped at 2 (walking stays alive).
+- F: New needs — generalize tickCitizen's hardcoded errands/fun loop first,
+  then food need + diner as pure data.
+
+Proposed order: finish M7+M8, then v0.3 "Alive" (A + truck/dog), v0.4
+"Payday" (C + F), v0.5 "Rush Hour" (D then E). Four direction questions for
+the player are OPEN in roadmap.md (headline pillar, failure stakes, humor
+register, map growth) — sequencing runs on flagged working assumptions until
+answered; interactive ask failed twice this session (tool stream closed).
+
+## Direction decisions from the player (2026-07-20)
+
+- v0.3 = "Alive", Pillar A in full, but NO ice cream truck / stray dog.
+  Fun visitors shelved (designed, unscheduled) until more silliness is
+  wanted; the visitor framework still arrives via v0.4 delivery trucks.
+- Failure stakes: deferred to v0.4 planning — an economic decision. Pillar
+  C design must not assume failure exists until then.
+- Humor: grounded with rare absurdity for now; silliness may layer in later.
+- Map: 20×20 until a playtest feels cramped.
+roadmap.md sequencing + decisions sections updated to match.
+
+## M7 migration built + verified (2026-07-20)
+Player override of the old locked spec: no drive→walk hand-off. A MOVING
+TRUCK enters at the highway edge, drives (road+highway net) to a house's curb,
+drops off 1..maxLoad residents (house resident count += load), then drives
+back out and despawns. One truck bought a random 1–3 people, IRL-style.
+Design vetted first via a multi-agent design pass (3 approaches + adversarial
+critique) before the player simplified it to the truck model.
+Implementation (index.html, ~+130 lines, now ~1200):
+- Houses hold t.pending / t.nextDispatch / t.truckInFlight; onHousePlaced +
+  onHouseUpgraded queue arrivals instead of spawning instantly.
+- Flat `trucks` array; a truck is NOT a citizen (no meters/FSM — 3-state rule
+  intact). Reuses beginTravel + a new shared advanceAlong() mover; drive-net
+  floods. Rendered as a bigger van box via updateTruckMeshes (projection).
+- dispatchTruck / migrationTick (slow tick) / truckArrive (deliver + turn
+  around) / despawnTruck / replanTrucks / cancelArrivalsFor / nudgeMigration.
+- BEHAVIOR CHANGE: reachability now gates arrival. An unconnected house stays
+  empty (residents wait in pending) until a road links it to the highway —
+  replaces the old instant shut-in spawn. Trucks turn back on bulldoze/sever.
+- Census gained a 🚚 count of in-transit arrivals. window._sim.apply() added
+  as a debug/test hook. Title → v0.2 M7.
+Verification: real-browser Playwright harness (THREE served from npm — cdnjs
+is blocked by the egress proxy, app file untouched). Results: trucks drive in
+AND back out, always on-network (0 off-network samples); pop climbs as trucks
+deliver, incl. L2-upgrade re-deliveries; isolated house stayed pending 3 /
+residents 0 while unreachable, then filled to 3 within seconds of a road
+connecting; bulldoze of a 5-resident house → pop drop, 0 ghosts; road sever →
+0 stuck trucks; 0 NaN. Adversarial code-review pass run over the diff.
+Next: M8 (v0.2 playtest / meter tuning). dispatchHours=1.5, maxLoad=3,
+truckSpeed=0.7 are the migration knobs to tune there.
+
+## M8 scale test + tuning (2026-07-20)
+Built a headless scale harness (scratchpad/scale-test.mjs): road grid off the
+highway, auto-filled adjacent tiles → 87 houses / 14 shops / 14 parks, ran
+~4.5 in-game days at timeScale 30, pop reached 375–435 (all houses hit L2).
+Findings at real scale:
+- LIVELINESS is strong: ~25–43% of citizens on the street on average. The
+  "alive" feel is there; walker density is high, not sparse.
+- MIGRATION keeps up: all residents delivered, pending drains to 0; jobs fill
+  fully (56/56). No NaN over 4 days.
+- BUG FOUND + FIXED — startup truck SWARM: peakTrucks was 87 (every house
+  dispatches on the same frame after a bulk placement). Added
+  CONFIG.citizens.migration.maxConcurrent (8): migrationTick stops dispatching
+  once the map is at the cap; remaining houses wait a tick. Re-test: peak 87→8,
+  city still populates, all M7 behaviors still pass. Real incremental play
+  rarely hits the cap; it's insurance for bulk placement + the larger-map
+  backlog.
+- The old M5 worry ("errands/fun saturate near 100 at scale") did NOT
+  materialize — errands mean 69 (19% ≥90), not pinned.
+TASTE CALLS left for the human playtest (with exact knobs), NOT auto-tuned so
+the validated day-anchored system stays intact:
+- fun runs lower than errands (mean 33 vs 69; 38% of citizens fun-starved).
+  Structural: park restore=25 vs shop restore=60, and fun decays faster
+  (80/day vs 60). If citizens read as joyless, bump CONFIG.citizens.adverts
+  .park.restore (25→~40) or visitHours, or lower needs.fun.decayPerDay.
+- energy sits low (mean 45, 25% deeply tired) — long walk commutes drain it
+  in transit. Levers: move.walkSpeed/driveSpeed up, or energy.sleepHours, or
+  accept it as the intended slow-travel tax (it drives cars mattering).
+- joblessness ~85% here is an artifact of the test's house-heavy mix
+  (1 shop per ~6 houses); jobsPerShop=4 is fine — real cities choose their mix.
+- Walker readability at zoom is a VISUAL check only a human can make; density
+  is high, so the question is legibility-when-crowded, not emptiness.
+M8 verdict: one real fix (truck cap) shipped; meter feel is a play-and-judge
+pass with the knobs above. v0.2 sim is solid at scale.
+
+## v0.3 "Alive" — Pillar A built (2026-07-20)
+Long autonomous session: both M8 and v0.3 in one go. v0.3 = the whole of
+roadmap Pillar A minus the ice cream truck / stray dog (player-shelved).
+Three committed, browser-verified stages:
+- v0.3a — Names + inspectors (fccb37f): deterministic nameFor(id); 🔍 Inspect
+  tool; live DOM cards for citizens (name, friendly state line, 4 meter bars,
+  home/job) and buildings (house residents / shop workers / park visitors,
+  clickable names → citizen card). Citizen pick = screen-space nearest within
+  CONFIG.input.pickRadius; building pick = raycast. Cards live-update; building
+  cards rebuild only on a signature change; self-close on bulldoze.
+- v0.3b — Follow camera (d74cacd): Follow button chases a citizen (both phases);
+  manual pan cancels; clears on close/bulldoze. Only camTarget moves.
+- v0.3c — Bubbles (cf9febd): thought bubbles at decision points (💼/😴/🛒/🎈);
+  complaint bubbles (🛒❓/🎈❓) when a need is starved AND no venue exists —
+  the city grumbling what to build. servedNeeds recomputed each simTick; per-
+  citizen cooldown; no shared clock. Sprites are pure projection; textures
+  cached, materials disposed. Closes the empty-streets "player guidance" gap.
+Verification: dedicated Playwright harnesses per stage (verify-v03a/b/c.mjs),
+all green. Test hook lesson: Object.assign copies a getter's VALUE not the
+getter — exposed live state via plain functions (getInspected/getFollow/…).
+Debug surface on window._sim grew (inspect*, screenOf, getters, showBubble) —
+intentional, flagged for stripping before a public ship.
+Adversarial review of the full v0.3 diff run before final push (like M7).
+
+### v0.3 review + fixes (2026-07-20)
+14-agent adversarial review (3 lenses × find→verify) over the v0.3 diff found
+NO correctness/lifecycle bugs — inspector/follow/bubbles logic is sound. 11
+findings deduped to efficiency + 1 design-gap + 1 housekeeping, all low/med.
+Fixed:
+- computeServedNeeds was per-FRAME (in simTick, outside the slow-tick loop).
+  Made it event-driven: recompute only in applyTool (build/bulldoze/road) +
+  once at boot, matching the connectivity cache pattern. AND made it
+  reachability-aware (hasConnectedRoadNeighbor) so a shop placed-but-not-
+  connected still lets citizens complain — closes the review's design-gap.
+- updateBubbles rebuilt a whole-population Map every frame → added a
+  persistent citizenById index (maintained at the single push/splice sites),
+  used in bubbles, both card updaters, follow camera, worker/resident lookups.
+- Citizen card re-queried ~11 elements/frame → cache refs at open.
+- Housekeeping: roadmap "SHIPPED"→"BUILT" (debug hooks intentionally remain on
+  the dev branch; strip before any public ship).
+Left as documented-low: building-card signature filter runs per frame while a
+card is open (bounded to one open card on a 20×20 map).
+Re-verified: all v0.3 a/b/c suites + M7 teardown/sever + reachability gate green.
+
+### Repo hygiene convention adopted (2026-07-20)
+Player wants a well-organized GitHub going forward: clean version history +
+current docs. Added a STANDING PROCESS block to the top of CLAUDE.md (checked
+every session): main always reflects the latest completed version (merge via
+PR, don't strand work on branches); tag every version vX.Y annotated + push
+tags; granular commits (never squash unrelated work); keep README/CLAUDE/
+roadmap/plan in sync each version; a per-version definition-of-done checklist.
+Applying it retroactively now: tag v0.2 (a18e2c4 = M8) and v0.3 (86bcdd0), and
+bring main current (it was stuck at 4bc83e0, ~mid-v0.2, missing M7/M8/v0.3).
+Next: v0.4 "Payday" (economy + needs-loop refactor + diner) per roadmap.
