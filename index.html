@@ -109,8 +109,16 @@ const CONFIG = {
   },
   // Visual day/night cycle. INDEPENDENT of citizen dayLength — purely cosmetic,
   // never drives behaviour (the no-shared-clock rule stays intact).
-  daynight: { cycleSeconds: 120, startT: 0.32,   // full sun→moon→sun in 120 real sec
-              nightSky: 0x0f1626, daySky: 0xdcecf5, warmSky: 0xf4b98a },
+  daynight: {
+    cycleSeconds: 120, startT: 0.32,          // full sun→moon→sun in 120 real sec
+    sunHeightMin: 6,                          // keep the sun elevated so shadows stay in-frustum
+    nightSky: 0x0f1626, daySky: 0xdcecf5, warmSky: 0xf4b98a,
+    sunMoon: 0x8090c8, sunDaylight: 0xfff2d8, sunDusk: 0xff9a4d,
+    sunNight: 0.35, sunDay: 2.4,              // key-light intensity floor(night) + range(day)
+    ambNightCol: 0x445674, ambDayCol: 0xbfd4e6, ambNight: 0.6, ambDay: 0.6,
+    fogNight: 0.010, smokeSpawn: 0.012,
+    glow: { window: 1.5, lamp: 1.4, sign: 1.1 },   // emissive brightness after dark
+  },
   anim: { popDur: 0.3 },
   growth: { upgradeSeconds: 12, tickSeconds: 1 },
   input: { tapMaxMove: 10, pickRadius: 28 },   // px; pickRadius = inspect tap tolerance
@@ -185,9 +193,9 @@ sun.target.position.copy(CENTER);
 sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 const sc = sun.shadow.camera;
-sc.left = -S * 0.85; sc.right = S * 0.85;
-sc.top = S * 0.85; sc.bottom = -S * 0.85;
-sc.near = 1; sc.far = S * 3;
+sc.left = -S; sc.right = S;              // widened for the moving (day/night) sun
+sc.top = S; sc.bottom = -S;
+sc.near = 1; sc.far = S * 3.5;
 scene.add(sun, sun.target);
 const ambient = new THREE.AmbientLight(0xbfd4e6, 1.1);   // ref kept for day/night
 scene.add(ambient);
@@ -272,7 +280,7 @@ function addWindows(g, w, h, d, y, cols) {   // glowing windows + cute flower bo
   for (let i = 0; i < cols; i++) {
     const wx = -w / 2 + w * (i + 1) / (cols + 1);
     const win = new THREE.Mesh(geos.win, windowMat); win.position.set(wx, y, d / 2 + 0.001); g.add(win);
-    const box = shadowed(new THREE.Mesh(geos.flowerBox, mats.box)); box.position.set(wx, y - 0.12, d / 2 + 0.03); g.add(box);
+    const box = new THREE.Mesh(geos.flowerBox, mats.box); box.position.set(wx, y - 0.12, d / 2 + 0.03); g.add(box);  // no shadow (tiny)
     for (let k = 0; k < 3; k++) {
       const f = new THREE.Mesh(geos.flower, flowerMats[k % flowerMats.length]);
       f.position.set(wx - 0.05 + k * 0.05, y - 0.08, d / 2 + 0.04); g.add(f);
@@ -308,7 +316,7 @@ const factories = {
     const roof = shadowed(new THREE.Mesh(geos.roof, cc.roof)); roof.position.y = h + 0.03 + 0.18;
     roof.rotation.y = Math.PI / 4; roof.scale.setScalar(w / 0.6);
     const door = new THREE.Mesh(geos.door, cc.trim); door.position.set(0, 0.15, d / 2 + 0.001);
-    const chimney = shadowed(new THREE.Mesh(geos.chimney, cc.roof)); chimney.position.set(w * 0.28, h + 0.13, d * 0.2);
+    const chimney = new THREE.Mesh(geos.chimney, cc.roof); chimney.position.set(w * 0.28, h + 0.13, d * 0.2);  // no shadow (tiny)
     g.add(base, roof, door, chimney);
     addWindows(g, w, h, d, two ? 0.55 : 0.3, two ? 2 : 1);
     for (let k = 0; k < 4; k++) {                // garden flowers by the door
@@ -1602,11 +1610,12 @@ const smokeGeo = new THREE.SphereGeometry(0.07, 8, 6);
 const smokes = [];
 for (let i = 0; i < 10; i++) {
   const m = new THREE.Mesh(smokeGeo, new THREE.MeshStandardMaterial({ color: 0xf4f4f6, transparent: true, opacity: 0, roughness: 1 }));
-  m.visible = false; scene.add(m); smokes.push({ m, t: 0, from: null });
+  m.visible = false; scene.add(m); smokes.push({ m, t: 0, from: new THREE.Vector3(), active: false });
 }
 let chimneys = [];
 function refreshChimneys() {              // rebuilt on world change (not per frame)
   chimneys = [];
+  for (const s of smokes) { s.active = false; s.m.visible = false; }   // drop puffs over changed tiles
   for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
     const t = world[x][z];
     if (t.type === 'house') {
@@ -1636,25 +1645,26 @@ function updateWorldFX(dt) {
   const dark = 1 - light;
   const horizon = clamp01(1 - Math.abs(sunEl) * 2.2) * light;  // dawn/dusk warmth
 
-  sun.position.set(CENTER.x + Math.cos(ang) * S * 0.9, Math.max(1.5, sunEl * S * 1.15), CENTER.z + S * 0.35);
-  lerpHex(sun.color, 0x8090c8, 0xfff2d8, light); sun.color.lerp(_c2.setHex(0xff9a4d), horizon * 0.6);
-  sun.intensity = 0.35 + light * 2.4;                  // 0.35 = soft moonlight so night stays readable
+  sun.position.set(CENTER.x + Math.cos(ang) * S * 0.9, Math.max(DN.sunHeightMin, sunEl * S * 1.15), CENTER.z + S * 0.35);
+  lerpHex(sun.color, DN.sunMoon, DN.sunDaylight, light); sun.color.lerp(_c2.setHex(DN.sunDusk), horizon * 0.6);
+  sun.intensity = DN.sunNight + light * DN.sunDay;
 
   lerpHex(scene.background, DN.nightSky, DN.daySky, light); scene.background.lerp(_c2.setHex(DN.warmSky), horizon * 0.55);
-  scene.fog.color.copy(scene.background); scene.fog.density = dark * 0.010;
-  lerpHex(ambient.color, 0x445674, 0xbfd4e6, light); ambient.intensity = 0.6 + light * 0.6;
+  scene.fog.color.copy(scene.background); scene.fog.density = dark * DN.fogNight;
+  lerpHex(ambient.color, DN.ambNightCol, DN.ambDayCol, light); ambient.intensity = DN.ambNight + light * DN.ambDay;
 
-  windowMat.emissiveIntensity = dark * 1.5;
-  lampMat.emissiveIntensity = 0.12 + dark * 1.4;
-  signMat.emissiveIntensity = 0.12 + dark * 1.1;
+  windowMat.emissiveIntensity = dark * DN.glow.window;
+  lampMat.emissiveIntensity = 0.12 + dark * DN.glow.lamp;
+  signMat.emissiveIntensity = 0.12 + dark * DN.glow.sign;
 
-  for (const s of smokes) {                         // chimney smoke
-    if (!s.from) {
-      if (chimneys.length && Math.random() < 0.012) { s.from = chimneys[(Math.random() * chimneys.length) | 0].clone(); s.t = 0; s.m.visible = true; }
-      else { s.m.visible = false; continue; }
+  for (const s of smokes) {                         // chimney smoke (pooled, no per-frame alloc)
+    if (!s.active) {
+      if (chimneys.length && Math.random() < DN.smokeSpawn) {
+        s.from.copy(chimneys[(Math.random() * chimneys.length) | 0]); s.t = 0; s.active = true; s.m.visible = true;
+      } else continue;
     }
     s.t += dt * 0.4;
-    if (s.t >= 1) { s.from = null; s.m.visible = false; continue; }
+    if (s.t >= 1) { s.active = false; s.m.visible = false; continue; }
     s.m.position.set(s.from.x + Math.sin(s.t * 4) * 0.04, s.from.y + s.t * 0.5, s.from.z);
     s.m.scale.setScalar(0.5 + s.t * 1.2);
     s.m.material.opacity = (1 - s.t) * 0.5;

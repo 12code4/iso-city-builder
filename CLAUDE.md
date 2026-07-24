@@ -375,8 +375,10 @@ v0.2 so these are observable counters even before money exists.
 
 ## Rendering notes
 
-- One directional light with shadows + ambient. Shadow camera sized to the grid once
-  at startup (static world bounds — no per-frame shadow updates).
+- One directional light with shadows + ambient. Shadow camera sized to the grid at
+  startup (widened to ±S for the moving day/night sun). The v0.4 day/night cycle
+  sweeps the sun each frame but keeps it elevated (CONFIG.daynight.sunHeightMin) so
+  shadows stay inside the frustum; tiny decor (chimney, flower boxes) doesn't cast.
 - ACES tone mapping (matches Solar Swing pipeline familiarity).
 - Building meshes: shared geometries + materials per building type, cloned per tile.
   If tile count grows later, migrate to InstancedMesh — not needed at 20×20.
