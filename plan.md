@@ -294,3 +294,26 @@ roadmap/plan in sync each version; a per-version definition-of-done checklist.
 Applying it retroactively now: tag v0.2 (a18e2c4 = M8) and v0.3 (86bcdd0), and
 bring main current (it was stuck at 4bc83e0, ~mid-v0.2, missing M7/M8/v0.3).
 Next: v0.4 "Payday" (economy + needs-loop refactor + diner) per roadmap.
+
+## v0.4 "Look & Life" built + verified (2026-07-20)
+MAX-EFFORT visual batch — four updates to the RENDER layer only (sim/inspector/
+bubble logic untouched; meshes are a projection, so it was safe). Art direction
+chosen: COZY PASTEL. Built directly into index.html and verified in the real
+game (Playwright, pop 27, day+night, zero console errors):
+1. Cozy-pastel art overhaul — MeshStandard materials; pastel CONFIG.colors;
+   per-house pastel sets (cuteMats, hash(x,z)); detailed homes (window flower
+   boxes, door gardens, chimney, door), pink-awning shop w/ sign+windows, parks
+   w/ flowerbeds, cream sidewalks, softened grid, pastel ground.
+2. Deep immersive zoom — camera.viewMin 5 -> 1.5 (street level).
+3. Day/night cycle (visual only) — independent dayT clock (CONFIG.daynight),
+   updateWorldFX(dt): sun sweep+color, sky/ambient/fog gradients, emissive
+   window/lamp/sign glow after dark. Citizens NEVER read dayT (no-shared-clock
+   intact). Tuned night moonlight up (0.35 sun / 0.6 ambient) so pastels stay
+   readable + cozy while still moody (good horror groundwork).
+4. Living map — per-home variation, street lamps on ~1/4 road tiles, chimney
+   smoke (10-puff pool, chimneys list rebuilt on world change), 4 drifting birds.
+Shared materials/geos (never disposed on bulldoze -> no leak). Debug hooks:
+_sim.setDayT/getDayT/camView/camTarget/refreshChimneys. File now ~1650 lines
+(past the 1500 split point — kept single-file through v0.4 as decided; ES-module
+split is the next structural step). Title -> v0.4. Adversarial review of the diff
+run before final push. Next: v0.5 "Charm & Critters" per the 4-patch roadmap.

@@ -185,11 +185,12 @@ psychological-horror layer** and easter eggs galore — made as a gift. Economy 
 TABLED. The four patches build one emotional arc:
 **make it beautiful → make them love it → unsettle them → the hidden hearts.**
 
-**Patch 1 — v0.4 "Look & Life"** *(current — the beautiful cozy surface)*
-Art direction (from prototypes), detailed models, reworked tiles, deep immersive
-zoom, visual day/night, living map (variation, props, gentle motion). The horror
-only lands if the cuteness is sincere — so nail the cuteness first. (Full spec in
-the v0.4 section above.)
+**Patch 1 — v0.4 "Look & Life"** ✅ BUILT *(the beautiful cozy surface)*
+Chosen art direction: **cozy pastel**. Shipped: detailed pastel homes (flower
+boxes, gardens, lamps), pink-awning shop, flowerbed parks; deep immersive zoom
+(viewMin 1.5); visual day/night cycle (cosmetic — citizens never read it); living
+map (per-home variation, chimney smoke, birds). Real-game verified + reviewed. The
+cuteness is sincere → the horror will land. (Anime characters = a later 2D layer.)
 
 **Patch 2 — v0.5 "Charm & Critters"** *(make them love the town)*
 Ambient life (pets, birds, quirky citizen micro-behaviors), more charm props, and

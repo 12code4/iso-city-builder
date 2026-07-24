@@ -8,9 +8,10 @@ parks, and grumble when the town is missing something.
 
 Everything lives in a single self-contained `index.html` (no build step).
 
-**Current version: v0.3 "Alive"** — placement + growth (v0.1), a full citizen
-simulation with pathfinding walkers and cars (v0.2), and an observability layer
-that lets you watch individual citizens live their day (v0.3).
+**Current version: v0.4 "Look & Life"** — placement + growth (v0.1), a full
+citizen simulation with pathfinding walkers and cars (v0.2), an observability
+layer for watching individual citizens live their day (v0.3), and a cozy-pastel
+visual overhaul with deep zoom, a day/night cycle, and a living, moving map (v0.4).
 
 ## Running it
 
@@ -80,9 +81,9 @@ size, colors, camera, growth timers, and every citizen/migration/bubble rate.
 
 - **v0.2 — Citizens** ✅ sim core, walkers & cars, migration, scale-tested.
 - **v0.3 — Alive** ✅ names, inspectors, follow camera, thought & complaint bubbles.
-- **v0.4 — Payday** (next) — money, build costs, income from real citizen visits,
-  delivery trucks supplying shops.
-- **v0.5 — Rush Hour** — traffic congestion, then land value & density.
+- **v0.4 — Look & Life** ✅ cozy-pastel art, deep zoom, day/night cycle, living map.
+- **v0.5 — Charm & Critters** (next) — pets, ambient life, quirky behaviors, and
+  the events framework.
 
 See [`roadmap.md`](roadmap.md) for the full designs and sequencing.
 

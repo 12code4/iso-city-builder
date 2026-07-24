@@ -86,8 +86,12 @@ Targets: desktop browser + mobile touch.
 
 - **Renderer:** Three.js, orthographic camera. No pixel art, no sprite pipeline.
   Depth sorting comes free from the z-buffer.
-- **Art style:** flat-colored box/simple geometries, soft shadows, warm palette.
-  Townscaper-adjacent. No textures in v0.1.
+- **Art style (v0.4 — cozy pastel):** soft `MeshStandardMaterial` geometry, no
+  textures. Cute pastel palette (pinks/lavenders/blues/mint/peach); per-house
+  pastel variety picked deterministically by `hash(x,z)`; detailed homes (window
+  flower boxes, door gardens, chimneys), pink-awning shop, flowerbed parks, street
+  lamps. All colors in CONFIG. The cuter the surface, the harder the future horror
+  lands. (Anime character art will be a separate 2D layer, not the 3D town.)
 - **Grid:** fixed 20×20 tile world in v0.1. Tile size 1 world unit. Grid coords are
   integers (x, z); world position = (x + 0.5, 0, z + 0.5) for tile centers.
 - **Camera:** orthographic, 4 fixed isometric yaw angles (45°, 135°, 225°, 315°),
@@ -426,6 +430,28 @@ v0.3 — Alive (Pillar A — charm & observability):
     cancels. Browser-verified.
 11. **v0.3c — Bubbles:** ✅ thought bubbles at decision points; complaint bubbles
     (starved need + no venue) as diegetic tutorial. Browser-verified.
+
+v0.4 — Look & Life (the cozy surface):
+
+12. **v0.4 — Look & Life:** ✅ cozy-pastel art overhaul (detailed pastel homes,
+    flower boxes, gardens, lamps, shop/park), deep immersive zoom (viewMin 1.5),
+    visual day/night cycle, living map (per-home variation, chimney smoke, birds).
+    Render layer only — sim untouched (meshes are a projection). Real-game
+    verified (pop 27, day+night, zero errors) + adversarially reviewed.
+
+### v0.4 architecture notes (day/night is cosmetic)
+
+- **Day/night is a pure render effect.** An independent `dayT` clock
+  (CONFIG.daynight, NOT citizen `dayLength`) drives `updateWorldFX(dt)` each frame:
+  sun sweep/color, sky/ambient/fog gradients, and shared emissive
+  window/lamp/sign materials. **Citizens never read `dayT`** — the no-shared-clock
+  rule is intact; night is lighting, not schedule.
+- **Materials/geometry are shared** (per building type + 5 pastel sets + flower/
+  window/lamp/sign). Factories clone meshes, never materials — so `syncTile`'s
+  `scene.remove` leaks nothing (shared resources are never disposed).
+- **Ambient motion** (chimney smoke pool, birds) is a fixed-size render system;
+  the `chimneys` list is rebuilt on world change (`refreshChimneys`), never per
+  frame — same cache-on-change discipline as connectivity/served-needs.
 
 ## v0.3 architecture notes (Alive)
 
