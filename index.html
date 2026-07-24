@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>City Builder — v0.3</title>
+<title>City Builder — v0.4</title>
 <style>
   html, body { margin: 0; height: 100%; overflow: hidden; background: #10141a; }
   #app { position: fixed; inset: 0; touch-action: none; }
@@ -58,7 +58,7 @@
 </head>
 <body>
 <div id="app"></div>
-<div class="hud" id="title">City Builder — v0.3</div>
+<div class="hud" id="title">City Builder — v0.4</div>
 <div class="hud" id="hint">Q/E rotate · WASD or drag to pan · wheel/pinch zoom · tap to build · 🔍 to inspect</div>
 <div class="hud" id="census" style="top:12px; right:14px; font-size:12px; text-align:right; opacity:0.85; text-shadow:0 1px 3px rgba(0,0,0,0.4);"></div>
 <div class="hud" id="inspector"></div>
@@ -82,26 +82,18 @@ import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.164.1/
 const CONFIG = {
   grid: { size: 20, tile: 1 },
   colors: {
-    sky:       0xd7e8f2,
-    grass:     0x8fbf6b,
-    gridLine:  0x79a95c,
-    asphalt:   0x3a3f45,
-    dash:      0xe8d44d,
-    shoulder:  0x565c63,
-    road:      0x7a8087,
-    sidewalk:  0xb9bdc2,
-    wallL1:    0xf5e9d2,
-    roofL1:    0xd1604d,
-    wallL2:    0xefe0c3,
-    roofL2:    0xa34632,
-    shopBody:  0x6ea3c1,
-    shopRoof:  0xf2f5f7,
-    trunk:     0x7a5638,
-    leaves:    0x4f8a4c,
-    parkLawn:  0xa8d18a,
-    bench:     0x9a7a55,
-    ghostOk:   0x8fe08a,
-    ghostBad:  0xe07a6f,
+    sky:       0xdcecf5,   // soft pastel day sky
+    grass:     0xc2e3aa,   // soft pastel green
+    gridLine:  0xb0d99a,
+    asphalt:   0x4a4f57, dash: 0xf0d97a, shoulder: 0x5a616b,
+    road:      0x9aa0a8,   // light warm asphalt
+    sidewalk:  0xece5d8,   // warm cream
+    shopBody:  0xbcd6ef, shopRoof: 0xffffff, shopAwn: 0xf3a8c4,
+    trunk:     0x9a7350, leaves: 0x8fc98a, leaves2: 0xa6dd9e,
+    parkLawn:  0xcaeaad, bench: 0xb79a78, lamp: 0xffe6a8,
+    window:    0x3d434c, windowLit: 0xffd98a,
+    flowerA:   0xff9ec4, flowerB: 0xc4a6e6, flowerC: 0x9cc0ea, flowerD: 0xffffff,
+    ghostOk:   0x9fe6a2, ghostBad: 0xe89a8f,
   },
   highway: { edge: 'south', width: 1, depth: 2 },  // 1-tile stub from edge center
   camera: {
@@ -109,12 +101,16 @@ const CONFIG = {
     pitchDeg: 35.264,
     dist: 60,
     viewStart: 12,
-    viewMin: 5, viewMax: 22,
+    viewMin: 1.5, viewMax: 24,   // viewMin low = deep street-level immersion zoom
     rotateDur: 0.45,
     zoomLerp: 8,
     panKeySpeed: 1.2,      // keyboard pan: fraction of view height per second
     followLerp: 3,         // follow-camera: how fast the look-at chases a citizen
   },
+  // Visual day/night cycle. INDEPENDENT of citizen dayLength — purely cosmetic,
+  // never drives behaviour (the no-shared-clock rule stays intact).
+  daynight: { cycleSeconds: 120, startT: 0.32,   // full sun→moon→sun in 120 real sec
+              nightSky: 0x0f1626, daySky: 0xdcecf5, warmSky: 0xf4b98a },
   anim: { popDur: 0.3 },
   growth: { upgradeSeconds: 12, tickSeconds: 1 },
   input: { tapMaxMove: 10, pickRadius: 28 },   // px; pickRadius = inspect tap tolerance
@@ -193,12 +189,14 @@ sc.left = -S * 0.85; sc.right = S * 0.85;
 sc.top = S * 0.85; sc.bottom = -S * 0.85;
 sc.near = 1; sc.far = S * 3;
 scene.add(sun, sun.target);
-scene.add(new THREE.AmbientLight(0xbfd4e6, 1.1));
+const ambient = new THREE.AmbientLight(0xbfd4e6, 1.1);   // ref kept for day/night
+scene.add(ambient);
+scene.fog = new THREE.FogExp2(CONFIG.colors.sky, 0.0);   // density animated at night
 
 /* ============================== GROUND ============================== */
 const ground = new THREE.Mesh(
   new THREE.PlaneGeometry(S, S),
-  new THREE.MeshLambertMaterial({ color: CONFIG.colors.grass })
+  new THREE.MeshStandardMaterial({ color: CONFIG.colors.grass, roughness: 0.95, metalness: 0 })
 );
 ground.rotation.x = -Math.PI / 2;
 ground.position.copy(CENTER);
@@ -207,97 +205,144 @@ scene.add(ground);
 
 const grid = new THREE.GridHelper(S, S, CONFIG.colors.gridLine, CONFIG.colors.gridLine);
 grid.position.set(S / 2, 0.005, S / 2);
-grid.material.opacity = 0.35;
+grid.material.opacity = 0.18;   // soft, unobtrusive
 grid.material.transparent = true;
 scene.add(grid);
 
 /* ========================== MESH FACTORIES ========================== */
-const M = (c) => new THREE.MeshLambertMaterial({ color: c });
+// Cozy-pastel art direction (v0.4). Meshes stay a pure projection of `world`.
+const M = (c, o = {}) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.85, metalness: 0, ...o });
+const CL = CONFIG.colors;
+
+// Per-house pastel sets (pink / lavender / blue / mint / peach), shared and
+// picked deterministically per tile — variety with no per-frame randomness.
+const CUTE = [
+  { wall: 0xfbe3ee, roof: 0xf3a8c4, trim: 0xe98bb0 },
+  { wall: 0xece3f7, roof: 0xc4a6e6, trim: 0xa87fd0 },
+  { wall: 0xe2edfa, roof: 0x9cc0ea, trim: 0x77a6dd },
+  { wall: 0xe6f4ec, roof: 0xa6ddc0, trim: 0x7fc9a0 },
+  { wall: 0xfdeede, roof: 0xf3b58a, trim: 0xe49a66 },
+];
+const cuteMats = CUTE.map(c => ({ wall: M(c.wall), roof: M(c.roof), trim: M(c.trim) }));
+const flowerMats = [CL.flowerA, CL.flowerB, CL.flowerC, CL.flowerD].map(c => M(c));
+
+// Shared emissive materials the day/night cycle drives each frame.
+const windowMat = M(CL.window, { emissive: new THREE.Color(CL.windowLit), emissiveIntensity: 0 });
+const lampMat   = M(CL.lamp,   { emissive: new THREE.Color(CL.lamp),      emissiveIntensity: 0.12 });
+const signMat   = M(0xfff2d6,  { emissive: new THREE.Color(0xffe6a0),     emissiveIntensity: 0.12 });
+const emissiveMats = [windowMat, lampMat, signMat];
+
 const mats = {
-  asphalt: M(CONFIG.colors.asphalt), dash: M(CONFIG.colors.dash),
-  shoulder: M(CONFIG.colors.shoulder), road: M(CONFIG.colors.road),
-  wallL1: M(CONFIG.colors.wallL1), roofL1: M(CONFIG.colors.roofL1),
-  wallL2: M(CONFIG.colors.wallL2), roofL2: M(CONFIG.colors.roofL2),
-  shopBody: M(CONFIG.colors.shopBody), shopRoof: M(CONFIG.colors.shopRoof),
-  trunk: M(CONFIG.colors.trunk), leaves: M(CONFIG.colors.leaves),
-  sidewalk: M(CONFIG.colors.sidewalk),
-  parkLawn: M(CONFIG.colors.parkLawn), bench: M(CONFIG.colors.bench),
+  asphalt: M(CL.asphalt), dash: M(CL.dash), shoulder: M(CL.shoulder),
+  road: M(CL.road), sidewalk: M(CL.sidewalk),
+  shopBody: M(CL.shopBody), shopRoof: M(CL.shopRoof), shopAwn: M(CL.shopAwn),
+  trunk: M(CL.trunk), leaves: M(CL.leaves), leaves2: M(CL.leaves2),
+  parkLawn: M(CL.parkLawn), bench: M(CL.bench),
+  box: M(0x8a6a4a), pole: M(0x5a5f66),
 };
 const geos = {
   slab: new THREE.BoxGeometry(1, 0.06, 1),
   roadSlab: new THREE.BoxGeometry(0.76, 0.06, 0.76),
   walkSlab: new THREE.BoxGeometry(1, 0.045, 1),
-  houseBase: new THREE.BoxGeometry(0.6, 0.45, 0.6),
-  houseBase2: new THREE.BoxGeometry(0.62, 0.8, 0.62),
-  roof: new THREE.ConeGeometry(0.48, 0.32, 4),
-  shopBody: new THREE.BoxGeometry(0.8, 0.35, 0.8),
-  shopRoof: new THREE.BoxGeometry(0.86, 0.06, 0.86),
+  dash: new THREE.BoxGeometry(0.05, 0.012, 0.24),
+  house1: new THREE.BoxGeometry(0.6, 0.5, 0.6),
+  house2: new THREE.BoxGeometry(0.66, 0.82, 0.66),
+  roof: new THREE.ConeGeometry(0.52, 0.36, 4),
+  chimney: new THREE.BoxGeometry(0.1, 0.2, 0.1),
+  door: new THREE.BoxGeometry(0.16, 0.24, 0.02),
+  win: new THREE.BoxGeometry(0.13, 0.16, 0.02),
+  flowerBox: new THREE.BoxGeometry(0.17, 0.05, 0.05),
+  flower: new THREE.SphereGeometry(0.026, 6, 5),
+  shopBody: new THREE.BoxGeometry(0.8, 0.42, 0.8),
+  shopRoof: new THREE.BoxGeometry(0.88, 0.07, 0.88),
+  awning: new THREE.BoxGeometry(0.84, 0.04, 0.2),
+  sign: new THREE.BoxGeometry(0.4, 0.13, 0.02),
   trunk: new THREE.CylinderGeometry(0.06, 0.08, 0.28, 6),
-  leaves: new THREE.IcosahedronGeometry(0.26, 0),
+  leaves: new THREE.SphereGeometry(0.27, 10, 8),
   lawn: new THREE.BoxGeometry(0.94, 0.05, 0.94),
   bench: new THREE.BoxGeometry(0.3, 0.08, 0.12),
+  lampPole: new THREE.CylinderGeometry(0.02, 0.025, 0.5, 6),
+  lampHead: new THREE.SphereGeometry(0.06, 10, 8),
 };
 
 function shadowed(m) { m.castShadow = true; m.receiveShadow = true; return m; }
+const hash = (x, z) => Math.abs((x * 73856093) ^ (z * 19349663));
+
+function addWindows(g, w, h, d, y, cols) {   // glowing windows + cute flower boxes
+  for (let i = 0; i < cols; i++) {
+    const wx = -w / 2 + w * (i + 1) / (cols + 1);
+    const win = new THREE.Mesh(geos.win, windowMat); win.position.set(wx, y, d / 2 + 0.001); g.add(win);
+    const box = shadowed(new THREE.Mesh(geos.flowerBox, mats.box)); box.position.set(wx, y - 0.12, d / 2 + 0.03); g.add(box);
+    for (let k = 0; k < 3; k++) {
+      const f = new THREE.Mesh(geos.flower, flowerMats[k % flowerMats.length]);
+      f.position.set(wx - 0.05 + k * 0.05, y - 0.08, d / 2 + 0.04); g.add(f);
+    }
+  }
+}
 
 const factories = {
   highway(x, z) {
     const m = new THREE.Mesh(geos.slab, mats.asphalt);
-    m.position.set(x + 0.5, 0.03, z + 0.5);
-    m.receiveShadow = true;
-    return m;
+    m.position.set(x + 0.5, 0.03, z + 0.5); m.receiveShadow = true; return m;
   },
   road(x, z) {
-    // Sidewalk slab full-tile underneath, asphalt inset on top: reads as
-    // 2 lanes + sidewalks from any camera angle, no auto-tiling needed.
     const g = new THREE.Group();
-    const walk = new THREE.Mesh(geos.walkSlab, mats.sidewalk);
-    walk.position.y = 0.0225; walk.receiveShadow = true;
-    const asphalt = new THREE.Mesh(geos.roadSlab, mats.road);
-    asphalt.position.y = 0.032; asphalt.receiveShadow = true;
-    g.add(walk, asphalt);
+    const walk = new THREE.Mesh(geos.walkSlab, mats.sidewalk); walk.position.y = 0.0225; walk.receiveShadow = true;
+    const asphalt = new THREE.Mesh(geos.roadSlab, mats.road); asphalt.position.y = 0.032; asphalt.receiveShadow = true;
+    const dash = new THREE.Mesh(geos.dash, mats.dash); dash.position.y = 0.062;
+    g.add(walk, asphalt, dash);
+    if (hash(x, z) % 4 === 0) {                 // a street lamp on ~1/4 of tiles — glows at night
+      const pole = shadowed(new THREE.Mesh(geos.lampPole, mats.pole)); pole.position.set(0.4, 0.25, 0.4);
+      const head = new THREE.Mesh(geos.lampHead, lampMat); head.position.set(0.4, 0.52, 0.4);
+      g.add(pole, head);
+    }
     g.position.set(x + 0.5, 0, z + 0.5);
     return g;
   },
   house(x, z, level) {
     const g = new THREE.Group();
     const two = level >= 2;
-    const base = shadowed(new THREE.Mesh(
-      two ? geos.houseBase2 : geos.houseBase, two ? mats.wallL2 : mats.wallL1));
-    base.position.y = two ? 0.4 : 0.225;
-    const roof = shadowed(new THREE.Mesh(geos.roof, two ? mats.roofL2 : mats.roofL1));
-    roof.position.y = (two ? 0.8 : 0.45) + 0.16;
-    roof.rotation.y = Math.PI / 4;
-    g.add(base, roof);
+    const cc = cuteMats[hash(x, z) % cuteMats.length];
+    const w = two ? 0.66 : 0.6, h = two ? 0.82 : 0.5, d = w;
+    const base = shadowed(new THREE.Mesh(two ? geos.house2 : geos.house1, cc.wall)); base.position.y = h / 2 + 0.03;
+    const roof = shadowed(new THREE.Mesh(geos.roof, cc.roof)); roof.position.y = h + 0.03 + 0.18;
+    roof.rotation.y = Math.PI / 4; roof.scale.setScalar(w / 0.6);
+    const door = new THREE.Mesh(geos.door, cc.trim); door.position.set(0, 0.15, d / 2 + 0.001);
+    const chimney = shadowed(new THREE.Mesh(geos.chimney, cc.roof)); chimney.position.set(w * 0.28, h + 0.13, d * 0.2);
+    g.add(base, roof, door, chimney);
+    addWindows(g, w, h, d, two ? 0.55 : 0.3, two ? 2 : 1);
+    for (let k = 0; k < 4; k++) {                // garden flowers by the door
+      const f = new THREE.Mesh(geos.flower, flowerMats[(hash(x, z) + k) % flowerMats.length]);
+      f.position.set(-0.13 + k * 0.085, 0.05, d / 2 + 0.14); g.add(f);
+    }
     g.position.set(x + 0.5, 0, z + 0.5);
     return g;
   },
   shop(x, z) {
     const g = new THREE.Group();
-    const body = shadowed(new THREE.Mesh(geos.shopBody, mats.shopBody));
-    body.position.y = 0.175;
-    const roof = shadowed(new THREE.Mesh(geos.shopRoof, mats.shopRoof));
-    roof.position.y = 0.38;
-    g.add(body, roof);
+    const body = shadowed(new THREE.Mesh(geos.shopBody, mats.shopBody)); body.position.y = 0.24;
+    const roof = shadowed(new THREE.Mesh(geos.shopRoof, mats.shopRoof)); roof.position.y = 0.47;
+    const awn = shadowed(new THREE.Mesh(geos.awning, mats.shopAwn)); awn.position.set(0, 0.28, 0.43);
+    const sign = new THREE.Mesh(geos.sign, signMat); sign.position.set(0, 0.42, 0.42);
+    g.add(body, roof, awn, sign);
+    addWindows(g, 0.8, 0.42, 0.8, 0.26, 3);
     g.position.set(x + 0.5, 0, z + 0.5);
     return g;
   },
   park(x, z) {
     const g = new THREE.Group();
-    const lawn = new THREE.Mesh(geos.lawn, mats.parkLawn);
-    lawn.position.y = 0.025; lawn.receiveShadow = true;
-    g.add(lawn);
-    for (const [ox, oz, s] of [[-0.22, -0.18, 1], [0.2, 0.15, 0.8]]) {
-      const trunk = shadowed(new THREE.Mesh(geos.trunk, mats.trunk));
-      trunk.position.set(ox, 0.14 * s, oz); trunk.scale.setScalar(s);
-      const leaves = shadowed(new THREE.Mesh(geos.leaves, mats.leaves));
-      leaves.position.set(ox, 0.42 * s, oz); leaves.scale.setScalar(s);
+    const lawn = new THREE.Mesh(geos.lawn, mats.parkLawn); lawn.position.y = 0.025; lawn.receiveShadow = true; g.add(lawn);
+    for (const [ox, oz, s, lm] of [[-0.22, -0.18, 1, mats.leaves], [0.2, 0.15, 0.82, mats.leaves2]]) {
+      const trunk = shadowed(new THREE.Mesh(geos.trunk, mats.trunk)); trunk.position.set(ox, 0.14 * s, oz); trunk.scale.setScalar(s);
+      const leaves = shadowed(new THREE.Mesh(geos.leaves, lm)); leaves.position.set(ox, 0.42 * s, oz); leaves.scale.setScalar(s);
       g.add(trunk, leaves);
     }
-    const bench = shadowed(new THREE.Mesh(geos.bench, mats.bench));
-    bench.position.set(0.05, 0.09, -0.3);
-    g.add(bench);
-    g.rotation.y = Math.floor((x * 7 + z * 13) % 4) * Math.PI / 2;  // variety
+    const bench = shadowed(new THREE.Mesh(geos.bench, mats.bench)); bench.position.set(0.05, 0.09, -0.3); g.add(bench);
+    for (let k = 0; k < 5; k++) {                // a little flowerbed
+      const f = new THREE.Mesh(geos.flower, flowerMats[(hash(x, z) + k) % flowerMats.length]);
+      f.position.set(-0.34 + k * 0.17, 0.06, 0.33); g.add(f);
+    }
+    g.rotation.y = (hash(x, z) % 4) * Math.PI / 2;
     g.position.set(x + 0.5, 0, z + 0.5);
     return g;
   },
@@ -547,6 +592,7 @@ function onHouseUpgraded(x, z) {
   t.cars.total += addCars; t.cars.available += addCars;
   t.pending = (t.pending || 0) + (CZ.residentsPerLevel[2] - CZ.residentsPerLevel[1]);
   if (!t.truckInFlight) t.nextDispatch = gameTime;   // new residents eligible now
+  if (typeof refreshChimneys === 'function') refreshChimneys();   // chimney rose with the roof
 }
 function onShopPlaced(x, z) {
   world[x][z].jobs = { total: CZ.jobsPerShop, workers: [] };
@@ -989,6 +1035,7 @@ function applyTool(x, z) {
     if (tool === 'shop') onShopPlaced(x, z);
   }
   computeServedNeeds();   // venue set changed (build/bulldoze) or reachability did (road)
+  if (typeof refreshChimneys === 'function') refreshChimneys();   // house set may have changed
 }
 
 /* ============================== CAMERA ============================== */
@@ -1004,6 +1051,11 @@ const camState = {
   view: CONFIG.camera.viewStart,
   viewTarget: CONFIG.camera.viewStart,
 };
+// Debug/test camera hooks (stripped before ship, like the other _sim hooks).
+Object.assign(window._sim, {
+  camView: (v) => { camState.view = camState.viewTarget = v; },
+  camTarget: (x, z) => { camTarget.x = x; camTarget.z = z; },
+});
 const easeInOutCubic = t =>
   t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
 function rotateStep(dir) {
@@ -1537,8 +1589,87 @@ window.addEventListener('resize', () => {
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
 
+/* ==================== DAY/NIGHT + WORLD FX (v0.4) ==================== */
+// Purely visual. Citizens never read `dayT`, so the no-shared-clock rule holds.
+const DN = CONFIG.daynight;
+let dayT = DN.startT;
+const _c2 = new THREE.Color();
+const clamp01 = v => v < 0 ? 0 : v > 1 ? 1 : v;
+const lerpHex = (out, a, b, t) => out.setHex(a).lerp(_c2.setHex(b), t);
+
+// Chimney smoke: a small shared pool of puffs rising from random house chimneys.
+const smokeGeo = new THREE.SphereGeometry(0.07, 8, 6);
+const smokes = [];
+for (let i = 0; i < 10; i++) {
+  const m = new THREE.Mesh(smokeGeo, new THREE.MeshStandardMaterial({ color: 0xf4f4f6, transparent: true, opacity: 0, roughness: 1 }));
+  m.visible = false; scene.add(m); smokes.push({ m, t: 0, from: null });
+}
+let chimneys = [];
+function refreshChimneys() {              // rebuilt on world change (not per frame)
+  chimneys = [];
+  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
+    const t = world[x][z];
+    if (t.type === 'house') {
+      const two = t.level >= 2, w = two ? 0.66 : 0.6, h = two ? 0.82 : 0.5;
+      chimneys.push(new THREE.Vector3(x + 0.5 + w * 0.28, h + 0.25, z + 0.5 + w * 0.2));
+    }
+  }
+}
+
+// A few little birds drifting across the sky.
+const birdMat = new THREE.MeshBasicMaterial({ color: 0x3a4049 });
+const birdGeo = new THREE.BoxGeometry(0.14, 0.012, 0.03);
+const birds = [];
+for (let i = 0; i < 4; i++) {
+  const g = new THREE.Group();
+  const a = new THREE.Mesh(birdGeo, birdMat); a.rotation.y = 0.5; a.position.x = -0.06;
+  const b = new THREE.Mesh(birdGeo, birdMat); b.rotation.y = -0.5; b.position.x = 0.06;
+  g.add(a, b); g.rotation.y = Math.PI / 2; scene.add(g);
+  birds.push({ g, a, b, off: (i * 5) % S, lane: 3 + i * 3.5, speed: 0.7 + i * 0.12, y: 6 + i });
+}
+
+function updateWorldFX(dt) {
+  dayT = (dayT + dt / DN.cycleSeconds) % 1;
+  const ang = (dayT - 0.25) * Math.PI * 2;         // 0 sunrise · π/2 noon · π sunset
+  const sunEl = Math.sin(ang);                     // -1 midnight .. 1 noon
+  const light = clamp01((sunEl + 0.12) / 0.5);     // 0 night .. 1 day
+  const dark = 1 - light;
+  const horizon = clamp01(1 - Math.abs(sunEl) * 2.2) * light;  // dawn/dusk warmth
+
+  sun.position.set(CENTER.x + Math.cos(ang) * S * 0.9, Math.max(1.5, sunEl * S * 1.15), CENTER.z + S * 0.35);
+  lerpHex(sun.color, 0x8090c8, 0xfff2d8, light); sun.color.lerp(_c2.setHex(0xff9a4d), horizon * 0.6);
+  sun.intensity = 0.35 + light * 2.4;                  // 0.35 = soft moonlight so night stays readable
+
+  lerpHex(scene.background, DN.nightSky, DN.daySky, light); scene.background.lerp(_c2.setHex(DN.warmSky), horizon * 0.55);
+  scene.fog.color.copy(scene.background); scene.fog.density = dark * 0.010;
+  lerpHex(ambient.color, 0x445674, 0xbfd4e6, light); ambient.intensity = 0.6 + light * 0.6;
+
+  windowMat.emissiveIntensity = dark * 1.5;
+  lampMat.emissiveIntensity = 0.12 + dark * 1.4;
+  signMat.emissiveIntensity = 0.12 + dark * 1.1;
+
+  for (const s of smokes) {                         // chimney smoke
+    if (!s.from) {
+      if (chimneys.length && Math.random() < 0.012) { s.from = chimneys[(Math.random() * chimneys.length) | 0].clone(); s.t = 0; s.m.visible = true; }
+      else { s.m.visible = false; continue; }
+    }
+    s.t += dt * 0.4;
+    if (s.t >= 1) { s.from = null; s.m.visible = false; continue; }
+    s.m.position.set(s.from.x + Math.sin(s.t * 4) * 0.04, s.from.y + s.t * 0.5, s.from.z);
+    s.m.scale.setScalar(0.5 + s.t * 1.2);
+    s.m.material.opacity = (1 - s.t) * 0.5;
+  }
+  for (const bd of birds) {                          // drifting birds
+    bd.off += dt * bd.speed;
+    bd.g.position.set(((bd.off % (S + 6)) - 3), bd.y, bd.lane);
+    bd.a.position.y = bd.b.position.y = Math.sin(bd.off * 6) * 0.03;
+  }
+}
+Object.assign(window._sim, { setDayT: (t) => { dayT = t; }, getDayT: () => dayT, refreshChimneys });
+
 /* ============================= MAIN LOOP ============================ */
 computeServedNeeds();          // initialize the complaint gate before the loop
+refreshChimneys();
 const clock = new THREE.Clock();
 function tick() {
   const dt = Math.min(clock.getDelta(), 0.05);
@@ -1550,6 +1681,7 @@ function tick() {
   updateTruckMeshes();
   updateBubbles();
   updateInspector();
+  updateWorldFX(dt);
   renderer.render(scene, camera);
   requestAnimationFrame(tick);
 }
