@@ -3,9 +3,25 @@
 **Status:** authored 2026-07-25 from Juan's v0.2 "Broken Strings" playtest.
 **Supersedes:** the two items parked in README "Design backlog" — *dialog-trigger
 rework* and *angry/neutral/friendly behavior design doc*. Both are answered here.
-**Owner of every decision below:** Juan. Where a number is the compiler's proposal
-rather than Juan's ruling it is marked **[PROPOSED]** and must be confirmed before
-it is treated as locked.
+> ### ⚠️ READ THIS FIRST — [PROPOSED] means GUESSED
+>
+> Juan ruled on the **design**. He did **not** rule on most of the **numbers**.
+>
+> Every value tagged **[PROPOSED]** in this document is a **guess by the person who
+> compiled it**, inserted so the spec is buildable — *not* a decision by the game's
+> owner. They carry **no authority**. They were never playtested. Several are
+> almost certainly wrong.
+>
+> **Do not treat a [PROPOSED] number as settled just because it is written down
+> here.** Implement it, expose it as a live CONFIG knob, surface it in the `N`
+> debug menu (§4.7), and flag it to Juan as unconfirmed. The whole point of the
+> debug menu is that these get corrected by playing, not by reasoning.
+>
+> The riskiest cluster is §4.5 — the 0–100 band boundaries and starting value.
+> Those decide how fast the game warms up, which is the core feel of a dating sim.
+> Getting them wrong will read as "the writing is bad" when the writing is fine.
+
+**Owner of every decision below:** Juan.
 
 Read this top to bottom before touching code. §1 is fences, §2 is new law,
 §3 is the release plan, §4–§8 are the per-release specs, §9 is what's still open.
@@ -313,8 +329,11 @@ losing you), chase range, a fear/flee radius for friendly bodies, damage. See §
 
 ### 4.5 Meter rescale to 0–100
 
-Migrate the meter, bump `SAVE_KEY`. All **[PROPOSED]** — these are the numbers
-most worth arguing about:
+Migrate the meter, bump `SAVE_KEY`.
+
+> **Every number in this table is a guess.** None of it came from Juan and none of
+> it has been played. This is the highest-risk table in the document — see the
+> warning at the top. Build it, expose it, and get it corrected in playtest.
 
 | Value | Proposal | Rationale |
 | --- | --- | --- |
@@ -421,11 +440,15 @@ Dress them all up like they are in the games she plays, otome."*
 
 ## 9. Still open — Juan to rule
 
-1. **All numbers marked [PROPOSED]** above, most importantly the 0–100 band
+1. **Every number marked [PROPOSED]** — all of them are guesses, none are Juan's.
+   See the warning at the top of this document. Most urgent: the 0–100 band
    boundaries and starting value (§4.5).
 2. **What "increased aggression" means** for the aggressive band beyond raw speed
-   (§4.4) — chase persistence, chase range, fear radius, damage. The README asked
-   this and it is still unanswered.
+   (§4.4) — chase persistence, chase range, fear radius, damage.
+   **Juan is authoring this himself.** Do not invent an answer, do not guess a
+   default, and do not let it block the rest of v0.3 — build the band structure
+   with speed as the only tell, leave the extra knobs stubbed, and wire his spec
+   in when it lands.
 3. **When bodies re-derive attitude** beyond dialog end / bump respawn / load. The
    third README question; currently unanswered and left as-is.
 4. **Asset delivery** — moot while art stays procedural (§2.6), revisit if that
@@ -433,9 +456,13 @@ Dress them all up like they are in the games she plays, otome."*
 5. **Versioned filenames** (§2.7) — confirm the scheme, and whether old versions
    stay on disk as playable files.
 6. **The jealousy mechanic** (§5) — in or out.
-7. **v0.2 tagging.** Definition of done requires review; this document IS that
-   review. v0.2 can be tagged `v0.2-mc` once these findings are recorded, or held
-   until v0.3 supersedes it. Juan's call.
+7. ~~**v0.2 tagging.**~~ ✅ **RESOLVED — tagged.** Juan delegated the call. `v0.1-mc`
+   and `v0.2-mc` are now tagged. Reasoning: the definition of done required a
+   playtest review and this document is that review, so the hold is lifted; and
+   v0.3 is about to make v0.2 hard to return to — `SAVE_KEY` bumps, the gate is
+   deleted, the runnable file is renamed. Tagging now preserves a playable
+   snapshot of **exactly the build Juan playtested**, which is the version every
+   finding in this document refers to.
 
 ---
 
