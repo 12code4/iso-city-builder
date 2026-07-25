@@ -1,0 +1,4 @@
+
+# scratch deps for design/mocks — never part of the game
+design/mocks/node_modules/
+design/mocks/package*.json

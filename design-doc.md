@@ -10,6 +10,11 @@ it is treated as locked.
 Read this top to bottom before touching code. §1 is fences, §2 is new law,
 §3 is the release plan, §4–§8 are the per-release specs, §9 is what's still open.
 
+**Evidence lives in `design/mocks/`.** Two throwaway scripts and their screenshots
+back the empirical claims made here. `zoomshot.js` in particular contains a
+**working implementation of the §4.1 camera zoom** — read it before building that.
+Neither script is part of the game; see `design/mocks/README.md`.
+
 ---
 
 ## 1. Fences — do not touch
