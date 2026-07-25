@@ -95,12 +95,16 @@
 <div id="title" class="overlay">
   <h1>🌙 MIDNIGHT CRUSH</h1>
   <h2>a haunted dating platformer</h2>
-  <p>The town of Hollow Hills is cursed: every soul wandering its night is
-     impossibly attractive. Don't fight them — <b>jump on their heads to strike up
-     a conversation.</b> Charm 3 hearts to open the shrine gate… and face whatever
-     is waiting behind it.</p>
+  <p>Something has the night of Hollow Hills on <b>strings</b>. Every soul out
+     there is sleepwalking — a puppet on an invisible thread, and every single
+     one of them is impossibly attractive. Don't fight them.
+     <b>Jump on their heads to snap the strings</b> — what wakes up will want a
+     word with you. Charm 3 hearts to open the shrine gate… and face what waits
+     behind it.</p>
   <p class="keys">Move: ← → / A D &nbsp;·&nbsp; Jump: Space / ↑ / W &nbsp;·&nbsp; Mobile: on-screen buttons</p>
   <button id="startBtn">Begin the Night 💜</button>
+  <p id="resetSave" class="keys hidden" style="cursor:pointer; text-decoration:underline;
+     pointer-events:auto; font-size:13px;">forget everything (new story)</p>
 </div>
 
 <div id="ending" class="overlay hidden">
@@ -119,9 +123,12 @@
 <script>
 'use strict';
 /* =====================================================================
-   MIDNIGHT CRUSH v0.1 "First Night"
+   MIDNIGHT CRUSH v0.2 "Broken Strings"
    Mario-style platformer × dating sim × pastel horror.
-   Enemies are the cast: stomping starts a conversation, not a kill.
+   Lore: an unseen puppeteer has the whole town mind-controlled on
+   strings. Stomping a head SNAPS the strings — that's why they talk to
+   you instead of dying. Charmed characters become friendly allies.
+   Clones of a character share one bond; the game never explains why.
    Single file, zero assets: every character is a procedurally drawn chibi.
    ===================================================================== */
 
@@ -136,6 +143,9 @@ const CONFIG = {
   iframes: 1.6,           // seconds of invulnerability after a hit
   angrySeconds: 8,        // how long a rejected character stays dangerous
   romancesNeeded: 3,      // hearts required to open the shrine gate
+  bondToRomance: 2,       // cumulative bond that flips a character to ally
+  bondFloor: -2,          // rejection can't dig deeper than this
+  healCooldown: 45,       // seconds between free heals from a friendly ally
   patrolSpeed: 55,
   angrySpeedMult: 2.2,
   camLerp: 6,
@@ -165,15 +175,21 @@ for (const [a,b] of [[34,37],[66,69],[96,98]])            // pits
 put('P', 3, GROUND-1);
 put('^', 8, GROUND-1);  put('T', 14, GROUND-1);
 put('y', 22, GROUND-1);                                   // Yuki, on the road
+put('r', 30, GROUND-1);                                   // a Rin…
 put('=', 40, 9, 6);     put('H', 42, 8);
-put('r', 52, GROUND-1);                                   // Rin, on the road
+put('y', 44, 8);                                          // …another Yuki?
+put('r', 52, GROUND-1);                                   // another Rin (same Rin?)
+put('n', 57, GROUND-1);                                   // a Ren
 put('^', 58, GROUND-1); put('^', 61, GROUND-1);
 put('=', 74, 9, 4);     put('=', 80, 7, 5); put('H', 82, 6);
+put('k', 76, GROUND-1);                                   // a Kazuma on the road
 put('=', 86, 5, 7);     put('k', 89, 4);                  // Kazuma, on his balcony
 put('T', 101, GROUND-1);
 put('n', 106, GROUND-1);                                  // Ren, on the road
+put('y', 110, GROUND-1);                                  // Yuki again??
 put('^', 112, GROUND-1); put('^', 115, GROUND-1);
 put('=', 118, 8, 5);    put('H', 120, 7);
+put('r', 122, 7);                                         // Rin. again. unravel it
 put('D', 128, GROUND-1);                                  // shrine gate
 put('A', 137, 8);                                         // Ayame, past the gate
 const LEVEL = grid.map(r => r.join(''));
@@ -187,7 +203,7 @@ const CAST = {
     name:'Yuki', title:'Shy Ghost Girl',
     look:{ hair:'#d3e2ff', style:'long', skin:'#f6ecf2', outfit:'#9db8e8',
            eye:'#86a8ff', blush:true, ghost:true },
-    greet:'Eek—! Y-you can SEE me? Nobody ever… um. H-hi. I\'m Yuki. I\'ve been haunting this road for eighty years and you\'re the first person who didn\'t run away screaming.',
+    greet:'*the strings above her snap like frost — the glassy look melts away* …huh? I was walking? How long was I walking?? *sees you* EEK! Y-you can see me?! …Wait. You\'re the one who cut the strings. Nobody\'s ever… um. H-hi. I\'m Yuki. I\'ve haunted this road for eighty years and this is the FIRST time my feet have been my own all month.',
     qs:[
       { q:'S-so… you jumped on my head. On purpose. Why would you do that??',
         c:[ {t:'Honestly? You looked too cute to walk past.', aff:1,
@@ -211,15 +227,30 @@ const CAST = {
             {t:'Depends. Do you have wifi in the afterlife?', aff:-1,
              r:'…I waited eighty years for THIS conversation?'} ] },
     ],
-    win:'Yuki floats a slow circle around you, leaving a trail of warm pink light. "It\'s official. You\'re my favorite living person. Don\'t you DARE die, I\'d never hear the end of it at ghost meetings."',
+    win:'Yuki floats a slow circle around you, leaving a trail of warm pink light. "It\'s official. You\'re my favorite living person. If the strings come for you, I\'ll bite them. I have never bitten anything. I will LEARN."',
     lose:'Yuki\'s eyes go pitch black. "GET OFF MY ROAD." The temperature drops HARD — maybe give her some space.',
     meh:'Yuki fidgets with her sleeves. "I… need to think about it. Come talk to me again? If you want. No pressure. (Please come back.)"',
+    date:{
+      greet:'You came back!! I mean— *composes herself, fails* —of course you did. I made a list of things to show you! It\'s a short list. Most of it is moss. The moss is GREAT though.',
+      qs:[
+        { q:'*floats you to a mossy corner of the graveyard* This one\'s my favorite gravestone. It\'s… mine! That\'s weird, isn\'t it. Showing you my own grave. Oh no. It\'s weird.',
+          c:[ {t:'It\'s the most YOU thing in the whole graveyard. I love it.', r:'*glows so pink the fireflies get jealous* R-really? I planted the moss myself! Well. Haunted it into growing. Same thing!'},
+              {t:'A little weird. Good weird. Show me everything.', r:'Good weird!! That\'s— yes! That\'s exactly the kind of weird I was going for! *proudly* Wait until you see the SECOND moss.'} ] },
+        { q:'*suddenly very quiet* Um. Your hand. It\'s just… floating there. Near mine. If I tried to hold it, mine might go right through, and that would be the single most embarrassing thing to happen to me since my own funeral, so—',
+          c:[ {t:'*hold her hand anyway*', r:'—oh. OH. It didn\'t go through. IT DIDN\'T GO THROUGH!! *every wisp in the graveyard turns pink* …I\'m never washing this hand. I don\'t even have to. Ghost perks.'},
+              {t:'Then we practice. Every night, until it works.', r:'*small, fierce nod* Every night. It\'s a plan. It\'s a d-date. It\'s a RECURRING date. *quietly combusts with joy*'} ] },
+      ],
+      win:'She walks you back along her road, your hand very carefully in her almost-there one, taking the longest possible way. "Same time tomorrow? The moss and I will be waiting."',
+    },
+    quips:[ 'Boo! …Did I get you? Be got. Please. It\'s good for my confidence.',
+      'The other me waved at you?? We are… going to have a talk. Me and me. All of us.',
+      '*happy ghost noises*' ],
   },
   rin: {
     name:'Rin', title:'Zombie Schoolgirl',
     look:{ hair:'#ffb0cc', style:'twintails', skin:'#d4ead8', outfit:'#41507a',
            eye:'#ffd166', blush:true, patch:true },
-    greet:'*catches you mid-stomp with one hand* Nice air time! Most people scream and run when they see a zombie. You DIVE-BOMBED me. I respect that. I\'m Rin! Undead, unbothered, hungry.',
+    greet:'*shakes her head like a wet dog — the glassy stare shatters* WHOA. Okay. WOW. I was NOT driving this body just now. Someone had me on marionette autopilot and you just— *mimes scissors* —snip! Nice air time, by the way. Most people scream and run from a zombie. You DIVE-BOMBED me. Respect. I\'m Rin! Undead, unbothered, recently un-hijacked.',
     qs:[
       { q:'Real talk: I\'m a zombie, right, so everyone assumes I eat brains. But honestly? I\'d demolish a whole tray of melon bread first. What\'s YOUR forbidden late-night snack?',
         c:[ {t:'Convenience-store fried chicken at 3am. No regrets.', aff:1,
@@ -243,15 +274,30 @@ const CAST = {
             {t:'Depends on the director, honestly.', aff:0,
              r:'A diplomat! Boring, but I\'ll allow it. Film night is still on the table. Barely.'} ] },
     ],
-    win:'Rin high-fives you so hard her hand comes off in yours. "KEEP IT. That\'s a zombie promise ring. I want it back on the second date though, I need that hand for snacks."',
+    win:'Rin high-fives you so hard her hand comes off in yours. "KEEP IT. That\'s a zombie promise ring. I want it back on the second da— on the NEXT HANGOUT though. I need that hand for snacks."',
     lose:'Rin cracks her neck 270 degrees. "New plan. Maybe I DO eat brains. Run, sweetheart." — she means it.',
     meh:'Rin shrugs. "Solid mid. Come find me again when your banter levels up — I\'ll be here. Being dead keeps the schedule light."',
+    date:{
+      greet:'You\'re late! By nine seconds. I counted. Because I missed— NOTHING. I missed nothing, shut up. *pats the ground next to her* Sit. I acquired snacks. Legally. Mostly. The convenience store guy and I have an understanding: he screams, I wave.',
+      qs:[
+        { q:'Okay, ranking time, this is IMPORTANT: melon bread, strawberry pocky, or the little star candies? Choose wrong and the hangout is over. (It\'s not over. Choose wrong and I\'ll be LOUD about it for ten minutes.)',
+          c:[ {t:'Melon bread. Obviously. I was raised right.', r:'CORRECT!! *slams the tray* Twenty years dead and it STILL goes hard. Here — I bit this one already but the other half is legally yours. That\'s intimacy.'},
+              {t:'Star candies. They match the sky tonight.', r:'…okay that was SMOOTH, that was so smooth, I\'m mad I didn\'t say it. *shoves the whole star candy bag at you* Take them. Take the stars. Ugh. You\'re a menace.'} ] },
+        { q:'*scoots one centimeter closer, maximum nonchalance* Cold night, huh. Fun zombie fact: we run cold. Room temperature at BEST. So there\'s no reason — zero reasons, none — that you\'d want to, like… hypothetically…',
+          c:[ {t:'*take her hand* Then I\'ll warm them up. Both of them.', r:'!!! *steam rises from her ears, which should not be possible* Okay. OKAY. This is fine. I died once already, I can survive THIS. *grips your hand like a promise* …Warm. Huh. So that\'s what that\'s like.'},
+              {t:'Every reason, actually. *hold out your hand, palm up*', r:'*stares at your hand. stares at the sky. stares at your hand* You can\'t just— fine. FINE. *takes it, immediately refuses to let go* No takebacks. Zombie grip. This is your life now.'} ] },
+      ],
+      win:'She walks you to the edge of her street swinging your linked hands like a metronome. "Same time tomorrow. Bring snacks. Bring the hand. ESPECIALLY the hand."',
+    },
+    quips:[ 'Snack run later? You\'re buying. Still dead, still broke.',
+      'How am I over here AND over there? Fufufu. Town secret. Unravel it, detective.',
+      '*finger guns with a slightly loose finger* Hey. Heyyy. It\'s you.' ],
   },
   kazuma: {
     name:'Kazuma', title:'Vampire — insufferably confident about it',
     look:{ hair:'#35295c', style:'swoosh', skin:'#f4eaea', outfit:'#6e2140',
            eye:'#ff7a95', cape:true, sparkle:true },
-    greet:'*doesn\'t even flinch at the stomp — catches your ankle, sets you down gently, dusts your shoulder* Bold. Most mortals kneel first. I am Kazuma. Four hundred years old, devastating in moonlight, and yes — this is my natural hair volume.',
+    greet:'*the strings around him BURN away — he does not flinch. He catches your ankle mid-stomp, sets you down gently, and dusts your shoulder* SPLENDID!! Do you know how long I have wrestled that puppeteer\'s grip?! An eternity of walking in STRAIGHT LINES! And you shattered it by LEAPING ONTO MY HEAD! Magnificent technique! I am Kazuma — four hundred years old, devastating in moonlight, and yes, this is my natural hair volume. You have my gratitude, little mortal. Stand proud! Few have earned it!',
     qs:[
       { q:'You have precisely one chance to impress me. Tell me: what is the most beautiful thing you have ever seen? Choose carefully. I am, of course, the correct answer.',
         c:[ {t:'*look him dead in the eyes* A mirror. Which, tragically, you\'ll never understand.', aff:1,
@@ -275,15 +321,30 @@ const CAST = {
             {t:'Eh, you seem like you have nothing but time.', aff:-1,
              r:'"Nothing but—" I have a WINE CELLAR to alphabetize and a nemesis to brood about. I am EXTREMELY busy.'} ] },
     ],
-    win:'Kazuma sweeps his cape and bows — actually bows. "Four hundred years of moonlight, and tonight is the first one I\'d call interesting. I shall permit you to fall for me at your own pace. Most take a fortnight."',
+    win:'Kazuma sweeps his cape and bows — a full, formal, knightly bow. "Four hundred years of moonlight, and tonight is the first I would call SPLENDID. Walk these roads freely — you are under my protection now. This is not an offer. It is a FACT."',
     lose:'Kazuma\'s eyes go crimson. "I have turned DUCHESSES for less insolence." His cape flares — time to leave.',
     meh:'Kazuma yawns theatrically. "Adequate. Return when your wit is sharper; I sharpen mine on the bones of lesser conversations. …That was a joke. Mostly."',
+    date:{
+      greet:'*standing on his balcony, arms crossed, cape at maximum drama* You arrived! MAGNIFICENT! Punctuality is the courtesy of kings — I have said so since before your country existed. Come, stand here. No — HERE. The moonlight must strike us both correctly. I measured the angles this afternoon. From inside. Obviously.',
+      qs:[
+        { q:'I have prepared refreshments! Grape juice — the vintage \'31 remains in the cellar, you understand. A gentleman does not cloud an evening he intends to remember in PERFECT detail for the next four centuries. *raises his glass* To what shall we toast?',
+          c:[ {t:'To the first of many nights.', r:'*clinks with the force of a duel being accepted* MANY nights! I shall pencil in the next four hundred years. In INK. A gentleman does not pencil.'},
+              {t:'To your hair. Obviously.', r:'*closes his eyes, deeply moved* You honor this balcony. The hair accepts your toast. As do I. SPLENDID taste — but then, you chose to be here, so that was established.'} ] },
+        { q:'*removes one glove, then thinks better of it and puts it back on* Your hand. May I? Understand what I am asking: in four hundred years I have never asked twice, and I am asking once — properly, gloved, by the old forms. Tradition matters. YOU matter. Hence: tradition.',
+          c:[ {t:'*place your hand in his* You may.', r:'*bows over your hand like a knight receiving a banner* …My heart has not beaten since 1624. Just now — I could have SWORN. *stands very straight, ears slightly red* MAGNIFICENT. We shall never speak of my ears.'},
+              {t:'Only if you stop counting my smiles.', r:'*grips your hand firmly, the way one seals a treaty* I counted six tonight. It is the last count I shall ever conduct. From this evening on, they are beyond number — because I intend to LOSE COUNT. *pause* …That was excellent. I know.'} ] },
+      ],
+      win:'He escorts you down from the balcony one step at a time, your hand held aloft like something ceremonial and priceless. "Same hour tomorrow. The moon and I will BOTH be ready. One of us has better hair."',
+    },
+    quips:[ 'You may walk beside me! This is a privilege extended to very few. MAGNIFICENT posture today, by the way.',
+      'Another me on the road? Impossible. There is only one of me. There has ONLY EVER BEEN one of me. …We will not discuss this further.',
+      '*adjusts cape* The night suits you. I would know. I have seen four hundred of them.' ],
   },
   ren: {
     name:'Ren', title:'Werewolf — smug, knows his angles',
     look:{ hair:'#d8d2c4', style:'wild', skin:'#ecd2b6', outfit:'#2e4a44',
            eye:'#ffb03a', ears:true },
-    greet:'*catches you on one shoulder, doesn\'t break stride* Careful. Last thing that landed on me got adopted. I\'m Ren. Yes, the ears are real. Yes, you can ask. No, you can\'t touch. …Yet. Play your cards right.',
+    greet:'*catches you on one shoulder as the strings snap — his eyes clear from dull amber to bright gold* …Huh. Head\'s quiet again. Whole month of walking back and forth like a wind-up toy, and what breaks the spell? One determined weirdo landing on me. *sets you down, gently* I\'m Ren. Yes, the ears are real. Yes, I owe you one. No, you can\'t touch the ears. …Yet. Play your cards right.',
     qs:[
       { q:'Everyone in this town is scared of the wolf. Full moon, big teeth, whole thing. You stomped on my head. So either you\'re brave or you\'re dumb. Which is it?',
         c:[ {t:'Brave enough to jump, dumb enough to stay. Best of both.', aff:1,
@@ -310,12 +371,27 @@ const CAST = {
     win:'Ren shoves his hands in his pockets and looks at the moon so you can\'t see him smile. "Barbecue\'s Saturday. Wear something you don\'t mind getting fur on. That\'s… everything you own now, actually."',
     lose:'Ren\'s eyes flash amber and the growl isn\'t playful anymore. "Run. I\'ll give you a head start. For the memories."',
     meh:'Ren tilts his head. "Jury\'s out. The wolf says yes, the man says maybe. Swing by again — democracy needs a tiebreaker."',
+    date:{
+      greet:'*waiting at the top of the hill, one ear turned toward your footsteps before you even appear* Hey. You found the spot. Best view in Hollow Hills — I only ever bring the pack up here. And now you. Don\'t make it a thing. *pause* It\'s a thing.',
+      qs:[
+        { q:'Listen. Saturday. The barbecue. Fair warning: the pack will sniff you. It\'s a whole ceremony. There will be seventeen questions about your intentions and at least one about whether you can throw. Are you ready for that?',
+          c:[ {t:'Born ready. I\'ve been practicing my throw all week.', r:'*grins with entirely too many teeth, all of them delighted* You\'re going to be FINE. Better than fine. Aunt Moriko is going to try to keep you. She can\'t. You\'re— *coughs* —spoken for. As a guest. A frequent guest.'},
+              {t:'Seventeen questions? I\'ll bring notes.', r:'Notes. *laughs, actually laughs, ears all the way up* You\'re taking my chaotic family seriously. Do you know what that does to a guy? Don\'t answer. The tail already answered.'} ] },
+        { q:'*the wind picks up; he glances at your hands, then very deliberately at the horizon* Your hands look cold. As a gentleman — and a furnace, wolves run hot, that\'s just science — I\'m obligated to offer. One-time offer. …No. Standing offer. Permanent. Ignore the tail.',
+          c:[ {t:'*take his hand* For science, then.', r:'*the tail achieves a wag frequency previously unknown to science* Yep. Science. Purely thermal. *quietly laces his fingers through yours* …Hold tighter. The view\'s better when you\'re not floating away.'},
+              {t:'Only if the ears are part of the deal someday.', r:'*long, dignified silence while his resolve visibly crumbles* …Someday. SOMEDAY. You\'ve earned a someday. Nobody has EVER gotten a someday. *takes your hand before you can change the terms*'} ] },
+      ],
+      win:'He walks you down the hill exactly one half-step closer than strictly necessary, your hand warm in his the whole way. "Same moon tomorrow. I\'ll save your spot. It\'s got your name on it now — I checked with the hill."',
+    },
+    quips:[ '*ears perk before you\'re even close* Oh. You. Good. Stay where I can see you — the town\'s weird tonight.',
+      'You met another me? Weird. Handsome guy though, right? Right.',
+      'The pack asked about you again. All seventeen questions. I answered ALL of them. …Favorably.' ],
   },
   ayame: {
     name:'Ayame', title:'The Spirit Behind the Gate', boss:true,
     look:{ hair:'#4a3468', style:'veil', skin:'#f4ecf8', outfit:'#7e2a4e',
            eye:'#e06a95', ghost:true },
-    greet:'*the fog itself kneels as she appears* So. You are the one charming MY town. Yuki won\'t stop glowing. Rin re-attached her hand for you. Even Kazuma smiled — he hasn\'t smiled since the 1800s. I am Ayame. I have guarded this shrine for three hundred years, and I decide who is worthy of Hollow Hills\' hearts. Answer carefully, beloved. Wrong answers will HURT.',
+    greet:'*the fog itself kneels as she appears* So. You are the one snapping strings in MY town. Yuki won\'t stop glowing. Rin re-attached her hand for you. Even Kazuma smiled — he hasn\'t smiled since the 1800s. *quieter* Three hundred years I have guarded this shrine, and when the strings came, I could not cut a single one. You did it by JUMPING ON HEADS. So before anything else: thank you. Do not make me regret saying that. I am Ayame, and I decide who is worthy of Hollow Hills\' hearts. Answer carefully, beloved. Wrong answers will HURT.',
     qs:[
       { q:'Three hundred years I have watched the living come and go. They take our beauty, our stories, our hearts — then leave when the sun rises. Why are YOU any different?',
         c:[ {t:'I\'m not here to take anything. I stomped on heads to say hello. I\'m here for the company.', aff:1,
@@ -343,6 +419,35 @@ const CAST = {
     lose:'The sky splits with violet lightning. "OUT. OF. MY. SHRINE." — Ayame hurls you back down the hill. She cools off eventually. Spirits always do.',
     meh:'Ayame studies you for a long, long moment. "Undecided. I have waited three centuries; I can wait one more conversation. Come back to me, little heartbeat."',
   },
+};
+
+/* ---------------- BONDS (shared, persistent) ----------------
+   One record per CHARACTER, not per body on the map. Every clone of
+   Rin is, somehow, the same Rin — same memories, same feelings. The
+   game never explains this. That's the player's mystery to unravel.
+   bond accumulates across conversations; freed = strings snapped at
+   least once; dated = the hand-holding scene has happened. */
+const SAVE_KEY = 'midnightCrush.v1';
+const bonds = {};
+for (const id of Object.keys(CAST)) bonds[id] = { bond:0, freed:false, romanced:false, dated:false };
+try {
+  const s = JSON.parse(localStorage.getItem(SAVE_KEY));
+  if (s) for (const id in bonds) Object.assign(bonds[id], s[id] || {});
+} catch(e){}
+bonds.ayame = { bond:0, freed:false, romanced:false, dated:false }; // the finale always replays
+function saveBonds(){
+  try {
+    const s = {};
+    for (const id in bonds) if (id !== 'ayame') s[id] = bonds[id];
+    localStorage.setItem(SAVE_KEY, JSON.stringify(s));
+  } catch(e){}
+}
+const regreets = {
+  yuki:'*she notices you and immediately pretends she didn\'t* …You came back. To talk? To me? Okay. Okay okay okay. *deep breath* Hi.',
+  rin:'Back for round two! I\'ve been workshopping material. All of it is about snacks. Go.',
+  kazuma:'You return! Naturally. My conversation is habit-forming — the good habit. The MAGNIFICENT kind.',
+  ren:'*ear flick* Round two, huh. The wolf had opinions about last time. Let\'s hear yours.',
+  ayame:'You stand before me AGAIN, little heartbeat. Good. Some answers deserve second attempts.',
 };
 
 /* ---------------- AUDIO (tiny synth, no assets) ---------------- */
@@ -385,7 +490,8 @@ const player = { x:0, y:0, w:22, h:30, vx:0, vy:0, onGround:false, facing:1,
 let spawn = {x:3*T, y:(GROUND-2)*T};
 const chars = [], pickups = [], graves = [], trees = [], particles = [];
 let gate = null;
-let romanced = 0;
+let romanced = Object.keys(CAST).filter(id => !CAST[id].boss && bonds[id].romanced).length;
+const healCd = {}, quipIdx = {};   // per-character, runtime only
 let camX = 0, camY = 0;
 let gameState = 'title'; // title | play | dialog | ending
 let timeT = 0, flash = 0;
@@ -428,6 +534,9 @@ bindTouch('tL','l'); bindTouch('tR','r'); bindTouch('tJ','j');
 if ('ontouchstart' in window) document.getElementById('touch').classList.add('show');
 
 document.getElementById('startBtn').addEventListener('click', startGame);
+const resetEl = document.getElementById('resetSave');
+if (Object.keys(CAST).some(id => bonds[id].freed)) resetEl.classList.remove('hidden');
+resetEl.addEventListener('click', () => { try { localStorage.removeItem(SAVE_KEY); } catch(e){} location.reload(); });
 function startGame(){
   if (gameState!=='title') return;
   try { AC = AC || new (window.AudioContext||window.webkitAudioContext)(); } catch(e){}
@@ -457,12 +566,30 @@ const dPortrait = document.getElementById('dportrait').getContext('2d');
 let talking = null;
 
 function openDialog(ch){
-  talking = ch; ch.state = 'talk'; ch.aff = 0; ch.qi = 0; ch.mood = 'neutral';
+  const st = bonds[ch.id];
+  const wasFreed = st.freed;
+  if (!wasFreed){ st.freed = true; saveBonds(); }
+  talking = ch; ch.state = 'talk'; ch.aff = 0; ch.qi = 0;
   gameState = 'dialog';
   dName.textContent = ch.def.name;
   dTitle.textContent = ch.def.title;
   dEl.classList.add('open');
-  sayLine(ch.def.greet, [{t:'…continue', act:'next'}]);
+  if (st.romanced && !ch.boss){
+    ch.mood = 'love';
+    if (!st.dated && ch.def.date){                 // the date scene
+      ch.mode = 'date';
+      sayLine(ch.def.date.greet, [{t:'…continue', act:'next'}]);
+    } else {                                       // just saying hi
+      ch.mode = 'quip';
+      const q = ch.def.quips || ['…'];
+      quipIdx[ch.id] = (quipIdx[ch.id] || 0);
+      sayLine(q[quipIdx[ch.id]++ % q.length], [{t:'💜', act:'close'}]);
+    }
+  } else {
+    ch.mode = 'talk'; ch.mood = 'neutral';
+    sayLine(wasFreed ? (regreets[ch.id] || ch.def.greet) : ch.def.greet,
+      [{t:'…continue', act:'next'}]);
+  }
 }
 function sayLine(text, choices){
   dText.textContent = text;
@@ -483,39 +610,61 @@ function handleChoice(c){
   if (c.act === 'close') return closeDialog(ch);
   if (c.act === 'next') return askQuestion(ch);
   // an answer to a question
-  ch.aff += c.aff;
-  if (c.aff > 0) SFX.good();
-  else if (c.aff < 0){ SFX.bad(); if (ch.boss) damagePlayer(0); } // boss punishes bad answers
-  ch.mood = c.aff>0 ? 'happy' : (c.aff<0 ? 'angry' : 'neutral');
+  const aff = c.aff || 0;                          // date-scene choices carry no aff
+  ch.aff += aff;
+  if (ch.mode === 'date' || aff > 0) SFX.good();
+  else if (aff < 0){ SFX.bad(); if (ch.boss) damagePlayer(0); } // boss punishes bad answers
+  ch.mood = ch.mode === 'date' ? 'love' : aff>0 ? 'happy' : (aff<0 ? 'angry' : 'neutral');
   ch.qi++;
   sayLine(c.r, [{t:'…continue', act:'next'}]);
 }
 function askQuestion(ch){
   if (player.dead){ closeDialog(ch); return; }
-  if (ch.qi >= ch.def.qs.length) return finishDialog(ch);
-  ch.mood = 'neutral';
-  const q = ch.def.qs[ch.qi];
+  const tree = ch.mode === 'date' ? ch.def.date.qs : ch.def.qs;
+  if (ch.qi >= tree.length) return finishDialog(ch);
+  if (ch.mode !== 'date') ch.mood = 'neutral';
+  const q = tree[ch.qi];
   const shuffled = [...q.c].sort(() => Math.random()-0.5);
   sayLine(q.q, shuffled);
 }
 function finishDialog(ch){
-  if (ch.aff >= 2){
-    ch.state = 'romanced'; ch.mood = 'love';
-    if (!ch.boss){
-      romanced++; SFX.good(); burst(ch.x+ch.w/2, ch.y, PAL.heart, 18);
-      refreshHUD();
-      sayLine(ch.def.win, [{t:'💜 See you around', act:'close'}]);
-      if (romanced >= CONFIG.romancesNeeded && gate && !gate.open)
-        setTimeout(() => showHint('The shrine gate stirs… head east ⛩️', 6), 600);
-    } else {
-      SFX.gate();
+  const st = bonds[ch.id];
+  if (ch.mode === 'date'){                         // hand-holding achieved 😳
+    st.dated = true; st.bond++; saveBonds();
+    ch.mood = 'love'; SFX.good();
+    burst(ch.x+ch.w/2, ch.y, PAL.heart, 24);
+    sayLine(ch.def.date.win, [{t:'💜 See you tomorrow', act:'close'}]);
+    return;
+  }
+  if (ch.boss){                                    // the finale plays by single-scene rules
+    if (ch.aff >= 2){
+      st.romanced = true; ch.mood = 'love'; SFX.gate();
       sayLine(ch.def.win, [{t:'💜 …stay', act:'end'}]);
+    } else if (ch.aff <= 0){
+      ch.state = 'angry'; ch.mood = 'angry'; SFX.bad();
+      sayLine(ch.def.lose, [{t:'😅 backing away slowly', act:'close'}]);
+    } else {
+      ch.state = 'unsure'; ch.mood = 'neutral';
+      sayLine(ch.def.meh, [{t:'🙂 fair enough', act:'close'}]);
     }
+    return;
+  }
+  st.bond = Math.max(CONFIG.bondFloor, st.bond + ch.aff);  // affection carries over
+  if (st.bond >= CONFIG.bondToRomance){
+    st.romanced = true; saveBonds();
+    romanced++; refreshHUD();
+    ch.mood = 'love'; SFX.good();
+    burst(ch.x+ch.w/2, ch.y, PAL.heart, 18);
+    sayLine(ch.def.win, [{t:'💜 See you around', act:'close'}]);
+    if (romanced >= CONFIG.romancesNeeded && gate && !gate.open)
+      setTimeout(() => showHint('The shrine gate stirs… head east ⛩️', 6), 600);
   } else if (ch.aff <= 0){
+    saveBonds();
     ch.state = 'angry'; ch.angryT = CONFIG.angrySeconds; ch.mood = 'angry';
     SFX.bad();
     sayLine(ch.def.lose, [{t:'😅 backing away slowly', act:'close'}]);
   } else {
+    saveBonds();
     ch.state = 'unsure'; ch.mood = 'neutral';
     sayLine(ch.def.meh, [{t:'🙂 fair enough', act:'close'}]);
   }
@@ -539,9 +688,11 @@ function ending(){
   document.getElementById('endH1').textContent = '🌙💜 HAPPILY HAUNTED';
   document.getElementById('endH2').textContent = 'ever after';
   document.getElementById('endP').textContent =
-    `You charmed ${romanced} heart${romanced===1?'':'s'} of Hollow Hills — and the shrine ` +
-    `spirit herself. The fog is warm now. The ghosts wave when you pass. Kazuma still ` +
-    `insists you fell for him first. (He's wrong. Probably.)`;
+    `You snapped the strings on ${romanced} heart${romanced===1?'':'s'} of Hollow Hills — and won ` +
+    `over the shrine spirit herself. The fog is warm now. The ghosts wave when you pass. ` +
+    `At dawn, under the gate, there is very nearly a kiss — interrupted at the last ` +
+    `second by four extremely invested spectators. Next time. DEFINITELY next time. ` +
+    `…Somewhere beyond the hills, unseen, something winds fresh thread onto a spool.`;
   document.getElementById('ending').classList.remove('hidden');
 }
 
@@ -647,14 +798,13 @@ function update(dt){
   }
 
   // --- cast ---
+  for (const id in healCd) if (healCd[id] > 0) healCd[id] -= dt;
   for (const ch of chars){
+    const st = bonds[ch.id];
+    const friendly = st.romanced && !ch.boss;
     if (ch.state === 'talk') continue;
     if (ch.state === 'angry' && !ch.boss){ ch.angryT -= dt; if (ch.angryT <= 0) ch.state = 'roam'; }
-    if (ch.state === 'romanced'){
-      ch.vx = 0; ch.walkT += dt*3;
-      if (Math.random() < 0.01) particles.push({ x:ch.x+ch.w/2, y:ch.y-6,
-        vx:(Math.random()-0.5)*30, vy:-50, t:1.2, color:PAL.heart, heart:true });
-    } else if (ch.boss){
+    if (ch.boss){
       ch.y = ch.home.y - 10 + Math.sin(timeT*1.6)*8;   // hovering, waiting
       ch.dir = player.x < ch.x ? -1 : 1;
     } else {
@@ -668,18 +818,31 @@ function update(dt){
       if (solid(aheadTX, wallY) || !(solid(aheadTX, footY) || oneway(aheadTX, footY))) ch.dir *= -1;
       ch.vy += CONFIG.gravity*dt;
       moveEntity(ch, dt);
+      if (friendly && Math.random() < 0.008) particles.push({ x:ch.x+ch.w/2, y:ch.y-6,
+        vx:(Math.random()-0.5)*30, vy:-50, t:1.2, color:PAL.heart, heart:true });
     }
     if (player.dead) continue;
     if (ch.boss && !(gate && gate.open)) continue;     // unreachable until the gate opens
     if (overlap(player, ch)){
       const stomped = player.vy > 0 && player.prevBottom <= ch.y + 12;
-      if (ch.state === 'romanced'){
-        if (stomped){ player.vy = -CONFIG.stompBounce; SFX.stomp(); }
-      } else if (stomped){
+      if (stomped){
         player.vy = -CONFIG.stompBounce; SFX.stomp();
-        burst(ch.x+ch.w/2, ch.y, '#c9b3ff', 8);
+        if (!st.freed){                                // the strings snap
+          burst(ch.x+ch.w/2, ch.y-30, '#e8e2ff', 12);
+          flash = Math.max(flash, 0.12);
+        } else {
+          burst(ch.x+ch.w/2, ch.y, '#c9b3ff', 6);
+        }
         const target = ch;
-        setTimeout(() => { if (gameState==='play' && target.state!=='romanced') openDialog(target); }, 120);
+        setTimeout(() => { if (gameState==='play') openDialog(target); }, 120);
+      } else if (friendly){
+        // an ally steadies you — and patches you up if you're hurt
+        if (player.hearts < CONFIG.maxHearts && !(healCd[ch.id] > 0)){
+          healCd[ch.id] = CONFIG.healCooldown;
+          player.hearts++; refreshHUD(); SFX.heart();
+          burst(player.x+player.w/2, player.y, PAL.heart, 10);
+          showHint(`${ch.def.name} patches you up 💗`, 2.5);
+        }
       } else {
         damagePlayer(player.x < ch.x ? -1 : 1);
       }
@@ -790,6 +953,17 @@ function drawChibi(g, look, opts){
     g.fillText('♥', -3.5, eyeY+3); g.fillText('♥', 3.5, eyeY+3);
     g.strokeStyle = '#c05a70'; g.lineWidth = 1.2;
     g.beginPath(); g.moveTo(-3, hy+6); g.quadraticCurveTo(0, hy+8.5, 3, hy+6); g.stroke();
+  } else if (mood === 'puppet'){                    // glazed, mind-controlled stare
+    for (const sx of [-3.5, 3.5]){
+      g.fillStyle = '#e8e4ee';
+      g.beginPath(); g.ellipse(sx, eyeY, 2.6, 3.2, 0, 0, 7); g.fill();
+      g.fillStyle = '#8f8aa2';
+      g.beginPath(); g.ellipse(sx, eyeY+0.5, 1.7, 2.2, 0, 0, 7); g.fill();
+    }
+    g.fillStyle = look.skin;                        // heavy half-closed lids
+    g.fillRect(-6.4, eyeY-3.6, 12.8, 2.8);
+    g.strokeStyle = '#9a90a8'; g.lineWidth = 1;
+    g.beginPath(); g.moveTo(-1.8, hy+6.4); g.lineTo(1.8, hy+6.4); g.stroke();
   } else {
     for (const sx of [-3.5, 3.5]){                  // big anime eyes
       g.fillStyle = '#fff';
@@ -806,7 +980,7 @@ function drawChibi(g, look, opts){
       g.beginPath(); g.moveTo(-1.8, hy+6.2); g.lineTo(1.8, hy+6.2); g.stroke();
     }
   }
-  if (look.blush){
+  if (look.blush && mood !== 'puppet'){
     g.fillStyle = '#ffa0b855';
     g.beginPath(); g.ellipse(-6.4, hy+4, 2.2, 1.3, 0, 0, 7); g.fill();
     g.beginPath(); g.ellipse(6.4, hy+4, 2.2, 1.3, 0, 0, 7); g.fill();
@@ -815,7 +989,7 @@ function drawChibi(g, look, opts){
     g.fillStyle = '#ead9c8';
     g.save(); g.translate(6.5, hy-4); g.rotate(0.5); g.fillRect(-3,-1.2,6,2.4); g.restore();
   }
-  if (look.sparkle && mood !== 'angry'){            // uber-confident sparkles
+  if (look.sparkle && mood !== 'angry' && mood !== 'puppet'){ // uber-confident sparkles
     g.fillStyle = '#ffe9b0';
     g.globalAlpha = 0.4 + 0.6*(Math.sin(walk*2)+1)/2;
     g.font = '5px sans-serif'; g.textAlign = 'center';
@@ -955,17 +1129,32 @@ function render(){
 
   // cast
   for (const ch of chars){
+    const st = bonds[ch.id];
     if (ch.boss && !(gate && gate.open))            // distant silhouette until the gate opens
       ctx.globalAlpha = 0.35 + 0.1*Math.sin(timeT*2);
+    if (!st.freed && !ch.boss){                     // puppet strings, swaying gently
+      ctx.strokeStyle = '#cfc4f0'; ctx.globalAlpha = 0.28; ctx.lineWidth = 1;
+      const cxm = ch.x + ch.w/2, topY = ch.y - 4;
+      for (let i=-1; i<=1; i++){
+        const sway = Math.sin(timeT*1.3 + i*2 + ch.home.x)*4;
+        ctx.beginPath();
+        ctx.moveTo(cxm + i*8, topY + (i===0 ? -26 : 0));
+        ctx.quadraticCurveTo(cxm + i*8 + sway, topY-90, cxm + i*10 + sway*2, topY-190);
+        ctx.stroke();
+      }
+      ctx.globalAlpha = ch.boss ? ctx.globalAlpha : 1;
+    }
     ctx.save();
     ctx.translate(ch.x + ch.w/2, ch.y + ch.h);
-    const mood = ch.state==='angry' ? 'angry' : ch.state==='romanced' ? 'love' : 'neutral';
+    const mood = ch.state==='angry' ? 'angry'
+      : (st.romanced && !ch.boss) ? 'love'
+      : (!st.freed && !ch.boss) ? 'puppet' : 'neutral';
     drawChibi(ctx, ch.def.look, { s:1.15, facing:ch.dir||1, walk:ch.walkT, mood,
       floaty:!!ch.def.look.ghost });
     ctx.restore();
     ctx.globalAlpha = 1;
     ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
-    if (ch.state === 'romanced') ctx.fillText('💕', ch.x+ch.w/2, ch.y-10 + Math.sin(timeT*3)*3);
+    if (st.romanced && !ch.boss) ctx.fillText('💕', ch.x+ch.w/2, ch.y-10 + Math.sin(timeT*3)*3);
     else if (ch.state === 'angry') ctx.fillText('💢', ch.x+ch.w/2, ch.y-10);
     else if (ch.state === 'unsure') ctx.fillText('🤍', ch.x+ch.w/2, ch.y-10);
   }
@@ -1026,7 +1215,7 @@ function frame(now){
 requestAnimationFrame(frame);
 
 // debug hooks (strip before a public ship)
-window._game = { player, chars, CONFIG, get state(){ return gameState; },
+window._game = { player, chars, CONFIG, bonds, saveBonds, get state(){ return gameState; },
   get romanced(){ return romanced; }, openDialog, gate: () => gate };
 </script>
 </body>
