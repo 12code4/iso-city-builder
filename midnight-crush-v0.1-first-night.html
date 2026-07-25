@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Midnight Crush — a haunted dating platformer</title>
+<style>
+  :root { --ink:#efe8fa; --panel:#1c1330ee;
+    --pink:#ffa8d3; --purple:#c9b3ff; --blue:#a8d8ff; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; background:#0b0716; overflow:hidden;
+    font-family:'Segoe UI', system-ui, sans-serif; color:var(--ink);
+    -webkit-user-select:none; user-select:none; touch-action:none; }
+  #game { display:block; width:100vw; height:100vh; }
+  /* ---------- HUD ---------- */
+  #hud { position:fixed; top:10px; left:12px; right:12px; display:flex;
+    justify-content:space-between; align-items:flex-start; pointer-events:none;
+    font-size:20px; text-shadow:0 2px 6px #000; z-index:5; }
+  #hint { position:fixed; top:48px; left:0; right:0; text-align:center; font-size:14px;
+    color:var(--blue); text-shadow:0 2px 6px #000; pointer-events:none; z-index:5;
+    opacity:0; transition:opacity .6s; }
+  #hint.show { opacity:1; }
+  /* ---------- Dialog ---------- */
+  #dialog { position:fixed; inset:0; display:none; z-index:10;
+    background:radial-gradient(ellipse at 50% 40%, #1a0e3199 0%, #050309dd 100%); }
+  #dialog.open { display:flex; align-items:flex-end; justify-content:center; }
+  #dbox { width:min(680px, 94vw); margin-bottom:4vh; background:var(--panel);
+    border:2px solid var(--purple); border-radius:16px; padding:16px 18px 14px;
+    box-shadow:0 0 40px #c9b3ff33, 0 12px 40px #000c; }
+  #dtop { display:flex; gap:14px; align-items:flex-start; }
+  #dportrait { width:120px; height:120px; flex:0 0 auto; border-radius:12px;
+    background:linear-gradient(180deg,#261747,#130a26); border:1px solid #6f5aa8; }
+  #dwho { flex:1; }
+  #dname { font-size:22px; font-weight:700; color:var(--pink); letter-spacing:.5px; }
+  #dtitle { font-size:12px; color:var(--blue); margin-bottom:6px; font-style:italic; }
+  #daff { font-size:16px; letter-spacing:2px; min-height:20px; }
+  #dtext { margin-top:10px; font-size:16px; line-height:1.45; min-height:64px; }
+  #dchoices { margin-top:12px; display:flex; flex-direction:column; gap:8px; }
+  #dchoices button { pointer-events:auto; text-align:left; font-size:15px;
+    padding:10px 14px; border-radius:10px; border:1px solid #7a63b5;
+    background:#2c1d4e; color:var(--ink); cursor:pointer; transition:all .12s; }
+  #dchoices button:hover { background:#3e2a6e; border-color:var(--pink);
+    transform:translateX(4px); }
+  /* ---------- Overlays (title / ending) ---------- */
+  .overlay { position:fixed; inset:0; z-index:20; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; gap:14px;
+    background:radial-gradient(ellipse at 50% 30%, #1f1140ee 0%, #060310f8 100%); }
+  .overlay h1 { font-size:clamp(34px,7vw,64px); color:var(--pink);
+    text-shadow:0 0 24px #ffa8d377, 0 4px 0 #000; letter-spacing:2px; }
+  .overlay h2 { font-size:clamp(15px,2.6vw,22px); color:var(--purple); font-weight:400; }
+  .overlay p { max-width:560px; color:#d5c9ee; font-size:15px; line-height:1.6; padding:0 18px; }
+  .overlay .keys { color:#93a8d8; }
+  .overlay button { margin-top:8px; font-size:19px; padding:12px 34px; border-radius:999px;
+    border:2px solid var(--pink); background:#3a1533; color:#ffe2f0; cursor:pointer;
+    box-shadow:0 0 26px #ffa8d344; }
+  .overlay button:hover { background:#5c2050; }
+  .hidden { display:none !important; }
+  /* ---------- Touch controls ---------- */
+  #touch { position:fixed; left:0; right:0; bottom:0; height:130px; z-index:6;
+    display:none; pointer-events:none; }
+  #touch.show { display:block; }
+  .tbtn { position:absolute; bottom:22px; width:74px; height:74px; border-radius:50%;
+    background:#ffffff14; border:2px solid #c9b3ff55; color:#fff; font-size:30px;
+    display:flex; align-items:center; justify-content:center; pointer-events:auto;
+    text-shadow:0 2px 4px #000; }
+  .tbtn:active { background:#ffffff33; }
+  #tL{left:20px;} #tR{left:108px;}
+  #tJ{right:24px; width:86px; height:86px; background:#ffa8d322; border-color:#ffa8d366;}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div id="hearts"></div>
+  <div id="romance"></div>
+</div>
+<div id="hint"></div>
+
+<div id="dialog">
+  <div id="dbox">
+    <div id="dtop">
+      <canvas id="dportrait" width="240" height="240"></canvas>
+      <div id="dwho">
+        <div id="dname"></div>
+        <div id="dtitle"></div>
+        <div id="daff"></div>
+      </div>
+    </div>
+    <div id="dtext"></div>
+    <div id="dchoices"></div>
+  </div>
+</div>
+
+<div id="title" class="overlay">
+  <h1>🌙 MIDNIGHT CRUSH</h1>
+  <h2>a haunted dating platformer</h2>
+  <p>The town of Hollow Hills is cursed: every soul wandering its night is
+     impossibly attractive. Don't fight them — <b>jump on their heads to strike up
+     a conversation.</b> Charm 3 hearts to open the shrine gate… and face whatever
+     is waiting behind it.</p>
+  <p class="keys">Move: ← → / A D &nbsp;·&nbsp; Jump: Space / ↑ / W &nbsp;·&nbsp; Mobile: on-screen buttons</p>
+  <button id="startBtn">Begin the Night 💜</button>
+</div>
+
+<div id="ending" class="overlay hidden">
+  <h1 id="endH1"></h1>
+  <h2 id="endH2"></h2>
+  <p id="endP"></p>
+  <button onclick="location.reload()">Play Again 🌙</button>
+</div>
+
+<div id="touch">
+  <div class="tbtn" id="tL">◀</div>
+  <div class="tbtn" id="tR">▶</div>
+  <div class="tbtn" id="tJ">⤒</div>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   MIDNIGHT CRUSH v0.1 "First Night"
+   Mario-style platformer × dating sim × pastel horror.
+   Enemies are the cast: stomping starts a conversation, not a kill.
+   Single file, zero assets: every character is a procedurally drawn chibi.
+   ===================================================================== */
+
+/* ---------------- CONFIG ---------------- */
+const CONFIG = {
+  tile: 36,
+  gravity: 2200,
+  moveSpeed: 260,
+  jumpVel: 780,
+  stompBounce: 480,
+  maxHearts: 3,
+  iframes: 1.6,           // seconds of invulnerability after a hit
+  angrySeconds: 8,        // how long a rejected character stays dangerous
+  romancesNeeded: 3,      // hearts required to open the shrine gate
+  patrolSpeed: 55,
+  angrySpeedMult: 2.2,
+  camLerp: 6,
+  lightningChance: 0.003, // per frame
+  palette: {              // pastel pink / purple / blue on deep night
+    skyTop:'#0d081c', skyMid:'#1d1440', skyLow:'#33235e',
+    star:'#dfe6ff', moon:'#eef3ff', moonShade:'#bccdf5', hills:'#191238',
+    horizonGlow:'#ff9fce',
+    stoneTop:'#9d8fd6', stoneFace:'#3b2d58', stoneDeep:'#251a3e', stoneSpeck:'#bcaef2',
+    platform:'#7c6bb8', platformTop:'#a99af0',
+    fog:'#aebfff', wisp:'#b8cfff', gateWood:'#b06a92', gateSeal:'#ff9ecd',
+    grave:'#4a4270', graveLine:'#5f568c', treeInk:'#1d1430',
+    flash:'#d2c4ff', heart:'#ffa8d3',
+  },
+};
+
+/* ---------------- LEVEL (built in code — no ASCII alignment bugs) ------
+   # solid stone  = one-way platform  ^ gravestone  T dead tree
+   H heart pickup D shrine gate      P player start
+   cast: y Yuki  r Rin  k Kazuma  n Ren  A Ayame (boss)                */
+const COLS = 150, ROWS = 17, GROUND = 12;
+const grid = Array.from({length:ROWS}, () => Array(COLS).fill(' '));
+function put(c, x, y, w=1){ for (let i=0;i<w;i++) grid[y][x+i] = c; }
+for (let x=0; x<COLS; x++) for (let y=GROUND; y<GROUND+3; y++) grid[y][x] = '#';
+for (const [a,b] of [[34,37],[66,69],[96,98]])            // pits
+  for (let x=a; x<=b; x++) for (let y=GROUND; y<GROUND+3; y++) grid[y][x] = ' ';
+put('P', 3, GROUND-1);
+put('^', 8, GROUND-1);  put('T', 14, GROUND-1);
+put('y', 22, GROUND-1);                                   // Yuki, on the road
+put('=', 40, 9, 6);     put('H', 42, 8);
+put('r', 52, GROUND-1);                                   // Rin, on the road
+put('^', 58, GROUND-1); put('^', 61, GROUND-1);
+put('=', 74, 9, 4);     put('=', 80, 7, 5); put('H', 82, 6);
+put('=', 86, 5, 7);     put('k', 89, 4);                  // Kazuma, on his balcony
+put('T', 101, GROUND-1);
+put('n', 106, GROUND-1);                                  // Ren, on the road
+put('^', 112, GROUND-1); put('^', 115, GROUND-1);
+put('=', 118, 8, 5);    put('H', 120, 7);
+put('D', 128, GROUND-1);                                  // shrine gate
+put('A', 137, 8);                                         // Ayame, past the gate
+const LEVEL = grid.map(r => r.join(''));
+
+/* ---------------- CAST ----------------
+   Each entry: look (for the chibi renderer) + a 3-question dialog.
+   Choice aff: +1 warms them up, 0 neutral, -1 puts them off.
+   End of tree: aff>=2 romance · aff<=0 rejection (angry) · else unsure. */
+const CAST = {
+  yuki: {
+    name:'Yuki', title:'Shy Ghost Girl',
+    look:{ hair:'#d3e2ff', style:'long', skin:'#f6ecf2', outfit:'#9db8e8',
+           eye:'#86a8ff', blush:true, ghost:true },
+    greet:'Eek—! Y-you can SEE me? Nobody ever… um. H-hi. I\'m Yuki. I\'ve been haunting this road for eighty years and you\'re the first person who didn\'t run away screaming.',
+    qs:[
+      { q:'S-so… you jumped on my head. On purpose. Why would you do that??',
+        c:[ {t:'Honestly? You looked too cute to walk past.', aff:1,
+             r:'*turns fully transparent from embarrassment* c-CUTE?? I— I am a TERRIFYING SPIRIT, I\'ll have you know… (please say it again)'},
+            {t:'I thought you were a goomba. My mistake.', aff:0,
+             r:'A goomba… EIGHTY YEARS of haunting and I read as a mushroom. Cool. Cool cool cool. *sniffles ectoplasm*'},
+            {t:'To assert dominance.', aff:-1,
+             r:'…I have possessed people for less. *the temperature drops noticeably*'} ] },
+      { q:'Being a ghost is lonely. Everyone I knew moved on. Do you… ever feel like that? Like you\'re invisible?',
+        c:[ {t:'All the time. Maybe that\'s why we can see each other.', aff:1,
+             r:'*her glow warms from blue to soft pink* …that\'s the nicest thing anyone\'s said to me since 1946.'},
+            {t:'Not really, I\'m kind of a big deal.', aff:-1,
+             r:'Oh. How wonderful for you. *starts fading through the floor*'},
+            {t:'Have you tried rattling chains? Classic visibility move.', aff:0,
+             r:'I TRIED that! Chains are heavy!! Do you know how hard it is to hold things when your hands are made of mist?!'} ] },
+      { q:'The sun will be up in a few hours and I\'ll fade until tomorrow night. If… if you came back… would you visit me?',
+        c:[ {t:'Every night. Save me this stretch of road.', aff:1,
+             r:'*small ghostly tears* Okay. Okay!! It\'s a d-date— I mean an APPOINTMENT— I mean— oh no.'},
+            {t:'Sure, if I\'m passing through.', aff:0,
+             r:'"Passing through." Right. *manages a brave little smile* I\'ll take it.'},
+            {t:'Depends. Do you have wifi in the afterlife?', aff:-1,
+             r:'…I waited eighty years for THIS conversation?'} ] },
+    ],
+    win:'Yuki floats a slow circle around you, leaving a trail of warm pink light. "It\'s official. You\'re my favorite living person. Don\'t you DARE die, I\'d never hear the end of it at ghost meetings."',
+    lose:'Yuki\'s eyes go pitch black. "GET OFF MY ROAD." The temperature drops HARD — maybe give her some space.',
+    meh:'Yuki fidgets with her sleeves. "I… need to think about it. Come talk to me again? If you want. No pressure. (Please come back.)"',
+  },
+  rin: {
+    name:'Rin', title:'Zombie Schoolgirl',
+    look:{ hair:'#ffb0cc', style:'twintails', skin:'#d4ead8', outfit:'#41507a',
+           eye:'#ffd166', blush:true, patch:true },
+    greet:'*catches you mid-stomp with one hand* Nice air time! Most people scream and run when they see a zombie. You DIVE-BOMBED me. I respect that. I\'m Rin! Undead, unbothered, hungry.',
+    qs:[
+      { q:'Real talk: I\'m a zombie, right, so everyone assumes I eat brains. But honestly? I\'d demolish a whole tray of melon bread first. What\'s YOUR forbidden late-night snack?',
+        c:[ {t:'Convenience-store fried chicken at 3am. No regrets.', aff:1,
+             r:'YESSS. Okay you GET it. Next full moon, snack run. You\'re buying — I\'m technically legally dead so my card got cancelled.'},
+            {t:'I only eat clean. My body is a temple.', aff:-1,
+             r:'*visibly loses interest* My body is a CRIME SCENE and it\'s still more fun than yours.'},
+            {t:'Brains, obviously. Solidarity.', aff:0,
+             r:'Ha! Flatterer. That\'s a stereotype, but a supportive one, so it\'s fine.'} ] },
+      { q:'I died in 2004 wearing this uniform and I\'ve been rocking it since. Twenty years, same fit. Be honest — still cute, or am I a walking history exhibit?',
+        c:[ {t:'Vintage is IN. You\'re decades ahead of the trend.', aff:1,
+             r:'*strikes a pose, arm falls off, reattaches it* SEE?! That\'s what I keep telling the other zombies! They wear RAGS. No pride.'},
+            {t:'It\'s giving "museum".', aff:-1,
+             r:'It\'s giving "you\'re about to get bitten", is what it\'s giving.'},
+            {t:'Fashion is temporary. Being undead is forever.', aff:0,
+             r:'Deep! Weirdly deep for someone who greets people with their shoes. But deep.'} ] },
+      { q:'Last question and it\'s a dealbreaker. Zombie movies: are we the villains… or the misunderstood main characters?',
+        c:[ {t:'Misunderstood mains. The living just have bad PR teams.', aff:1,
+             r:'*grabs your shoulders* MARRY ME. Not literally. Unless?? No wait — one date first, I have STANDARDS. I\'ve just… been dead for twenty years.'},
+            {t:'Villains. Sorry, the shambling is objectively menacing.', aff:-1,
+             r:'The shambling is a LIFESTYLE. Wow. Wooooow.'},
+            {t:'Depends on the director, honestly.', aff:0,
+             r:'A diplomat! Boring, but I\'ll allow it. Film night is still on the table. Barely.'} ] },
+    ],
+    win:'Rin high-fives you so hard her hand comes off in yours. "KEEP IT. That\'s a zombie promise ring. I want it back on the second date though, I need that hand for snacks."',
+    lose:'Rin cracks her neck 270 degrees. "New plan. Maybe I DO eat brains. Run, sweetheart." — she means it.',
+    meh:'Rin shrugs. "Solid mid. Come find me again when your banter levels up — I\'ll be here. Being dead keeps the schedule light."',
+  },
+  kazuma: {
+    name:'Kazuma', title:'Vampire — insufferably confident about it',
+    look:{ hair:'#35295c', style:'swoosh', skin:'#f4eaea', outfit:'#6e2140',
+           eye:'#ff7a95', cape:true, sparkle:true },
+    greet:'*doesn\'t even flinch at the stomp — catches your ankle, sets you down gently, dusts your shoulder* Bold. Most mortals kneel first. I am Kazuma. Four hundred years old, devastating in moonlight, and yes — this is my natural hair volume.',
+    qs:[
+      { q:'You have precisely one chance to impress me. Tell me: what is the most beautiful thing you have ever seen? Choose carefully. I am, of course, the correct answer.',
+        c:[ {t:'*look him dead in the eyes* A mirror. Which, tragically, you\'ll never understand.', aff:1,
+             r:'*a slow, delighted grin, fangs and all* Cruel. CRUEL and clever. Four centuries and no one has ever dared. I am… intrigued.'},
+            {t:'Honestly? You. The hair alone.', aff:0,
+             r:'Correct, naturally. Though I confess I\'d hoped you would put up more of a fight. Adoration bores me by the second century.'},
+            {t:'The sunrise.', aff:-1,
+             r:'*eye twitch* You said that ON PURPOSE. To a VAMPIRE. We are enemies now.'} ] },
+      { q:'They say the curse of immortality is watching everything you love fade. I say the curse is that fashion keeps cycling back to things I already wore better. What do you fear, mortal?',
+        c:[ {t:'Being forgotten before I ever did anything worth remembering.', aff:1,
+             r:'*his smirk falters into something real* …An honest answer. How rare. Four hundred years, and honesty still catches me off guard. Well played.'},
+            {t:'Fear? Never heard of it.', aff:0,
+             r:'Ah, bravado. I invented that. In 1731. You wear my second-hand invention adequately.'},
+            {t:'Garlic breath. Yours, specifically.', aff:-1,
+             r:'I have consumed nothing but fine vintages for four hundred years, you absolute PEASANT.'} ] },
+      { q:'Final question. I have watched empires fall and stars burn out. Convince me that one night talking to you is worth an immortal\'s time.',
+        c:[ {t:'It already was. You\'ve smiled four times. I counted.', aff:1,
+             r:'*touches his own face, betrayed by it* …Five, now. Damn you. DAMN you. Very well — you have my attention, mortal. Guard it well; it outlasts kingdoms.'},
+            {t:'You\'re the one still standing here talking to me.', aff:0,
+             r:'Touché. I shall pretend I had somewhere better to be and simply chose not to go.'},
+            {t:'Eh, you seem like you have nothing but time.', aff:-1,
+             r:'"Nothing but—" I have a WINE CELLAR to alphabetize and a nemesis to brood about. I am EXTREMELY busy.'} ] },
+    ],
+    win:'Kazuma sweeps his cape and bows — actually bows. "Four hundred years of moonlight, and tonight is the first one I\'d call interesting. I shall permit you to fall for me at your own pace. Most take a fortnight."',
+    lose:'Kazuma\'s eyes go crimson. "I have turned DUCHESSES for less insolence." His cape flares — time to leave.',
+    meh:'Kazuma yawns theatrically. "Adequate. Return when your wit is sharper; I sharpen mine on the bones of lesser conversations. …That was a joke. Mostly."',
+  },
+  ren: {
+    name:'Ren', title:'Werewolf — smug, knows his angles',
+    look:{ hair:'#d8d2c4', style:'wild', skin:'#ecd2b6', outfit:'#2e4a44',
+           eye:'#ffb03a', ears:true },
+    greet:'*catches you on one shoulder, doesn\'t break stride* Careful. Last thing that landed on me got adopted. I\'m Ren. Yes, the ears are real. Yes, you can ask. No, you can\'t touch. …Yet. Play your cards right.',
+    qs:[
+      { q:'Everyone in this town is scared of the wolf. Full moon, big teeth, whole thing. You stomped on my head. So either you\'re brave or you\'re dumb. Which is it?',
+        c:[ {t:'Brave enough to jump, dumb enough to stay. Best of both.', aff:1,
+             r:'*barks a laugh before he can stop it* Okay. Okay, that\'s the best answer anyone\'s given me. The tail is wagging. Ignore the tail.'},
+            {t:'Neither — I have a great lawyer.', aff:0,
+             r:'Pfft. Fine, that\'s a little funny. Don\'t tell anyone I laughed — I have a reputation as the brooding one.'},
+            {t:'Dumb, clearly. Look who I\'m talking to.', aff:-1,
+             r:'*low growl* The moon is RIGHT THERE, buddy. Choose your next words like they\'re your last.'} ] },
+      { q:'Real question. Full moon nights I lose the pretty face and go full wolf — fur, fangs, howling at delivery drivers. Some people can\'t handle that. Would you still show up?',
+        c:[ {t:'Show up? I\'m bringing a frisbee.', aff:1,
+             r:'*visible internal battle* That\'s— you can\'t just— *quietly* …bring the frisbee. Tell NO ONE.'},
+            {t:'I\'d watch from a safe distance. Binoculars, maybe.', aff:0,
+             r:'Coward\'s answer, but an honest one. I respect the survival instinct. The wolf does too.'},
+            {t:'Hard pass. I\'m more of a cat person.', aff:-1,
+             r:'A CAT person. *deep breath* We\'re done here. The audacity. On MY hill.'} ] },
+      { q:'Last one. The pack says humans always leave once the novelty wears off. That we\'re a phase. Prove the pack wrong — or walk away now, no hard feelings.',
+        c:[ {t:'Novelty fades. Loyalty doesn\'t. I\'m still standing here, aren\'t I?', aff:1,
+             r:'*long silence, ears fully up* …The pack is going to be insufferable about this. Fine. FINE. You\'re pack-adjacent now. It\'s a whole thing. There\'s a barbecue.'},
+            {t:'I can\'t prove anything. But I\'d like the chance to.', aff:0,
+             r:'Hm. Honest. The wolf likes honest. The man is still deciding. Come back around.'},
+            {t:'The pack sounds smart, honestly.', aff:-1,
+             r:'*turns away* Should\'ve trusted the pack the first time. Go.'} ] },
+    ],
+    win:'Ren shoves his hands in his pockets and looks at the moon so you can\'t see him smile. "Barbecue\'s Saturday. Wear something you don\'t mind getting fur on. That\'s… everything you own now, actually."',
+    lose:'Ren\'s eyes flash amber and the growl isn\'t playful anymore. "Run. I\'ll give you a head start. For the memories."',
+    meh:'Ren tilts his head. "Jury\'s out. The wolf says yes, the man says maybe. Swing by again — democracy needs a tiebreaker."',
+  },
+  ayame: {
+    name:'Ayame', title:'The Spirit Behind the Gate', boss:true,
+    look:{ hair:'#4a3468', style:'veil', skin:'#f4ecf8', outfit:'#7e2a4e',
+           eye:'#e06a95', ghost:true },
+    greet:'*the fog itself kneels as she appears* So. You are the one charming MY town. Yuki won\'t stop glowing. Rin re-attached her hand for you. Even Kazuma smiled — he hasn\'t smiled since the 1800s. I am Ayame. I have guarded this shrine for three hundred years, and I decide who is worthy of Hollow Hills\' hearts. Answer carefully, beloved. Wrong answers will HURT.',
+    qs:[
+      { q:'Three hundred years I have watched the living come and go. They take our beauty, our stories, our hearts — then leave when the sun rises. Why are YOU any different?',
+        c:[ {t:'I\'m not here to take anything. I stomped on heads to say hello. I\'m here for the company.', aff:1,
+             r:'*the crushing pressure eases, slightly* …"For the company." The last one who said that stayed forty years. Hmph. Continue.'},
+            {t:'Different? I\'m the main character. Obviously.', aff:-1,
+             r:'*a lock of your hair turns white* WRONG. This is MY story. You are a GUEST STAR at best.'},
+            {t:'Maybe I\'m not different. But I\'d like to find out.', aff:0,
+             r:'An honest coward\'s answer. Better than a liar\'s courage. Barely.'} ] },
+      { q:'These spirits are MINE to protect. Yuki cried for sixty years. Rin pretends nothing hurts. If you break a single one of their hearts, what should I do to you?',
+        c:[ {t:'Whatever you think is fair. But I\'d rather spend forever proving you\'ll never have to.', aff:1,
+             r:'*the fog goes still* …Forever. You say that word so easily to a spirit. Do you know how long forever IS? …I do. It is long enough. Acceptable answer.'},
+            {t:'Nothing, because you\'d never catch me.', aff:-1,
+             r:'*she is suddenly INCHES from your face* I am the fog, beloved. I have ALREADY caught you. You are standing inside me RIGHT NOW.'},
+            {t:'Haunt me, I guess? Standard package?', aff:0,
+             r:'"Standard package." I will haunt you ARTISANALLY. Bespoke torment. Nothing but the finest for heartbreakers.'} ] },
+      { q:'Final question, little heartbeat. The gate behind me leads out of Hollow Hills. Walk through it and dawn takes you home — alone, safe, free of us. Or stay in the dark, with the dead, with… me. With all of us. Choose.',
+        c:[ {t:'Keep the gate. The dark\'s got better company anyway.', aff:1,
+             r:'*for one second, the terrifying shrine spirit looks exactly like a girl who was not expecting that answer* …oh. OH. Well. Then it is decided. You are OURS now. …Mine on Thursdays.'},
+            {t:'Can I sleep on it? Big decision.', aff:0,
+             r:'*pinches the bridge of her nose* Three hundred years and I get "let me sleep on it." Fine. FINE. The gate isn\'t going anywhere. Neither am I. Unfortunately for you, neither are my FEELINGS.'},
+            {t:'Home, obviously. This place is a graveyard.', aff:-1,
+             r:'IT IS A *SHRINE*. THE GRAVEYARD IS *ADJACENT*. GET OUT.'} ] },
+    ],
+    win:'The gate dissolves into moonlight. Ayame turns away to hide her face behind her sleeve. "Curfew is dawn. Dinner is at the shrine. Yuki picked the menu, so it is exclusively snacks. …Welcome home, beloved."',
+    lose:'The sky splits with violet lightning. "OUT. OF. MY. SHRINE." — Ayame hurls you back down the hill. She cools off eventually. Spirits always do.',
+    meh:'Ayame studies you for a long, long moment. "Undecided. I have waited three centuries; I can wait one more conversation. Come back to me, little heartbeat."',
+  },
+};
+
+/* ---------------- AUDIO (tiny synth, no assets) ---------------- */
+let AC = null;
+function beep(freq, dur=0.09, type='square', vol=0.05, slide=0){
+  if (!AC) return;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, AC.currentTime);
+  if (slide) o.frequency.linearRampToValueAtTime(Math.max(30, freq+slide), AC.currentTime+dur);
+  g.gain.setValueAtTime(vol, AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime+dur);
+  o.connect(g).connect(AC.destination); o.start(); o.stop(AC.currentTime+dur);
+}
+const SFX = {
+  jump:  () => beep(300, .12, 'square', .04, 260),
+  stomp: () => beep(520, .08, 'triangle', .06, -180),
+  heart: () => { beep(660,.08,'sine',.05); setTimeout(()=>beep(880,.12,'sine',.05),70); },
+  hurt:  () => beep(140, .2, 'sawtooth', .06, -60),
+  good:  () => { [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.12,'sine',.045),i*80)); },
+  bad:   () => { [300,240,180].forEach((f,i)=>setTimeout(()=>beep(f,.15,'sawtooth',.05),i*100)); },
+  gate:  () => { [392,494,587,784].forEach((f,i)=>setTimeout(()=>beep(f,.2,'triangle',.05),i*120)); },
+};
+
+/* ---------------- STATE ---------------- */
+const T = CONFIG.tile, PAL = CONFIG.palette;
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = innerWidth, H = innerHeight;
+function resize(){ W = canvas.width = innerWidth; H = canvas.height = innerHeight; }
+addEventListener('resize', resize); resize();
+
+const rows = ROWS, cols = COLS;
+const tileAt = (x,y) => (y>=0 && y<rows && x>=0 && x<cols) ? LEVEL[y][x] : ' ';
+const solid = (x,y) => (x < 0 || x >= cols) ? true : tileAt(x,y) === '#';
+const oneway = (x,y) => tileAt(x,y) === '=';
+
+const player = { x:0, y:0, w:22, h:30, vx:0, vy:0, onGround:false, facing:1,
+  hearts:CONFIG.maxHearts, iframe:0, prevBottom:0, walkT:0, dead:false };
+let spawn = {x:3*T, y:(GROUND-2)*T};
+const chars = [], pickups = [], graves = [], trees = [], particles = [];
+let gate = null;
+let romanced = 0;
+let camX = 0, camY = 0;
+let gameState = 'title'; // title | play | dialog | ending
+let timeT = 0, flash = 0;
+const wisps = Array.from({length:14}, () => ({ x:Math.random()*cols*T,
+  y:Math.random()*9*T, s:.5+Math.random(), p:Math.random()*7 }));
+
+for (let y=0; y<rows; y++) for (let x=0; x<cols; x++){
+  const c = LEVEL[y][x], wx = x*T, wy = y*T;
+  if (c==='P') spawn = {x:wx, y:wy - 4};
+  else if (c==='H') pickups.push({x:wx+T/2, y:wy+T/2, taken:false, p:Math.random()*7});
+  else if (c==='^') graves.push({x:wx, y:wy});
+  else if (c==='T') trees.push({x:wx, y:wy});
+  else if (c==='D') gate = {x:wx, y:wy, open:false, anim:0};
+  else if ('yrknA'.includes(c)){
+    const id = {y:'yuki', r:'rin', k:'kazuma', n:'ren', A:'ayame'}[c];
+    chars.push({ id, def:CAST[id], x:wx+5, y:wy+T-34, w:26, h:34, vx:0, vy:0, dir:-1,
+      state:'roam',            // roam | talk | romanced | angry | unsure
+      angryT:0, walkT:Math.random()*7, aff:0, qi:0,
+      home:{x:wx+5, y:wy+T-34}, boss:!!CAST[id].boss });
+  }
+}
+player.x = spawn.x; player.y = spawn.y;
+
+/* ---------------- INPUT ---------------- */
+const keys = {};
+addEventListener('keydown', e => {
+  if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)) e.preventDefault();
+  keys[e.code] = true;
+  if (gameState==='title' && (e.code==='Enter'||e.code==='Space')) startGame();
+});
+addEventListener('keyup', e => keys[e.code] = false);
+const touch = {l:false, r:false, j:false};
+function bindTouch(id, k){
+  const el = document.getElementById(id);
+  el.addEventListener('pointerdown', e => { e.preventDefault(); touch[k]=true; });
+  for (const ev of ['pointerup','pointercancel','pointerleave'])
+    el.addEventListener(ev, () => touch[k]=false);
+}
+bindTouch('tL','l'); bindTouch('tR','r'); bindTouch('tJ','j');
+if ('ontouchstart' in window) document.getElementById('touch').classList.add('show');
+
+document.getElementById('startBtn').addEventListener('click', startGame);
+function startGame(){
+  if (gameState!=='title') return;
+  try { AC = AC || new (window.AudioContext||window.webkitAudioContext)(); } catch(e){}
+  document.getElementById('title').classList.add('hidden');
+  gameState = 'play';
+  showHint('Jump on someone\'s head to say hi 💜', 5);
+}
+
+/* ---------------- HUD ---------------- */
+const heartsEl = document.getElementById('hearts');
+const romanceEl = document.getElementById('romance');
+const hintEl = document.getElementById('hint');
+let hintT = 0;
+function showHint(msg, secs){ hintEl.textContent = msg; hintEl.classList.add('show'); hintT = secs; }
+function refreshHUD(){
+  heartsEl.textContent = '💗'.repeat(player.hearts) + '🖤'.repeat(CONFIG.maxHearts - player.hearts);
+  romanceEl.textContent = `💕 ${romanced}/${CONFIG.romancesNeeded}` + (gate && gate.open ? ' ⛩️' : '');
+}
+refreshHUD();
+
+/* ---------------- DIALOG ---------------- */
+const dEl = document.getElementById('dialog');
+const dName = document.getElementById('dname'), dTitle = document.getElementById('dtitle');
+const dAff = document.getElementById('daff'), dText = document.getElementById('dtext');
+const dChoices = document.getElementById('dchoices');
+const dPortrait = document.getElementById('dportrait').getContext('2d');
+let talking = null;
+
+function openDialog(ch){
+  talking = ch; ch.state = 'talk'; ch.aff = 0; ch.qi = 0; ch.mood = 'neutral';
+  gameState = 'dialog';
+  dName.textContent = ch.def.name;
+  dTitle.textContent = ch.def.title;
+  dEl.classList.add('open');
+  sayLine(ch.def.greet, [{t:'…continue', act:'next'}]);
+}
+function sayLine(text, choices){
+  dText.textContent = text;
+  dAff.textContent = talking.aff>0 ? '💗'.repeat(talking.aff)
+                   : talking.aff<0 ? '💔'.repeat(-talking.aff) : '';
+  dChoices.innerHTML = '';
+  for (const c of choices){
+    const b = document.createElement('button');
+    b.textContent = c.t;
+    b.addEventListener('click', () => handleChoice(c));
+    dChoices.appendChild(b);
+  }
+}
+function handleChoice(c){
+  const ch = talking;
+  if (!ch) return;
+  if (c.act === 'end')  return ending(true);
+  if (c.act === 'close') return closeDialog(ch);
+  if (c.act === 'next') return askQuestion(ch);
+  // an answer to a question
+  ch.aff += c.aff;
+  if (c.aff > 0) SFX.good();
+  else if (c.aff < 0){ SFX.bad(); if (ch.boss) damagePlayer(0); } // boss punishes bad answers
+  ch.mood = c.aff>0 ? 'happy' : (c.aff<0 ? 'angry' : 'neutral');
+  ch.qi++;
+  sayLine(c.r, [{t:'…continue', act:'next'}]);
+}
+function askQuestion(ch){
+  if (player.dead){ closeDialog(ch); return; }
+  if (ch.qi >= ch.def.qs.length) return finishDialog(ch);
+  ch.mood = 'neutral';
+  const q = ch.def.qs[ch.qi];
+  const shuffled = [...q.c].sort(() => Math.random()-0.5);
+  sayLine(q.q, shuffled);
+}
+function finishDialog(ch){
+  if (ch.aff >= 2){
+    ch.state = 'romanced'; ch.mood = 'love';
+    if (!ch.boss){
+      romanced++; SFX.good(); burst(ch.x+ch.w/2, ch.y, PAL.heart, 18);
+      refreshHUD();
+      sayLine(ch.def.win, [{t:'💜 See you around', act:'close'}]);
+      if (romanced >= CONFIG.romancesNeeded && gate && !gate.open)
+        setTimeout(() => showHint('The shrine gate stirs… head east ⛩️', 6), 600);
+    } else {
+      SFX.gate();
+      sayLine(ch.def.win, [{t:'💜 …stay', act:'end'}]);
+    }
+  } else if (ch.aff <= 0){
+    ch.state = 'angry'; ch.angryT = CONFIG.angrySeconds; ch.mood = 'angry';
+    SFX.bad();
+    sayLine(ch.def.lose, [{t:'😅 backing away slowly', act:'close'}]);
+  } else {
+    ch.state = 'unsure'; ch.mood = 'neutral';
+    sayLine(ch.def.meh, [{t:'🙂 fair enough', act:'close'}]);
+  }
+}
+function closeDialog(ch){
+  dEl.classList.remove('open');
+  gameState = 'play';
+  if (ch.state === 'talk' || ch.state === 'unsure') ch.state = 'roam';
+  if (ch.state === 'angry' && ch.boss){
+    // boss rejection: hurled back down the hill, she resets
+    player.x = gate ? gate.x - T*6 : spawn.x; player.y = spawn.y;
+    player.vx = 0; player.vy = 0;
+    ch.state = 'roam'; ch.aff = 0;
+  }
+  player.vy = -CONFIG.stompBounce * 0.6;
+  talking = null;
+}
+function ending(){
+  gameState = 'ending';
+  dEl.classList.remove('open');
+  document.getElementById('endH1').textContent = '🌙💜 HAPPILY HAUNTED';
+  document.getElementById('endH2').textContent = 'ever after';
+  document.getElementById('endP').textContent =
+    `You charmed ${romanced} heart${romanced===1?'':'s'} of Hollow Hills — and the shrine ` +
+    `spirit herself. The fog is warm now. The ghosts wave when you pass. Kazuma still ` +
+    `insists you fell for him first. (He's wrong. Probably.)`;
+  document.getElementById('ending').classList.remove('hidden');
+}
+
+/* ---------------- DAMAGE / DEATH ---------------- */
+function damagePlayer(knockDir){
+  if (player.iframe > 0 || player.dead) return;
+  player.hearts--; refreshHUD(); SFX.hurt();
+  flash = Math.max(flash, 0.35);
+  if (player.hearts <= 0){ respawn(); return; }
+  player.iframe = CONFIG.iframes;
+  if (knockDir){ player.vx = 380*knockDir; player.vy = -350; }
+}
+function respawn(){
+  player.dead = true;
+  setTimeout(() => {
+    player.x = spawn.x; player.y = spawn.y; player.vx = 0; player.vy = 0;
+    player.hearts = CONFIG.maxHearts; player.iframe = 2; player.dead = false;
+    refreshHUD();
+    showHint('The night is patient. Try again. 🌙', 3);
+  }, 700);
+}
+
+/* ---------------- PARTICLES ---------------- */
+function burst(x, y, color, n){
+  for (let i=0;i<n;i++) particles.push({ x, y, vx:(Math.random()-0.5)*260,
+    vy:-Math.random()*300-40, t:0.9+Math.random()*0.5, color, heart:Math.random()<0.5 });
+}
+
+/* ---------------- PHYSICS ---------------- */
+function moveEntity(e, dt){
+  e.x += e.vx * dt;
+  let x0 = Math.floor(e.x/T), x1 = Math.floor((e.x+e.w)/T);
+  let y0 = Math.floor(e.y/T), y1 = Math.floor((e.y+e.h-1)/T);
+  for (let ty=y0; ty<=y1; ty++){
+    if (e.vx > 0 && solid(x1,ty)){ e.x = x1*T - e.w - 0.01; e.vx = 0; }
+    if (e.vx < 0 && solid(x0,ty)){ e.x = (x0+1)*T + 0.01; e.vx = 0; }
+  }
+  const prevBottom = e.y + e.h;
+  e.y += e.vy * dt;
+  e.onGround = false;
+  x0 = Math.floor(e.x/T); x1 = Math.floor((e.x+e.w)/T);
+  y0 = Math.floor(e.y/T); y1 = Math.floor((e.y+e.h)/T);
+  for (let tx=x0; tx<=x1; tx++){
+    if (e.vy > 0){
+      if (solid(tx,y1) || (oneway(tx,y1) && prevBottom <= y1*T+1)){
+        e.y = y1*T - e.h - 0.01; e.vy = 0; e.onGround = true;
+      }
+    } else if (e.vy < 0 && solid(tx,y0)){
+      e.y = (y0+1)*T + 0.01; e.vy = 0;
+    }
+  }
+}
+const overlap = (a,b) => a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+
+/* ---------------- UPDATE ---------------- */
+function update(dt){
+  timeT += dt;
+  if (hintT > 0){ hintT -= dt; if (hintT <= 0) hintEl.classList.remove('show'); }
+  if (flash > 0) flash -= dt;
+  if (Math.random() < CONFIG.lightningChance) flash = Math.max(flash, 0.18 + Math.random()*0.18);
+
+  for (const w of wisps){ w.x += Math.sin(timeT*0.3+w.p)*10*dt; w.y += Math.cos(timeT*0.23+w.p)*8*dt; }
+  for (let i=particles.length-1; i>=0; i--){ const p = particles[i];
+    p.t -= dt; p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 700*dt;
+    if (p.t<=0) particles.splice(i,1); }
+
+  if (gameState !== 'play') return;
+
+  // --- player ---
+  if (!player.dead){
+    const left  = keys.ArrowLeft || keys.KeyA || touch.l;
+    const right = keys.ArrowRight|| keys.KeyD || touch.r;
+    const jump  = keys.Space || keys.ArrowUp || keys.KeyW || touch.j;
+    player.vx = (right?CONFIG.moveSpeed:0) - (left?CONFIG.moveSpeed:0);
+    if (player.vx){ player.facing = Math.sign(player.vx); player.walkT += dt*10; }
+    if (jump && player.onGround){ player.vy = -CONFIG.jumpVel; SFX.jump(); }
+    player.vy = Math.min(player.vy + CONFIG.gravity*dt, 1100);
+    player.prevBottom = player.y + player.h;
+    moveEntity(player, dt);
+    if (player.iframe > 0) player.iframe -= dt;
+    if (player.y > rows*T + 100){          // fell into a pit
+      damagePlayer(0);
+      if (!player.dead){ player.x = spawn.x; player.y = spawn.y; player.vx = player.vy = 0; }
+    }
+  }
+
+  // --- gate ---
+  if (gate){
+    const px = player.x + player.w/2;
+    if (!gate.open && romanced >= CONFIG.romancesNeeded && Math.abs(px-(gate.x+T/2)) < T*4){
+      gate.open = true; SFX.gate(); refreshHUD();
+      showHint('⛩️ The gate opens for a charmed heart…', 4);
+    }
+    if (gate.open && gate.anim < 1) gate.anim = Math.min(1, gate.anim + dt*0.8);
+    if (!gate.open){
+      const g = {x:gate.x+6, y:gate.y-T*2, w:T-12, h:T*3};
+      if (overlap(player, g)){
+        player.x = px < g.x+g.w/2 ? g.x - player.w - 0.5 : g.x + g.w + 0.5;
+        const need = CONFIG.romancesNeeded - romanced;
+        showHint(`The gate is sealed. Charm ${need} more heart${need===1?'':'s'} 💕`, 3);
+      }
+    }
+  }
+
+  // --- cast ---
+  for (const ch of chars){
+    if (ch.state === 'talk') continue;
+    if (ch.state === 'angry' && !ch.boss){ ch.angryT -= dt; if (ch.angryT <= 0) ch.state = 'roam'; }
+    if (ch.state === 'romanced'){
+      ch.vx = 0; ch.walkT += dt*3;
+      if (Math.random() < 0.01) particles.push({ x:ch.x+ch.w/2, y:ch.y-6,
+        vx:(Math.random()-0.5)*30, vy:-50, t:1.2, color:PAL.heart, heart:true });
+    } else if (ch.boss){
+      ch.y = ch.home.y - 10 + Math.sin(timeT*1.6)*8;   // hovering, waiting
+      ch.dir = player.x < ch.x ? -1 : 1;
+    } else {
+      const sp = CONFIG.patrolSpeed * (ch.state==='angry' ? CONFIG.angrySpeedMult : 1);
+      ch.vx = sp * ch.dir;
+      ch.walkT += dt * (ch.state==='angry' ? 16 : 7);
+      const aheadX = ch.dir>0 ? ch.x+ch.w+2 : ch.x-2;
+      const aheadTX = Math.floor(aheadX/T);
+      const footY = Math.floor((ch.y+ch.h+4)/T);
+      const wallY = Math.floor((ch.y+ch.h/2)/T);
+      if (solid(aheadTX, wallY) || !(solid(aheadTX, footY) || oneway(aheadTX, footY))) ch.dir *= -1;
+      ch.vy += CONFIG.gravity*dt;
+      moveEntity(ch, dt);
+    }
+    if (player.dead) continue;
+    if (ch.boss && !(gate && gate.open)) continue;     // unreachable until the gate opens
+    if (overlap(player, ch)){
+      const stomped = player.vy > 0 && player.prevBottom <= ch.y + 12;
+      if (ch.state === 'romanced'){
+        if (stomped){ player.vy = -CONFIG.stompBounce; SFX.stomp(); }
+      } else if (stomped){
+        player.vy = -CONFIG.stompBounce; SFX.stomp();
+        burst(ch.x+ch.w/2, ch.y, '#c9b3ff', 8);
+        const target = ch;
+        setTimeout(() => { if (gameState==='play' && target.state!=='romanced') openDialog(target); }, 120);
+      } else {
+        damagePlayer(player.x < ch.x ? -1 : 1);
+      }
+    }
+    // the boss confronts you herself when you approach
+    if (ch.boss && gate && gate.open && ch.state==='roam' &&
+        Math.abs(player.x - ch.x) < T*1.8 && Math.abs(player.y - ch.y) < T*2.5){
+      openDialog(ch);
+    }
+  }
+
+  // --- pickups ---
+  for (const p of pickups){
+    if (p.taken) continue;
+    const bob = Math.sin(timeT*3+p.p)*4;
+    if (Math.abs(player.x+player.w/2 - p.x) < 22 && Math.abs(player.y+player.h/2 - (p.y+bob)) < 26){
+      p.taken = true; SFX.heart();
+      if (player.hearts < CONFIG.maxHearts){ player.hearts++; refreshHUD(); }
+      burst(p.x, p.y, PAL.heart, 8);
+    }
+  }
+
+  // --- camera ---
+  const tx = player.x + player.w/2 - W/2;
+  const ty = player.y + player.h/2 - H*0.58;
+  camX += (tx - camX) * Math.min(1, CONFIG.camLerp*dt);
+  camY += (ty - camY) * Math.min(1, CONFIG.camLerp*dt);
+  camX = Math.max(0, Math.min(cols*T - W, camX));
+  camY = Math.max(-T*6, Math.min(rows*T - H + T, camY));
+}
+
+/* ---------------- CHIBI RENDERER ----------------
+   One function draws every character, in-world and in the portrait.
+   Anchored at feet-center. s≈1.15 in world, s≈4.6 for portraits. */
+function drawChibi(g, look, opts){
+  const { s=1, facing=1, walk=0, mood='neutral', floaty=false } = opts;
+  g.save();
+  g.scale(facing*s, s);
+  g.translate(0, floaty ? Math.sin(walk)*2 : 0);
+
+  if (look.ghost){                                  // misty tail instead of legs
+    g.fillStyle = look.outfit;
+    g.beginPath();
+    g.moveTo(-8, -14); g.quadraticCurveTo(-9, -2, -5, 0);
+    g.quadraticCurveTo(-2, -4, 0, 0); g.quadraticCurveTo(2, -4, 5, 0);
+    g.quadraticCurveTo(9, -2, 8, -14); g.closePath(); g.fill();
+  } else {
+    const lg = Math.sin(walk)*3;
+    g.fillStyle = '#2a2140';
+    g.fillRect(-6, -8+Math.max(0,lg*0.6), 4, 8-Math.max(0,lg*0.6));
+    g.fillRect(2, -8+Math.max(0,-lg*0.6), 4, 8-Math.max(0,-lg*0.6));
+  }
+  g.fillStyle = look.outfit;
+  g.beginPath(); g.roundRect(-8, -22, 16, 15, 4); g.fill();
+  if (look.cape){
+    g.fillStyle = '#3d0f22';
+    g.beginPath(); g.moveTo(-8,-21);
+    g.quadraticCurveTo(-14 - Math.sin(walk)*2, -10, -10, -2);
+    g.lineTo(-6,-6); g.closePath(); g.fill();
+  }
+  const hy = -30;
+  g.fillStyle = look.skin;
+  g.beginPath(); g.arc(0, hy, 10, 0, 7); g.fill();
+
+  g.fillStyle = look.hair;
+  if (look.style === 'long'){
+    g.beginPath(); g.arc(0, hy-1.5, 10.5, Math.PI, 0); g.fill();
+    g.fillRect(-10.5, hy-2, 4, 16); g.fillRect(6.5, hy-2, 4, 16);
+  } else if (look.style === 'twintails'){
+    g.beginPath(); g.arc(0, hy-1.5, 10.5, Math.PI, 0); g.fill();
+    const sway = Math.sin(walk)*2;
+    g.beginPath(); g.ellipse(-12, hy+3+sway, 3.4, 8, 0.3, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(12, hy+3-sway, 3.4, 8, -0.3, 0, 7); g.fill();
+  } else if (look.style === 'swoosh'){
+    g.beginPath(); g.arc(0, hy-2, 10.7, Math.PI*0.9, Math.PI*2.1); g.fill();
+    g.beginPath(); g.moveTo(-9,hy-4); g.quadraticCurveTo(2,hy-16, 12,hy-6);
+    g.quadraticCurveTo(6,hy-9, -2,hy-6); g.closePath(); g.fill();
+  } else if (look.style === 'wild'){
+    g.beginPath(); g.arc(0, hy-1.5, 10.7, Math.PI, 0); g.fill();
+    for (let i=-2;i<=2;i++){ g.beginPath();
+      g.moveTo(i*4-2, hy-8); g.lineTo(i*4, hy-15 - Math.abs(i)); g.lineTo(i*4+2, hy-8);
+      g.closePath(); g.fill(); }
+  } else if (look.style === 'veil'){
+    g.beginPath(); g.arc(0, hy-1.5, 10.7, Math.PI, 0); g.fill();
+    g.fillRect(-10.5, hy-2, 4, 20); g.fillRect(6.5, hy-2, 4, 20);
+    g.globalAlpha = 0.3; g.fillStyle = '#e6d8ff';
+    g.beginPath(); g.roundRect(-12, hy-12, 24, 26, 6); g.fill();
+    g.globalAlpha = 1;
+  }
+  if (look.ears){                                   // wolf ears
+    g.fillStyle = look.hair;
+    g.beginPath(); g.moveTo(-8,hy-7); g.lineTo(-6,hy-16); g.lineTo(-2,hy-9); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(8,hy-7); g.lineTo(6,hy-16); g.lineTo(2,hy-9); g.closePath(); g.fill();
+  }
+  // face
+  const eyeY = hy+1;
+  if (mood === 'angry'){
+    g.strokeStyle = look.eye; g.lineWidth = 1.6;
+    g.beginPath(); g.moveTo(1,eyeY-3); g.lineTo(6,eyeY-1); g.stroke();
+    g.beginPath(); g.moveTo(-1,eyeY-3); g.lineTo(-6,eyeY-1); g.stroke();
+    g.fillStyle = look.eye;
+    g.beginPath(); g.ellipse(3.5, eyeY+1, 1.7, 2.2, 0, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(-3.5, eyeY+1, 1.7, 2.2, 0, 0, 7); g.fill();
+    g.strokeStyle = '#a05060'; g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(-2.5, hy+6.5); g.quadraticCurveTo(0, hy+5, 2.5, hy+6.5); g.stroke();
+  } else if (mood === 'love'){
+    g.fillStyle = '#ff6f9f'; g.font = '7px sans-serif'; g.textAlign = 'center';
+    g.fillText('♥', -3.5, eyeY+3); g.fillText('♥', 3.5, eyeY+3);
+    g.strokeStyle = '#c05a70'; g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(-3, hy+6); g.quadraticCurveTo(0, hy+8.5, 3, hy+6); g.stroke();
+  } else {
+    for (const sx of [-3.5, 3.5]){                  // big anime eyes
+      g.fillStyle = '#fff';
+      g.beginPath(); g.ellipse(sx, eyeY, 2.6, 3.2, 0, 0, 7); g.fill();
+      g.fillStyle = look.eye;
+      g.beginPath(); g.ellipse(sx+0.5, eyeY+0.3, 1.7, 2.4, 0, 0, 7); g.fill();
+      g.fillStyle = '#fff';
+      g.beginPath(); g.arc(sx+1.1, eyeY-0.8, 0.7, 0, 7); g.fill();
+    }
+    g.strokeStyle = '#b06a78'; g.lineWidth = 1.1;
+    if (mood === 'happy'){
+      g.beginPath(); g.moveTo(-2.6, hy+5.5); g.quadraticCurveTo(0, hy+8, 2.6, hy+5.5); g.stroke();
+    } else {
+      g.beginPath(); g.moveTo(-1.8, hy+6.2); g.lineTo(1.8, hy+6.2); g.stroke();
+    }
+  }
+  if (look.blush){
+    g.fillStyle = '#ffa0b855';
+    g.beginPath(); g.ellipse(-6.4, hy+4, 2.2, 1.3, 0, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(6.4, hy+4, 2.2, 1.3, 0, 0, 7); g.fill();
+  }
+  if (look.patch){                                  // Rin's cute bandage
+    g.fillStyle = '#ead9c8';
+    g.save(); g.translate(6.5, hy-4); g.rotate(0.5); g.fillRect(-3,-1.2,6,2.4); g.restore();
+  }
+  if (look.sparkle && mood !== 'angry'){            // uber-confident sparkles
+    g.fillStyle = '#ffe9b0';
+    g.globalAlpha = 0.4 + 0.6*(Math.sin(walk*2)+1)/2;
+    g.font = '5px sans-serif'; g.textAlign = 'center';
+    g.fillText('✦', 12, hy-8); g.fillText('✦', -13, hy+2);
+    g.globalAlpha = 1;
+  }
+  g.restore();
+}
+
+function renderPortrait(ch){
+  const g = dPortrait;
+  g.clearRect(0,0,240,240);
+  const grad = g.createRadialGradient(120,90,10,120,120,160);
+  grad.addColorStop(0, ch.mood==='angry' ? '#4a1235' : '#2e1c58');
+  grad.addColorStop(1, '#0d0718');
+  g.fillStyle = grad; g.fillRect(0,0,240,240);
+  g.save(); g.translate(120, 214);
+  drawChibi(g, ch.def.look, { s:4.6, facing:1, walk:timeT*3, mood:ch.mood||'neutral' });
+  g.restore();
+}
+
+/* ---------------- RENDER ---------------- */
+function render(){
+  const sky = ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,PAL.skyTop); sky.addColorStop(0.6,PAL.skyMid); sky.addColorStop(1,PAL.skyLow);
+  ctx.fillStyle = sky; ctx.fillRect(0,0,W,H);
+  // stars
+  ctx.fillStyle = PAL.star;
+  const span = W+200;
+  for (let i=0;i<60;i++){
+    const sx = ((i*173.3 - camX*0.05) % span + span) % span - 100;
+    const sy = (i*97.7) % (H*0.7);
+    ctx.globalAlpha = 0.25 + 0.55*Math.abs(Math.sin(timeT*0.8 + i));
+    ctx.fillRect(sx, sy, 2, 2);
+  }
+  ctx.globalAlpha = 1;
+  // moon (pastel blue)
+  const mx = W*0.78 - camX*0.03, my = H*0.16;
+  ctx.fillStyle = PAL.moon; ctx.beginPath(); ctx.arc(mx,my,46,0,7); ctx.fill();
+  ctx.fillStyle = PAL.moonShade;
+  ctx.beginPath(); ctx.arc(mx-14,my-8,7,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(mx+10,my+12,5,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(mx+16,my-14,4,0,7); ctx.fill();
+  ctx.globalAlpha = 0.18; ctx.fillStyle = PAL.moon;
+  ctx.beginPath(); ctx.arc(mx,my,62,0,7); ctx.fill();
+  ctx.globalAlpha = 1;
+  // pastel-pink glow bleeding up from the horizon
+  const hg = ctx.createLinearGradient(0,H*0.42,0,H*0.66);
+  hg.addColorStop(0,'#0000'); hg.addColorStop(1,PAL.horizonGlow+'2e');
+  ctx.fillStyle = hg; ctx.fillRect(0,H*0.42,W,H*0.24);
+  // far hills
+  ctx.fillStyle = PAL.hills;
+  ctx.beginPath(); ctx.moveTo(0,H);
+  for (let x=0;x<=W;x+=40) ctx.lineTo(x, H*0.55 + Math.sin((x+camX*0.15)*0.006)*40);
+  ctx.lineTo(W,H); ctx.fill();
+  // background wisps
+  for (const w of wisps){
+    const sx = w.x - camX*0.5, sy = w.y - camY*0.5;
+    if (sx<-40 || sx>W+40) continue;
+    ctx.globalAlpha = 0.10 + 0.08*Math.sin(timeT+w.p);
+    ctx.fillStyle = PAL.wisp;
+    ctx.beginPath(); ctx.arc(sx, sy, 8*w.s, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.save();
+  ctx.translate(-Math.round(camX), -Math.round(camY));
+
+  // trees & graves (behind tiles)
+  ctx.lineCap = 'round';
+  for (const t of trees){
+    const bx = t.x+T/2, by = t.y+T;
+    ctx.strokeStyle = PAL.treeInk; ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx, by-70); ctx.stroke();
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(bx,by-46); ctx.lineTo(bx-26, by-72); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx,by-58); ctx.lineTo(bx+24, by-86); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx-26,by-72); ctx.lineTo(bx-38, by-84); ctx.stroke();
+  }
+  for (const gv of graves){
+    ctx.fillStyle = PAL.grave;
+    ctx.beginPath(); ctx.roundRect(gv.x+8, gv.y+10, T-16, T-10, [8,8,0,0]); ctx.fill();
+    ctx.fillStyle = PAL.graveLine;
+    ctx.fillRect(gv.x+14, gv.y+18, T-28, 3); ctx.fillRect(gv.x+14, gv.y+25, T-28, 3);
+  }
+
+  // tiles (only the visible window)
+  const x0 = Math.max(0, Math.floor(camX/T)-1), x1 = Math.min(cols, Math.ceil((camX+W)/T)+1);
+  const y0 = Math.max(0, Math.floor(camY/T)-1), y1 = Math.min(rows, Math.ceil((camY+H)/T)+1);
+  for (let y=y0; y<y1; y++) for (let x=x0; x<x1; x++){
+    const c = LEVEL[y][x];
+    if (c === '#'){
+      const top = !solid(x, y-1);
+      ctx.fillStyle = top ? PAL.stoneFace : PAL.stoneDeep;
+      ctx.fillRect(x*T, y*T, T, T);
+      if (top){
+        ctx.fillStyle = PAL.stoneTop; ctx.fillRect(x*T, y*T, T, 6);
+        ctx.fillStyle = PAL.stoneSpeck;
+        ctx.fillRect(x*T+3, y*T, 4, 3); ctx.fillRect(x*T+16, y*T, 6, 3); ctx.fillRect(x*T+27, y*T, 4, 3);
+      } else {
+        ctx.strokeStyle = '#1c1234'; ctx.lineWidth = 1;
+        ctx.strokeRect(x*T+.5, y*T+.5, T-1, T-1);
+      }
+    } else if (c === '='){
+      ctx.fillStyle = PAL.platform;
+      ctx.beginPath(); ctx.roundRect(x*T, y*T+4, T, 12, 3); ctx.fill();
+      ctx.fillStyle = PAL.platformTop; ctx.fillRect(x*T+2, y*T+4, T-4, 4);
+    }
+  }
+
+  // shrine gate
+  if (gate){
+    const gx = gate.x, gy = gate.y - T*2;
+    ctx.fillStyle = PAL.gateWood;
+    ctx.fillRect(gx-6, gy-14, 8, T*3+14); ctx.fillRect(gx+T-2, gy-14, 8, T*3+14);
+    ctx.fillRect(gx-14, gy-16, T+28, 10); ctx.fillRect(gx-8, gy-30, T+16, 9);
+    if (gate.anim < 1){
+      ctx.globalAlpha = 1-gate.anim;
+      ctx.fillStyle = PAL.gateSeal;
+      const lift = gate.anim * T*2.6;
+      for (let i=0;i<4;i++) ctx.fillRect(gx+2+i*8, gy-4-lift, 4, T*3);
+      ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = '#ffd6ea'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(gate.open ? '⛩️' : `💕 ${Math.min(romanced,CONFIG.romancesNeeded)}/${CONFIG.romancesNeeded}`,
+      gx+T/2, gy-36);
+  }
+
+  // pickups
+  ctx.font = '22px sans-serif'; ctx.textAlign = 'center';
+  for (const p of pickups){
+    if (p.taken) continue;
+    ctx.globalAlpha = 0.9;
+    ctx.fillText('💗', p.x, p.y + Math.sin(timeT*3+p.p)*4 + 8);
+  }
+  ctx.globalAlpha = 1;
+
+  // cast
+  for (const ch of chars){
+    if (ch.boss && !(gate && gate.open))            // distant silhouette until the gate opens
+      ctx.globalAlpha = 0.35 + 0.1*Math.sin(timeT*2);
+    ctx.save();
+    ctx.translate(ch.x + ch.w/2, ch.y + ch.h);
+    const mood = ch.state==='angry' ? 'angry' : ch.state==='romanced' ? 'love' : 'neutral';
+    drawChibi(ctx, ch.def.look, { s:1.15, facing:ch.dir||1, walk:ch.walkT, mood,
+      floaty:!!ch.def.look.ghost });
+    ctx.restore();
+    ctx.globalAlpha = 1;
+    ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+    if (ch.state === 'romanced') ctx.fillText('💕', ch.x+ch.w/2, ch.y-10 + Math.sin(timeT*3)*3);
+    else if (ch.state === 'angry') ctx.fillText('💢', ch.x+ch.w/2, ch.y-10);
+    else if (ch.state === 'unsure') ctx.fillText('🤍', ch.x+ch.w/2, ch.y-10);
+  }
+
+  // player (lavender-haired protagonist; blinks during i-frames)
+  if (!player.dead && (player.iframe <= 0 || Math.floor(timeT*14)%2===0)){
+    ctx.save();
+    ctx.translate(player.x+player.w/2, player.y+player.h);
+    drawChibi(ctx, { hair:'#a894e0', style:'wild', skin:'#f2dcc4', outfit:'#b25a80',
+      eye:'#7ec8c0' }, { s:1.1, facing:player.facing, walk:player.walkT, mood:'neutral' });
+    ctx.restore();
+  }
+
+  // particles
+  for (const p of particles){
+    ctx.globalAlpha = Math.min(1, p.t);
+    if (p.heart){ ctx.font = '12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('💗', p.x, p.y); }
+    else { ctx.fillStyle = p.color; ctx.fillRect(p.x-2, p.y-2, 4, 4); }
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+
+  // ground fog (pastel blue)
+  const fy = H*0.86;
+  ctx.fillStyle = PAL.fog + '22';
+  for (let i=0;i<3;i++){
+    ctx.beginPath();
+    for (let x=0;x<=W;x+=30){
+      const yy = fy + i*16 + Math.sin((x+camX*0.4)*0.012 + timeT*0.6 + i*2)*10;
+      x===0 ? ctx.moveTo(x,yy) : ctx.lineTo(x,yy);
+    }
+    ctx.lineTo(W,H); ctx.lineTo(0,H); ctx.fill();
+  }
+  // vignette — the horror lives at the edges
+  const vg = ctx.createRadialGradient(W/2,H/2,H*0.35,W/2,H/2,H*0.85);
+  vg.addColorStop(0,'#0000'); vg.addColorStop(1,'#05030b8c');
+  ctx.fillStyle = vg; ctx.fillRect(0,0,W,H);
+  // lightning / damage flash
+  if (flash > 0){
+    ctx.globalAlpha = Math.min(0.5, flash);
+    ctx.fillStyle = PAL.flash;
+    ctx.fillRect(0,0,W,H);
+    ctx.globalAlpha = 1;
+  }
+}
+
+/* ---------------- MAIN LOOP ---------------- */
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(0.033, (now-last)/1000);
+  last = now;
+  update(dt);
+  render();
+  if (gameState==='dialog' && talking) renderPortrait(talking);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// debug hooks (strip before a public ship)
+window._game = { player, chars, CONFIG, get state(){ return gameState; },
+  get romanced(){ return romanced; }, openDialog, gate: () => gate };
+</script>
+</body>
+</html>
