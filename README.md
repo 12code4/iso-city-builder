@@ -153,6 +153,27 @@ She loves horror, so the horror gets teeth — and now it has an owner:
   cards per character. Sets up the final version: confronting the puppeteer,
   the truth about the clones, and — at long, long last — the kiss.
 
+## Design backlog (tabled — do not build yet)
+
+Ideas parked here on purpose; a proper design doc is coming before any of
+these get built. Do **not** fold them into a version on a whim.
+
+- **Dialog-trigger rework (IMPORTANT).** Right now every stomp on a non-friendly
+  body opens dialog. That kills a classic platforming tech: using enemies as
+  springboards for height. Options to weigh in the design doc: dialog only on
+  the *freeing* stomp (later talks happen some other way); a "fast bounce"
+  that skips dialog when you're clearly traversing; or level design that never
+  requires enemy-bouncing. Or embrace it: maybe in this game you simply can't
+  use people as stepping stones without consequences — that's almost a theme.
+- **Behavior doc for angry / neutral / friendly.** Owner: Juan. Open questions
+  it should settle: does walking into a *neutral* (free-thinking) body trigger
+  dialog instead of damage? What exactly does "aggression" mean per band beyond
+  speed (chase persistence, damage, fear radius)? When do bodies re-derive
+  their attitude besides at dialog ends?
+- **Locked, per review:** the date scenes, the hand-holding-as-climax pacing,
+  the interrupted-kiss finale, and the archetype voices (Pretty-Cure girls,
+  Rengoku-grade Kazuma) are approved as-is. Don't rewrite them.
+
 ## Repo hygiene
 
 Same standing process as `main`: granular commits, tag each finished version
