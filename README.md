@@ -1,9 +1,10 @@
 # 🌙 Midnight Crush — a haunted dating platformer
 
-> **This branch is its own project.** The `main` branch of this repo is the
-> isometric city builder; `claude/anime-dating-sim-platformer-eji5ot` is
-> **Midnight Crush**, a Mario-style platformer crossed with an anime dating sim,
-> wrapped in pastel-pink-purple-blue horror. Built as a gift game. 💜
+> **Midnight Crush owns this repo.** A Mario-style platformer crossed with an
+> anime dating sim, wrapped in pastel-pink-purple-blue horror. Built as a gift
+> game. 💜 The isometric city builder that originally lived here is shelved —
+> preserved with full history and docs on the branch
+> [`iso-city-builder`](../../tree/iso-city-builder).
 
 Something has the night of Hollow Hills on **strings**. An unseen puppeteer —
 this game's Bowser — has every soul in town sleepwalking on invisible threads,

@@ -1,423 +1,135 @@
-# CLAUDE.md — Isometric City Builder (working title)
+# CLAUDE.md — Midnight Crush (haunted dating platformer)
 
-Stable architecture reference. Session-by-session notes live in plan.md, not here.
+Stable architecture reference. Session-by-session notes live in plan.md.
 Update this file only when an architectural decision changes.
 
-## Repository & release hygiene (STANDING PROCESS — check every session)
+## Repo layout (changed 2026-07-25 — read this first)
 
-Goal: a well-organized GitHub with clean version history and current docs. Verify
-this at the start of a session and satisfy it before wrapping up. Do not leave
-finished work stranded on a branch or a version untagged.
+**This repo now belongs to Midnight Crush.** The isometric city builder that
+originally lived here is SHELVED, preserved with its full history and docs on
+the branch **`iso-city-builder`**. Do not delete that branch; do not develop
+on it; do not "helpfully" merge it anywhere. `main` and all new branches are
+Midnight Crush.
 
-**`main` is the source of truth.** It must always reflect the latest *completed*
-version. Never let it fall behind shipped work. Do WIP on a feature branch; when a
-version (or a self-contained chunk) is done + verified + reviewed, merge it to
-`main` via PR. If a session starts and `main` is behind finished work, opening that
-PR is the first housekeeping task.
+## Repository & release hygiene (STANDING PROCESS)
 
-**Tag every version.** When `vX.Y` is feature-complete, tag it annotated at that
-commit (`git tag -a vX.Y -m "…"`) and push tags (`git push --tags`). A version is
-not "done" until it is tagged — tags are the checkout-able record of each release.
-
-**Commits stay granular.** One clear commit per milestone / feature / fix. Never
-squash unrelated work together (the early history fused v0.1 + v0.2-M5 into a single
-"Initial commit" — that history is unrecoverable; don't repeat it).
-
-**Docs stay in sync, every version:**
-- `README.md` — front page: bump the current-version line + feature list each release.
-- `CLAUDE.md` — architecture; update when a decision changes.
-- `roadmap.md` — future pillars; move a pillar out once it's built.
-- `plan.md` — append a session-log entry every session (what, why, verification).
-
-**Definition of done for a version** — all true before calling it shipped:
-verified (browser/headless) → adversarially reviewed + fixes applied → docs updated
-→ granular commits → pushed → tagged `vX.Y` → merged to `main`.
-
-**Known repo debt:** v0.1 + v0.2-M5 are fused in the initial commit (no clean
-per-version tags there — leave as-is, don't rewrite history). `window._sim` debug
-hooks remain in `index.html` — strip before any public ship.
+Inherited from the city builder and still binding:
+- `main` is the source of truth — always the latest completed version.
+  WIP on feature branches; merge when done + verified + reviewed.
+- One clear commit per milestone/feature/fix. Never squash unrelated work.
+- Tag every finished version (`git tag -a vX.Y-mc`) — the `-mc` suffix keeps
+  the namespace clear of any other project's tags. No versions are tagged yet;
+  v0.1/v0.2 tagging is HELD until Juan's playtest review passes (definition
+  of done requires review).
+- Docs stay in sync every version: README (front page + version history),
+  CLAUDE.md (architecture), roadmap.md (future), plan.md (session log).
+- Definition of done: verified (headless/browser) → reviewed → docs updated →
+  granular commits → pushed → tagged → merged to main.
 
 ## Project summary
 
-Browser-based isometric city builder. Three.js (ES module build), true 3D with an
-orthographic camera locked to isometric angles. Place buildings on a grid, watch the
-city grow. Economy and population systems planned for later versions — v0.1 is
-placement and growth only.
+Browser Mario-style platformer × Japanese-style dating sim × pastel horror.
+An unseen puppeteer (the game's "Bowser") has the town of Hollow Hills
+mind-controlled on visible strings. Every enemy slot is a cute anime girl or
+an uber-confident hot anime guy. Stomping snaps a body's strings and starts a
+conversation instead of a kill. Charm 3 hearts → shrine gate → boss dialog
+battle → almost-kiss finale.
 
-Targets: desktop browser + mobile touch. Single HTML file until size forces a split.
+Single self-contained `index.html`. Zero assets: characters are procedurally
+drawn chibis, SFX is a tiny WebAudio synth. Desktop + mobile touch.
 
 ## Locked decisions
 
-- **Renderer:** Three.js, orthographic camera. No pixel art, no sprite pipeline.
-  Depth sorting comes free from the z-buffer.
-- **Art style:** flat-colored box/simple geometries, soft shadows, warm palette.
-  Townscaper-adjacent. No textures in v0.1.
-- **Grid:** fixed 20×20 tile world in v0.1. Tile size 1 world unit. Grid coords are
-  integers (x, z); world position = (x + 0.5, 0, z + 0.5) for tile centers.
-- **Camera:** orthographic, 4 fixed isometric yaw angles (45°, 135°, 225°, 315°),
-  fixed pitch ~35.26° (true isometric). Rotate steps between the 4 angles with a
-  short eased tween. Pinch / scroll wheel adjusts zoom (ortho frustum size), clamped.
-  No free orbit — keeps input simple and readability consistent.
-- **Camera pan:** the look-at target slides on the ground plane, clamped to map
-  bounds. Desktop: WASD/arrows (camera-relative) or mouse drag. Mobile: one-finger
-  drag. Drag pan is "grab the ground": the world point under the pointer at drag
-  start stays under the pointer. Tap vs pan disambiguated by a movement threshold
-  (CONFIG.input.tapMaxMove) — under it on release = tap/place, over it = pan.
-- **All tuning lives in CONFIG** — one object at the top of the file: grid size,
-  colors, camera angles/zoom clamps, animation durations, growth timers, highway
-  layout. No magic numbers in logic code.
-- **Scope process:** decide before building. New ideas go to the backlog in plan.md,
-  not into the current milestone.
+- **All tuning lives in CONFIG** — physics, palette, thresholds, cadences.
+  No magic numbers in logic. `CONFIG.attitude` holds every disposition knob.
+- **CAST is data, not code.** A character = one CAST entry (look + dialogs +
+  quips + ambient + bump lines + context greetings). Adding a character must
+  require zero new engine logic — the direct heir of the city builder's
+  "advertisements only" rule.
+- **One chibi authority.** `drawChibi(g, look, opts)` draws every character at
+  every size (world sprite and dialog portrait). Look flags (ghost, tail,
+  sailor, cape, orbs, lashes, sharp, glow, scarf…) — never per-character draw
+  functions. Collision boxes are independent of sprite scale.
+- **The level is built in code** (`put()` calls onto a grid), never
+  hand-aligned ASCII.
+- **Dialog UI is DOM, not canvas** (#dialog overlay). In-world speech is
+  canvas bubbles. Portraits render into a small canvas via drawChibi.
+- **The meter is the final call.** After any conversation, a body's attitude
+  derives from the character's shared bond — never from the conversation
+  result alone (Juan's rule; resolves all result-vs-meter conflicts).
+- **Romance pacing stays innocent** (locked after review — do NOT rewrite):
+  the ladder is freed → befriended → date scene climaxing in HAND-HOLDING
+  (played as the most intense moment in the game) → almost-kiss at the finale,
+  interrupted. The true kiss is endgame content for the final version.
+  Blushing IS the content. Nothing ever goes past a kiss.
+- **Archetype voices locked after review:** girls Pretty-Cure-cute (Yuki shy,
+  Rin genki), guys gentleman-confident (Kazuma = Rengoku-grade booming honor,
+  Ren = smug with a traitorous tail), Ayame yandere-guardian.
+- **The clone mystery is never explained.** Multiple bodies per character all
+  share one bond/memory. Characters deflect questions about it. Unraveling it
+  is long-game content; no code may "fix" or lampshade it away.
 
-## World model
+## Core state
 
-Single source of truth: `world` — a 2D array `world[x][z]` of tile objects:
+- `bonds[id]` — ONE record per character (not per body), persisted to
+  localStorage (`midnightCrush.v1`): `{ bond, freed, romanced, dated }`.
+  `romanced` is a HIGH-WATER mark (gate progress never regresses).
+  Ayame is never persisted — the finale replays each session.
+- `chars[]` — bodies on the map. Per-body: position/physics, `attitude`
+  ('puppet' | 'friendly' | 'neutral' | 'hostile' | 'bumped' | 'boss'),
+  `talkCd`, `ambientAt`, `spin/hidden/respawnAt` (bump lifecycle).
+- Attitude derives via `deriveAttitude(id)` at interaction points ONLY
+  (dialog end, bump respawn, load) — never per frame. Bodies lagging the
+  meter is intentional (mystery + per-instance feel).
 
-```js
-{ type: 'empty' | 'highway' | 'road' | 'house' | 'shop' | 'park',
-  level: 0,          // growth stage (houses upgrade over time)
-  mesh: null,        // reference to the Three.js object on this tile
-  fixed: false }     // true = cannot be bulldozed (highway)
-```
+## Attitude bands (CONFIG.attitude)
 
-Rules:
-- Meshes are a *projection* of the world array, never the other way around.
-  All game logic reads/writes `world`; a single `syncTile(x, z)` function creates,
-  swaps, or removes the mesh to match. This is the analogue of Solar Swing's
-  shared `shapeFn` principle: one authority, renderer follows.
-- No per-frame iteration over all tiles for rendering. Meshes persist; only
-  changed tiles re-sync.
+- bond ≥ friendlyBond (2) → **friendly**: no damage; 0.8× patrol; ambient
+  speech bubbles; heart particles; heals player on walk-up (healCooldown).
+  Stomp = Mario-style bump-off: archetype quote (bumpLove at bond ≥ loveBond),
+  −bumpBondLoss, body flies off spinning, respawns after bumpRespawn.
+- hostileBond (−1) < bond < friendlyBond → **neutral** (free-thinking):
+  regular enemy at 0.8× aggression.
+- bond ≤ hostileBond → **hostile**: hunts player within chaseRange at 1.25×
+  speed; wary `regreetLow` greeting.
+- `puppet` = strings never snapped on THIS body (per-body in-session; on load,
+  bodies of a freed character load string-free — known simplification).
 
-## The highway (outside connection)
+## Interaction matrix (who does what on contact)
 
-- The map ships with a pre-placed highway stub: 1 tile wide, extending
-  `depth` tiles into the map (2) from the center of one map edge
-  (CONFIG.highway.edge, default 'south'). It does NOT cross the map.
-- Its outer end sits on the map edge — that edge point is the outside connection.
-  Player roads attach at the inner end (or sides).
-- **Tile anatomy (locked):** all roads and highway are 1 tile wide.
-  Highway tile: 2 traffic lanes, NO pedestrians. Road tile: 2 traffic
-  lanes + 2 sidewalks (sidewalks at tile edges, lanes center, right-hand
-  traffic). Lane/sidewalk positions are render offsets within the tile
-  (approx: lanes at ±0.18 of centerline, sidewalks at ±0.40) — the world
-  array stays one tile = one cell.
-- Highway tiles are `type: 'highway'`, `fixed: true` — cannot be bulldozed or built
-  over. Visually distinct from player roads (darker asphalt, dashed center line and
-  shoulder strips made from thin box meshes, oriented along the travel axis).
-- Purpose now: anchors the map, gives the first roads something to connect to.
-  Purpose later: the economy's import/export artery — traffic, migration, and trade
-  enter the city through the stub's edge endpoint. Keep the outer end on the map
-  edge so this stays true.
-- Player roads may connect to the highway from either side. Connection check:
-  4-neighbor adjacency (no diagonals).
-
-## Connectivity
-
-- `isConnected(x, z)`: BFS/flood fill over road + highway tiles from the highway,
-  computed on demand when the road network changes (not per frame). Result cached
-  in a `connected` boolean per road tile.
-- v0.1 use: houses only grow (level up) if adjacent (4-neighbor) to a *connected*
-  road. This quietly seeds the later economy: everything flows from the highway.
-- **Rule change (v0.2+):** buildings require adjacency to a connected *road*;
-  highway tiles no longer count as building frontage (no pedestrian access).
-  The highway is purely a connector and entry point.
-
-## Growth system (v0.1)
-
-- On placement: mesh scales up from 0 with a short back-ease pop (duration in CONFIG).
-- Houses: after `CONFIG.growth.upgradeSeconds` while adjacent to a connected road,
-  level 1 → 2 (taller mesh, new roof color). Timer per tile, checked on a slow tick
-  (every ~1s), not per frame.
-- Shops and parks don't grow in v0.1.
-
-## Citizens (v0.2)
-
-Design lineage, for the record: statistical illusion over deep AI (SimCity),
-needs-decay + building advertisements (The Sims), meter-driven cycles to avoid
-synchronized cohorts (Cities: Skylines death waves), and commutes over the
-player's road network as visible consequence (Skylines).
-
-### Record
-
-Citizens live in a flat `citizens` array, not in tiles:
-
-```js
-{ id, home: [x, z], job: [x, z] | null,
-  state: 'sleep' | 'work' | 'free_time',
-  phase: 'traveling' | 'doing',
-  meters: { energy, work, errands, fun },  // 0..100
-  rates: { ... },                     // per-citizen ±10% jitter on decay/fill
-  mode: 'walk' | 'drive',             // locked per excursion at home departure
-  path: [], pathT: 0,                 // current route + progress
-  stayUntil, activity }               // minStay commitment while doing
-```
-
-### State machine — exactly three states, meter-driven
-
-No global clock. Transitions are meter thresholds only:
-- `work` meter empty → state work (travel to job, fill meter while doing)
-- work meter full → `free_time`: score nearby building advertisements,
-  travel to the winner, satisfy that need
-- `energy` low → `sleep` (travel home, doing = energy refills)
-- energy full → wake; work has decayed → cycle repeats
-
-Commuting is NOT a fourth state: every state carries an internal
-`traveling → doing` phase. Keep it this way.
-
-Desync strategy: citizens spawn when houses are placed/upgrade (natural
-stagger), plus per-citizen rate jitter so same-burst cohorts drift apart.
-Never add a shared schedule ("everyone works at 8") — that reintroduces
-thundering herds.
-
-### Advertisements (extensibility rule)
-
-Buildings advertise `{ need, fillRate, minStay }` — data on building
-definitions in CONFIG, e.g. shop → `{ errands, fillRate: 4/s, minStay: 15s }`,
-park → `{ fun, fillRate: 3/s, minStay: 8s }`. Adding future building types
-must require zero new citizen logic — if a feature idea needs a new citizen
-state or special-case branch, redesign it as an advertisement instead.
-
-### Free-time decision procedure (locked)
-
-Runs on the decision tick, only when the citizen is in free_time and past
-the current location's `minStay`:
-
-1. **Flood once:** BFS from the citizen's current road tile writes road
-   distance to every tile (a Dijkstra map). One flood answers all
-   candidates' distances AND provides the path (walk downhill through the
-   field). Never pathfind per-candidate.
-2. **Score every reachable advertiser:**
-   `score = fillAmount × urgency × proximity`
-   - `urgency = (100 - meters[need]) / 100` — lowest meters dominate
-   - `proximity = 1 / (1 + dist / CONFIG.citizens.distHalf)` — soft
-     preference for closer, never a hard cutoff
-3. **Top 6** by score become the candidate set (fewer if fewer exist).
-4. **Weighted random pick:** weight = score^τ (CONFIG.citizens.pickTemp,
-   default 1). τ=0 → uniform among the 6; higher → greedier. Keep it low:
-   randomness here is spatial load balancing — pure argmax would dogpile
-   everyone onto one best building (the synchronization trap, in space).
-
-Rules that fall out and must stay true:
-- The current location is always a candidate (distance 0). Camping is
-  self-correcting: as the meter fills, urgency drops and "stay" loses
-  naturally. Do not add anti-camping special cases.
-- `minStay` is the only commitment. Re-picking the same spot restarts it.
-- Interrupts (energy → sleep) are checked only at decision points, never
-  mid-stay — citizens finish what they started. Keep minStays short so
-  this never looks dumb.
-
-Citizen record additions for this: `stayUntil` (game time) and
-`activity: { need, fillRate }` while phase = doing.
-
-### Population, jobs, migration
-
-- Residents per house: L1 = 3, L2 = 5 (CONFIG.citizens.residentsPerLevel).
-  Residents are DELIVERED by moving truck (see Migration), removed on bulldoze.
-- Cars per house: L1 = 1, L2 = 2 (carsPerLevel). Scarcity is structural —
-  residents always outnumber cars, so walking stays alive. Cars are tied to
-  house level (present from placement); the moving truck is NOT a household car.
-- Jobs per shop: 4 (≈ one L1 house per shop, with some joblessness left
-  over as the future unhappiness hook). Assignment: nearest open job by
-  road distance (assigned when the resident arrives). Jobless citizens skip
-  the work state.
-- **Migration (M7, moving-truck model — locked 2026-07-20):** a house does not
-  spawn residents instantly. It holds `pending` (residents owed) and the city
-  dispatches a **moving truck** per delivery: the truck enters at the highway
-  edge tile (HW_EDGE), drives the road+highway network to the house's curb
-  (its best-reachable frontage road tile), drops off `1..migration.maxLoad`
-  new residents (house resident count += load), then drives back out to the
-  edge and despawns. One inbound truck per house at a time; the next dispatch
-  waits a jittered `migration.dispatchHours` cooldown — natural stagger, no
-  shared clock. A truck is a transient entity in a flat `trucks` array, not a
-  citizen (no meters, no FSM — the three-state rule is untouched); it is the
-  minimal seed of the future visitor framework (roadmap Pillar B).
-  - **Reachability gates arrival (behavior change from M5/M6):** a truck can
-    only deliver where it can drive. A house with no road path from the highway
-    stays EMPTY, its residents waiting in `pending`, until a road connects it —
-    then trucks stream in. This replaces the old instant "shut-in" spawn.
-  - Disruptions resolve by visible consequence: bulldoze a house mid-delivery →
-    its inbound truck abandons and drives back out empty; sever the road under a
-    truck → it re-routes, or leaves if the house became unreachable, or idles if
-    stranded on an orphaned segment.
-
-### Cars & mode choice
-
-- A car is a shared household resource: checked out at home departure,
-  returned only at home arrival. The whole excursion (work → shop → park →
-  home) uses one mode. First-come within the household.
-- Mode choice is probabilistic by distance (discrete mode choice, as in
-  real transport models): P(drive) ramps linearly from 0 at
-  `carMinDist` (3 tiles) to 1 at `carFullDist` (12 tiles), rolled once at
-  departure, gated by car availability. No car free → walk, no re-roll.
-- Speeds: walk 1.2 tiles/s, drive 4 tiles/s (roads only for both).
-- Rendering (M6): walkers = small capsule dots, drivers = small car boxes.
-
-### Time system: day-anchored designer units (locked)
-
-CONFIG holds designer units — hours and per-day amounts — anchored by one
-number, `dayLength` (real seconds per in-game day, default 240). Per-second
-runtime rates are derived ONCE at boot into an `RT` object. Tuning happens
-only in designer units; never hand-edit derived rates.
-
-The day is a UNIT, not a clock: durations are day-fractions ("a shift is
-6 hours = 1/4 day") but nothing is scheduled to a time of day. The
-no-synchronized-schedules rule stands.
-
-Key derived relationships: shift = shiftHours minimum (enforced via
-stayUntil at work arrival — meter-full alone doesn't release a worker);
-sleep restores wakeAt-sleepBelow over sleepHours; work recovers to
-startBelow over recoverHours. Tuning lesson (found in test): recoverHours
-must be comfortably under (24 - shiftHours) or fast commutes leave the
-work meter just above startBelow at wake and citizens skip days — 14h
-gives reliably daily shifts.
-
-### Config plan (v0.2)
-
-```js
-citizens: {
-  timeScale: 1, decisionHz: 2,
-  residentsPerLevel: [0, 3, 5],
-  carsPerLevel: [0, 1, 2],
-  jobsPerShop: 4,
-  rateJitter: 0.10,
-  energy:  { decay: 0.55, sleepFill: 1.8, sleepBelow: 25, wakeAt: 95 },
-  work:    { decay: 0.5, fill: 1.7, startBelow: 15 },
-  needs:   { errands: { decay: 0.4 }, fun: { decay: 0.5 } },
-  adverts: { shop: { need: 'errands', fillRate: 4, minStay: 15 },
-             park: { need: 'fun',     fillRate: 3, minStay: 8 } },
-  select:  { topK: 6, pickTemp: 1, distHalf: 8 },
-  move:    { walkSpeed: 1.2, driveSpeed: 4,
-             carMinDist: 3, carFullDist: 12 },
-}
-```
-
-Budgeted rhythm: one full cycle (sleep → work → free_time → sleep) lands
-around 3–4 real minutes at timeScale 1. Thresholds are hysteresis pairs
-(sleep below 25 / wake at 95; work below 15 / done at 100) — the gap
-prevents state flapping at boundaries. Never narrow a pair to a single
-threshold.
-
-### Movement & performance
-
-- Per-mode networks: walkers path over ROAD tiles only (sidewalks);
-  drivers path over roads + highway. Buildings are reachable only if
-  road-adjacent (consistent with the growth rule).
-- Path = building's adjacent road tile → BFS over the mode's network →
-  destination's adjacent road tile. The Dijkstra-map flood is therefore
-  per-mode when it matters (free_time scoring uses the walk network
-  unless the citizen holds a car this excursion).
-- Decisions on a slow tick (reuse the growth-tick pattern, ~2 Hz max).
-  Per-frame work is only interpolating visible walker positions along
-  cached paths. Walkers are tiny shared-geometry meshes.
-- Cached paths invalidate when the road network changes. A walker whose
-  path is severed re-plans from its current tile; if unreachable, it
-  walks back home (never teleport — visible consequence is the point).
-
-## The economy seed (for later)
-
-Citizens doing = value: time spent in `work` at a shop is the future income
-event; adverts satisfied in free_time are the future happiness inputs. Build
-v0.2 so these are observable counters even before money exists.
-
-
-## Input
-
-- Raycast from pointer against an invisible ground plane → grid coords.
-- Desktop: click places selected tool; hover shows a ghost/highlight tile.
-- Mobile: tap places; no hover — show a selection cursor on first tap, confirm on
-  second tap *or* place immediately (pick one during playtest, note in plan.md).
-- Toolbar: fixed HUD strip (DOM, not in-scene) — building buttons + bulldoze.
-  DOM UI, not Three.js UI: cheaper, accessible, styles easily for mobile.
-- Camera rotate: two-finger twist or on-screen buttons (mobile), Q/E keys (desktop).
-  Zoom: pinch / wheel.
-- Reuse Solar Swing's touch lessons: pointer events (not touch events) for a single
-  input path; preventDefault on the canvas; big hit targets.
-
-## Rendering notes
-
-- One directional light with shadows + ambient. Shadow camera sized to the grid once
-  at startup (static world bounds — no per-frame shadow updates).
-- ACES tone mapping (matches Solar Swing pipeline familiarity).
-- Building meshes: shared geometries + materials per building type, cloned per tile.
-  If tile count grows later, migrate to InstancedMesh — not needed at 20×20.
-- Ground: single plane mesh with a grid overlay (thin line segments or a shader
-  later; lines are fine for v0.1).
-
-## File / module layout
-
-- v0.1: single `index.html` with one `<script type="module">`. Sections in order:
-  CONFIG → world state → mesh factories → syncTile → connectivity → growth tick →
-  input → camera → main loop.
-- Split into modules only when the file passes ~1,500 lines. Versioning via GitHub
-  (repo per project; Drive folder pattern retired).
+|            | stomp                            | side contact              |
+| ---------- | -------------------------------- | ------------------------- |
+| puppet     | strings snap + dialog (greet)    | damage                    |
+| neutral    | dialog (regreet)                 | damage                    |
+| hostile    | dialog (regreetLow)              | damage                    |
+| friendly   | BUMP-OFF (quote, −bond, respawn) | date → heal → quip bubble |
+| boss       | dialog                           | auto-confront in range    |
 
 ## Fragile systems / watch list
 
-- Camera tween between iso angles: keep the target always at grid center; don't
-  let zoom and rotate tweens overlap without composing them, or the frustum jumps.
-- Raycast → grid rounding at tile borders: floor world coords, never round, or
-  placement flickers between tiles at edges.
-- Mobile pinch vs. tap disambiguation: require 2 active pointers before treating
-  any movement as pinch/rotate.
+- Dialog must never open on a 'bumped' body (guarded in the stomp timeout).
+- `talkCd` guards walk-up spam; closeDialog re-arms it and bounces the player.
+- Boss uses the old `ch.state === 'angry'` path for the hurl-back; nobody
+  else uses ch.state beyond 'talk'/'roam'. Don't reintroduce state-machine
+  branches — attitude bands own behavior.
+- Sprite scale (1.28 world) is visual only; hitboxes unchanged at w26 h34.
+- localStorage save: bump `SAVE_KEY` version if the bonds shape changes.
+
+## Backlog / tabled (see README "Design backlog")
+
+- Dialog-trigger rework (stomp-always-talks blocks springboard tech) — TABLED,
+  awaiting Juan's design doc. Do not build ahead of it.
+- Angry/neutral/friendly behavior design doc — OWNER: JUAN. Open questions
+  listed in README.
+- `window._game` debug hooks stay until a public ship.
 
 ## Milestones
 
-1. **M1 — Static scene:** grid, ground, highway pre-placed, camera rotate/zoom. ✅
-2. **M2 — Placement:** toolbar, raycast placement, bulldoze, ghost preview. ✅
-3. **M3 — Growth:** connectivity flood fill, house upgrades, pop animation. ✅
-4. **M4 — Feel + mobile pass:** touch controls, HUD sizing, playtest tuning.
-
-v0.2 — Citizens:
-
-5. **M5 — Sim core:** citizen records, meters, FSM, spawn from houses, job
-   assignment. No rendering — HUD population counter proves it works.
-6. **M6 — Walkers:** road BFS pathfinding, visible walkers with interpolated
-   movement, traveling/doing phases, severed-path re-planning.
-7. **M7 — Free time + migration:** building advertisements + free_time choice
-   (done in M5). Migration ✅: moving trucks deliver residents from the highway
-   edge; reachability gates arrival; disruptions handled. Browser-verified.
-8. **M8 — v0.2 playtest:** ✅ headless scale test (87 houses, pop ~435, 4 days);
-   sim holds at scale, streets lively. Fixed a startup truck swarm
-   (migration.maxConcurrent cap). Meter feel (fun/energy) left as documented
-   playtest knobs. See plan.md.
-
-v0.3 — Alive (Pillar A — charm & observability):
-
-9. **v0.3a — Inspectors:** ✅ deterministic citizen names; 🔍 Inspect tool; live
-   DOM cards for citizens (name, state, meter bars, home/job) and buildings
-   (residents/workers/visitors, clickable names). Browser-verified.
-10. **v0.3b — Follow camera:** ✅ Follow button tracks a citizen; manual pan
-    cancels. Browser-verified.
-11. **v0.3c — Bubbles:** ✅ thought bubbles at decision points; complaint bubbles
-    (starved need + no venue) as diegetic tutorial. Browser-verified.
-
-## v0.3 architecture notes (Alive)
-
-- **Inspector = pure reading surface.** DOM card (#inspector), consistent with
-  the DOM-not-in-scene UI rule. Reads `world`/`citizens`, never writes. Citizen
-  pick = screen-space nearest walker within CONFIG.input.pickRadius (generous at
-  far zoom); building pick = mesh raycast (meshes tagged `userData.kind`). Cards
-  live-update each frame; building cards rebuild innerHTML only on a content-
-  signature change (stable click handlers). Card self-closes when its subject is
-  bulldozed. All state in a single `inspected` descriptor.
-- **Follow camera** only slides `camTarget` (never zoom/yaw — the fragile tween
-  composition is untouched). Any manual pan clears the `follow` flag.
-- **Bubbles are billboard sprites** (THREE.Sprite), a projection of sim state —
-  NOT a new citizen state. Thought bubbles are emitted at existing decision
-  points (goWork/goHome/chooseFreeTime); complaints are emitted by `maybeComplain`
-  from meter thresholds + a `servedNeeds` set (which advert-needs have a venue),
-  gated by a per-citizen cooldown. No shared clock. Emoji textures cached/shared;
-  sprite materials disposed on expiry. All tuning in CONFIG.citizens.bubbles.
-- **Debug surface:** `window._sim` carries test/debug hooks (apply, inspect*,
-  screenOf, getters, showBubble). Intentional; strip before a public ship.
-
-## Backlog (not current version)
-
-- Economy: money, build costs, income from shop work-visits
-- Happiness from free_time needs met; emigration when unhappy/jobless
-- Traffic visualization on roads/highway
-- Save/load (localStorage in self-hosted build only — not Claude artifacts)
-- Procedural building variation (random heights/colors per placement)
-- Day/night cycle (visual only — must not drive citizen schedules)
-- Larger / expandable map
-- Sound
+- v0.1 "First Night" ✅ — core platformer + stomp-to-talk + 5-character cast,
+  gate, boss, ending. Headless-verified.
+- v0.2 "Broken Strings" ✅ (pending Juan's playtest review before tagging) —
+  puppeteer lore + strings, shared persistent bonds + clones, attitude bands,
+  bump-offs, walk-up talking, date scenes, ambient bubbles, visual pass.
+- v0.3 "The Witching Hour" — see roadmap.md. Blocked on playtest feedback +
+  behavior design doc.
+- v0.4 "Starlight Signal" — see roadmap.md.
