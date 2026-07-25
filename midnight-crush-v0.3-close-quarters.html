@@ -3,7 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Midnight Crush — a haunted dating platformer</title>
+<title>Midnight Crush v0.3 “Close Quarters” — a haunted dating platformer</title>
+<!--
+  MIDNIGHT CRUSH — version history (latest first)
+  v0.3 "Close Quarters"  — the feel patch (this file): camera zoom (viewTiles),
+        swept stomp detection, the 7-bounce juggle, dialog once per body,
+        0–100 hidden meter + N debug menu, all-band ambient chatter.
+  v0.2 "Broken Strings"  — puppeteer lore + strings, shared persistent bonds,
+        attitude bands, bump-offs, date scenes, visual pass.
+        (playable: midnight-crush-v0.2-broken-strings.html)
+  v0.1 "First Night"     — core platformer + stomp-to-talk + cast + gate + boss.
+        (playable: midnight-crush-v0.1-first-night.html)
+-->
+
 <style>
   :root { --ink:#efe8fa; --panel:#1c1330ee;
     --pink:#ffa8d3; --purple:#c9b3ff; --blue:#a8d8ff; }
@@ -55,6 +67,20 @@
     box-shadow:0 0 26px #ffa8d344; }
   .overlay button:hover { background:#5c2050; }
   .hidden { display:none !important; }
+  /* ---------- Debug menu (N) ---------- */
+  #debug { position:fixed; top:8px; right:8px; z-index:30; display:none;
+    background:#100a20f2; border:1px solid var(--purple); border-radius:10px;
+    padding:10px 12px; font-size:12px; max-height:92vh; overflow:auto;
+    font-family:ui-monospace, monospace; min-width:320px; }
+  #debug.open { display:block; }
+  #debug h3 { color:var(--pink); font-size:13px; margin:6px 0 4px; }
+  #debug table { border-collapse:collapse; width:100%; }
+  #debug td, #debug th { padding:2px 6px; text-align:left; border-bottom:1px solid #2c1d4e; }
+  #debug .band-friendly { color:#8fe8b0; } #debug .band-hostile { color:#ff8f9f; }
+  #debug .band-neutral { color:#c9b3ff; } #debug .band-puppet { color:#8f86a8; }
+  #debug input { width:56px; background:#1c1330; color:var(--ink);
+    border:1px solid #6b53a5; border-radius:4px; padding:1px 4px; font:inherit; }
+  #debug .knob { display:inline-block; margin:2px 8px 2px 0; }
   /* ---------- Touch controls ---------- */
   #touch { position:fixed; left:0; right:0; bottom:0; height:130px; z-index:6;
     display:none; pointer-events:none; }
@@ -114,6 +140,8 @@
   <button onclick="location.reload()">Play Again 🌙</button>
 </div>
 
+<div id="debug"></div>
+
 <div id="touch">
   <div class="tbtn" id="tL">◀</div>
   <div class="tbtn" id="tR">▶</div>
@@ -135,26 +163,42 @@
 /* ---------------- CONFIG ---------------- */
 const CONFIG = {
   tile: 36,
+  viewTiles: 24,          // horizontal tiles visible — the camera zoom (design §4.1;
+                          // 20 is the target, moves with the v0.4 level pass)
   gravity: 2200,
   moveSpeed: 260,
   jumpVel: 780,
   stompBounce: 480,
+  stompGrace: 14,         // [PROPOSED] px below a head that still counts as a stomp
   maxHearts: 3,
   iframes: 1.6,           // seconds of invulnerability after a hit
-  romancesNeeded: 3,      // hearts required to open the shrine gate
-  bondFloor: -2,          // nothing digs deeper than this
+  romancesNeeded: 3,      // gate stays in v0.3; removed in v0.4
   healCooldown: 45,       // seconds between free heals from a friendly ally
   patrolSpeed: 55,
+  meter: {                // 0–100 shared meter (design §4.5 — every value [PROPOSED])
+    start: 25,            // freshly freed: they owe you something, don't know you
+    hostileMax: 19,       // ≤ → hostile band
+    friendlyMin: 55,      // ≥ → friendly band; also unlocks the date
+    love: 80,             // "why did you do this, my love" territory
+    dateBonus: 8,         // meter gained by finishing the date scene
+    bossWin: 10,          // finale conversation score needed to win
+  },
+  bounce: {               // the juggle (design §2.2/§4.3 — defaults [PROPOSED])
+    warn: 6,              // bounce that triggers the annoyance line
+    fall: 7,              // bounce that triggers the fall
+    countChance: 0.05,    // chance of the counting-out-loud variant (free!)
+    fallGravity: 0.45,    // fall gravity multiplier — slowed for comedy
+    lingerS: 4.0,         // how long the parting comment stays readable
+    fallCost: 6,          // meter lost on a normal 7-bounce fall
+  },
   attitude: {             // per-BODY disposition, derived from the shared meter
-    friendlyBond: 2,      // bond at/above → that body is a friendly enemy
-    hostileBond: -1,      // bond at/below → that body hunts you
-    loveBond: 4,          // "why did you do this, my love" territory
     neutralSpeedMult: 0.8,  // free-thinking bodies mellow out vs mind control
     hostileSpeedMult: 1.25,
     chaseRange: 8,        // tiles; hostile bodies lock onto you inside this
-    bumpBondLoss: 1,      // jumping on a friend is RUDE
-    bumpRespawn: 30,      // seconds gone after being bumped off the screen
-    ambientMinS: 9, ambientMaxS: 22, // friendly small-talk bubble cadence
+    // "increased aggression" beyond speed: Juan is authoring (design §9.2).
+    // Extra knobs (chase persistence, fear radius, damage) land with his spec.
+    bumpRespawn: 30,      // seconds gone after falling off the screen
+    ambientMinS: 9, ambientMaxS: 22, // ambient chatter cadence (all bands)
     talkCooldown: 6,      // seconds between walk-up chats with the same body
   },
   camLerp: 6,
@@ -218,25 +262,25 @@ const CAST = {
     greet:'*the strings above her snap like frost — the glassy look melts away* …huh? I was walking? How long was I walking?? *sees you* EEK! Y-you can see me?! …Wait. You\'re the one who cut the strings. Nobody\'s ever… um. H-hi. I\'m Yuki. I\'ve haunted this road for eighty years and this is the FIRST time my feet have been my own all month.',
     qs:[
       { q:'S-so… you jumped on my head. On purpose. Why would you do that??',
-        c:[ {t:'Honestly? You looked too cute to walk past.', aff:1,
+        c:[ {t:'Honestly? You looked too cute to walk past.', aff:5,
              r:'*turns fully transparent from embarrassment* c-CUTE?? I— I am a TERRIFYING SPIRIT, I\'ll have you know… (please say it again)'},
             {t:'I thought you were a goomba. My mistake.', aff:0,
              r:'A goomba… EIGHTY YEARS of haunting and I read as a mushroom. Cool. Cool cool cool. *sniffles ectoplasm*'},
-            {t:'To assert dominance.', aff:-1,
+            {t:'To assert dominance.', aff:-4,
              r:'…I have possessed people for less. *the temperature drops noticeably*'} ] },
       { q:'Being a ghost is lonely. Everyone I knew moved on. Do you… ever feel like that? Like you\'re invisible?',
-        c:[ {t:'All the time. Maybe that\'s why we can see each other.', aff:1,
+        c:[ {t:'All the time. Maybe that\'s why we can see each other.', aff:6,
              r:'*her glow warms from blue to soft pink* …that\'s the nicest thing anyone\'s said to me since 1946.'},
-            {t:'Not really, I\'m kind of a big deal.', aff:-1,
+            {t:'Not really, I\'m kind of a big deal.', aff:-6,
              r:'Oh. How wonderful for you. *starts fading through the floor*'},
             {t:'Have you tried rattling chains? Classic visibility move.', aff:0,
              r:'I TRIED that! Chains are heavy!! Do you know how hard it is to hold things when your hands are made of mist?!'} ] },
       { q:'The sun will be up in a few hours and I\'ll fade until tomorrow night. If… if you came back… would you visit me?',
-        c:[ {t:'Every night. Save me this stretch of road.', aff:1,
+        c:[ {t:'Every night. Save me this stretch of road.', aff:8,
              r:'*small ghostly tears* Okay. Okay!! It\'s a d-date— I mean an APPOINTMENT— I mean— oh no.'},
             {t:'Sure, if I\'m passing through.', aff:0,
              r:'"Passing through." Right. *manages a brave little smile* I\'ll take it.'},
-            {t:'Depends. Do you have wifi in the afterlife?', aff:-1,
+            {t:'Depends. Do you have wifi in the afterlife?', aff:-8,
              r:'…I waited eighty years for THIS conversation?'} ] },
     ],
     win:'Yuki floats a slow circle around you, leaving a trail of warm pink light. "It\'s official. You\'re my favorite living person. If the strings come for you, I\'ll bite them. I have never bitten anything. I will LEARN."',
@@ -263,6 +307,10 @@ const CAST = {
       '*sad ghost noises, rapidly getting farther away*' ],
     bumpLove:'Why did you do this, my love…? The moss was for YOU. *the fog goes cold*',
     ambient:[ 'boo. 💜', 'you came back!', '*happy floating*', 'the moss misses you' ],
+    bounce6:[ 'Th-that\'s six?! I\'m a GHOST, not a trampoline!!', '*increasingly dizzy ghost noises*' ],
+    ambientPuppet:[ '…walk. walk. walk.', '*the strings hum faintly*', '…who is… steering…' ],
+    ambientNeutral:[ '…do I know you?', '*hums a song from 1946*' ],
+    ambientHostile:[ '…stay away from my road.', '*the temperature drops*' ],
   },
   rin: {
     name:'Rin', title:'Zombie Schoolgirl',
@@ -271,23 +319,23 @@ const CAST = {
     greet:'*shakes her head like a wet dog — the glassy stare shatters* WHOA. Okay. WOW. I was NOT driving this body just now. Someone had me on marionette autopilot and you just— *mimes scissors* —snip! Nice air time, by the way. Most people scream and run from a zombie. You DIVE-BOMBED me. Respect. I\'m Rin! Undead, unbothered, recently un-hijacked.',
     qs:[
       { q:'Real talk: I\'m a zombie, right, so everyone assumes I eat brains. But honestly? I\'d demolish a whole tray of melon bread first. What\'s YOUR forbidden late-night snack?',
-        c:[ {t:'Convenience-store fried chicken at 3am. No regrets.', aff:1,
+        c:[ {t:'Convenience-store fried chicken at 3am. No regrets.', aff:5,
              r:'YESSS. Okay you GET it. Next full moon, snack run. You\'re buying — I\'m technically legally dead so my card got cancelled.'},
-            {t:'I only eat clean. My body is a temple.', aff:-1,
+            {t:'I only eat clean. My body is a temple.', aff:-4,
              r:'*visibly loses interest* My body is a CRIME SCENE and it\'s still more fun than yours.'},
             {t:'Brains, obviously. Solidarity.', aff:0,
              r:'Ha! Flatterer. That\'s a stereotype, but a supportive one, so it\'s fine.'} ] },
       { q:'I died in 2004 wearing this uniform and I\'ve been rocking it since. Twenty years, same fit. Be honest — still cute, or am I a walking history exhibit?',
-        c:[ {t:'Vintage is IN. You\'re decades ahead of the trend.', aff:1,
+        c:[ {t:'Vintage is IN. You\'re decades ahead of the trend.', aff:6,
              r:'*strikes a pose, arm falls off, reattaches it* SEE?! That\'s what I keep telling the other zombies! They wear RAGS. No pride.'},
-            {t:'It\'s giving "museum".', aff:-1,
+            {t:'It\'s giving "museum".', aff:-6,
              r:'It\'s giving "you\'re about to get bitten", is what it\'s giving.'},
             {t:'Fashion is temporary. Being undead is forever.', aff:0,
              r:'Deep! Weirdly deep for someone who greets people with their shoes. But deep.'} ] },
       { q:'Last question and it\'s a dealbreaker. Zombie movies: are we the villains… or the misunderstood main characters?',
-        c:[ {t:'Misunderstood mains. The living just have bad PR teams.', aff:1,
+        c:[ {t:'Misunderstood mains. The living just have bad PR teams.', aff:8,
              r:'*grabs your shoulders* MARRY ME. Not literally. Unless?? No wait — one date first, I have STANDARDS. I\'ve just… been dead for twenty years.'},
-            {t:'Villains. Sorry, the shambling is objectively menacing.', aff:-1,
+            {t:'Villains. Sorry, the shambling is objectively menacing.', aff:-8,
              r:'The shambling is a LIFESTYLE. Wow. Wooooow.'},
             {t:'Depends on the director, honestly.', aff:0,
              r:'A diplomat! Boring, but I\'ll allow it. Film night is still on the table. Barely.'} ] },
@@ -316,6 +364,10 @@ const CAST = {
     bumpLove:'why did you do this, my love. i memorized your SNACK ORDER. *hurt zombie noises*',
     ambient:[ 'snack o\'clock?', 'hi hi hi!!', '*waves with the spare hand*',
       'race you to the pit! kidding. unless?' ],
+    bounce6:[ 'SIX?! I\'m keeping a TALLY, cutie!!', 'Okay this is a BIT now. It\'s a whole BIT.' ],
+    ambientPuppet:[ '…shamble. shamble.', '*vacant humming*', '…strings… itchy…' ],
+    ambientNeutral:[ 'free will! still deciding what to do with it.', '*stretches a detachable arm*' ],
+    ambientHostile:[ 'oh look who it is. keep walking.', '*cracks knuckles. one falls off*' ],
   },
   kazuma: {
     name:'Kazuma', title:'Vampire — insufferably confident about it',
@@ -324,25 +376,25 @@ const CAST = {
     greet:'*the strings around him BURN away — he does not flinch. He catches your ankle mid-stomp, sets you down gently, and dusts your shoulder* SPLENDID!! Do you know how long I have wrestled that puppeteer\'s grip?! An eternity of walking in STRAIGHT LINES! And you shattered it by LEAPING ONTO MY HEAD! Magnificent technique! I am Kazuma — four hundred years old, devastating in moonlight, and yes, this is my natural hair volume. You have my gratitude, little mortal. Stand proud! Few have earned it!',
     qs:[
       { q:'You have precisely one chance to impress me. Tell me: what is the most beautiful thing you have ever seen? Choose carefully. I am, of course, the correct answer.',
-        c:[ {t:'*look him dead in the eyes* A mirror. Which, tragically, you\'ll never understand.', aff:1,
+        c:[ {t:'*look him dead in the eyes* A mirror. Which, tragically, you\'ll never understand.', aff:5,
              r:'*a slow, delighted grin, fangs and all* Cruel. CRUEL and clever. Four centuries and no one has ever dared. I am… intrigued.'},
             {t:'Honestly? You. The hair alone.', aff:0,
              r:'Correct, naturally. Though I confess I\'d hoped you would put up more of a fight. Adoration bores me by the second century.'},
-            {t:'The sunrise.', aff:-1,
+            {t:'The sunrise.', aff:-4,
              r:'*eye twitch* You said that ON PURPOSE. To a VAMPIRE. We are enemies now.'} ] },
       { q:'They say the curse of immortality is watching everything you love fade. I say the curse is that fashion keeps cycling back to things I already wore better. What do you fear, mortal?',
-        c:[ {t:'Being forgotten before I ever did anything worth remembering.', aff:1,
+        c:[ {t:'Being forgotten before I ever did anything worth remembering.', aff:6,
              r:'*his smirk falters into something real* …An honest answer. How rare. Four hundred years, and honesty still catches me off guard. Well played.'},
             {t:'Fear? Never heard of it.', aff:0,
              r:'Ah, bravado. I invented that. In 1731. You wear my second-hand invention adequately.'},
-            {t:'Garlic breath. Yours, specifically.', aff:-1,
+            {t:'Garlic breath. Yours, specifically.', aff:-6,
              r:'I have consumed nothing but fine vintages for four hundred years, you absolute PEASANT.'} ] },
       { q:'Final question. I have watched empires fall and stars burn out. Convince me that one night talking to you is worth an immortal\'s time.',
-        c:[ {t:'It already was. You\'ve smiled four times. I counted.', aff:1,
+        c:[ {t:'It already was. You\'ve smiled four times. I counted.', aff:8,
              r:'*touches his own face, betrayed by it* …Five, now. Damn you. DAMN you. Very well — you have my attention, mortal. Guard it well; it outlasts kingdoms.'},
             {t:'You\'re the one still standing here talking to me.', aff:0,
              r:'Touché. I shall pretend I had somewhere better to be and simply chose not to go.'},
-            {t:'Eh, you seem like you have nothing but time.', aff:-1,
+            {t:'Eh, you seem like you have nothing but time.', aff:-8,
              r:'"Nothing but—" I have a WINE CELLAR to alphabetize and a nemesis to brood about. I am EXTREMELY busy.'} ] },
     ],
     win:'Kazuma sweeps his cape and bows — a full, formal, knightly bow. "Four hundred years of moonlight, and tonight is the first I would call SPLENDID. Walk these roads freely — you are under my protection now. This is not an offer. It is a FACT."',
@@ -369,6 +421,10 @@ const CAST = {
       'I meant to do this! I invented being airborne! In 1704!' ],
     bumpLove:'Even now… you remain devastating. WHY, my love?! MY CAPE AND I ARE WOUNDED!',
     ambient:[ 'SPLENDID night!', 'your posture: magnificent', 'the moon and I approve', '*cape flutter*' ],
+    bounce6:[ 'SIX consecutive impacts! My patience is FOUR HUNDRED years old and even IT has limits!', 'You test a gentleman\'s composure! Boldly! Foolishly!' ],
+    ambientPuppet:[ '…the strings… command…', '*even mind-controlled, the posture is immaculate*' ],
+    ambientNeutral:[ 'A free evening. How novel.', '*adjusts cape at nobody in particular*' ],
+    ambientHostile:[ 'The ballad of your manners now has FIVE movements.', '*glowers magnificently*' ],
   },
   ren: {
     name:'Ren', title:'Werewolf — smug, knows his angles',
@@ -377,25 +433,25 @@ const CAST = {
     greet:'*catches you on one shoulder as the strings snap — his eyes clear from dull amber to bright gold* …Huh. Head\'s quiet again. Whole month of walking back and forth like a wind-up toy, and what breaks the spell? One determined weirdo landing on me. *sets you down, gently* I\'m Ren. Yes, the ears are real. Yes, I owe you one. No, you can\'t touch the ears. …Yet. Play your cards right.',
     qs:[
       { q:'Everyone in this town is scared of the wolf. Full moon, big teeth, whole thing. You stomped on my head. So either you\'re brave or you\'re dumb. Which is it?',
-        c:[ {t:'Brave enough to jump, dumb enough to stay. Best of both.', aff:1,
+        c:[ {t:'Brave enough to jump, dumb enough to stay. Best of both.', aff:5,
              r:'*barks a laugh before he can stop it* Okay. Okay, that\'s the best answer anyone\'s given me. The tail is wagging. Ignore the tail.'},
             {t:'Neither — I have a great lawyer.', aff:0,
              r:'Pfft. Fine, that\'s a little funny. Don\'t tell anyone I laughed — I have a reputation as the brooding one.'},
-            {t:'Dumb, clearly. Look who I\'m talking to.', aff:-1,
+            {t:'Dumb, clearly. Look who I\'m talking to.', aff:-4,
              r:'*low growl* The moon is RIGHT THERE, buddy. Choose your next words like they\'re your last.'} ] },
       { q:'Real question. Full moon nights I lose the pretty face and go full wolf — fur, fangs, howling at delivery drivers. Some people can\'t handle that. Would you still show up?',
-        c:[ {t:'Show up? I\'m bringing a frisbee.', aff:1,
+        c:[ {t:'Show up? I\'m bringing a frisbee.', aff:6,
              r:'*visible internal battle* That\'s— you can\'t just— *quietly* …bring the frisbee. Tell NO ONE.'},
             {t:'I\'d watch from a safe distance. Binoculars, maybe.', aff:0,
              r:'Coward\'s answer, but an honest one. I respect the survival instinct. The wolf does too.'},
-            {t:'Hard pass. I\'m more of a cat person.', aff:-1,
+            {t:'Hard pass. I\'m more of a cat person.', aff:-6,
              r:'A CAT person. *deep breath* We\'re done here. The audacity. On MY hill.'} ] },
       { q:'Last one. The pack says humans always leave once the novelty wears off. That we\'re a phase. Prove the pack wrong — or walk away now, no hard feelings.',
-        c:[ {t:'Novelty fades. Loyalty doesn\'t. I\'m still standing here, aren\'t I?', aff:1,
+        c:[ {t:'Novelty fades. Loyalty doesn\'t. I\'m still standing here, aren\'t I?', aff:8,
              r:'*long silence, ears fully up* …The pack is going to be insufferable about this. Fine. FINE. You\'re pack-adjacent now. It\'s a whole thing. There\'s a barbecue.'},
             {t:'I can\'t prove anything. But I\'d like the chance to.', aff:0,
              r:'Hm. Honest. The wolf likes honest. The man is still deciding. Come back around.'},
-            {t:'The pack sounds smart, honestly.', aff:-1,
+            {t:'The pack sounds smart, honestly.', aff:-8,
              r:'*turns away* Should\'ve trusted the pack the first time. Go.'} ] },
     ],
     win:'Ren shoves his hands in his pockets and looks at the moon so you can\'t see him smile. "Barbecue\'s Saturday. Wear something you don\'t mind getting fur on. That\'s… everything you own now, actually."',
@@ -423,6 +479,10 @@ const CAST = {
     bumpLove:'Why, my love… the frisbee meant NOTHING to you? *whimpers all the way down*',
     ambient:[ '*tail wags*', 'you\'re in my spot. it\'s fine. stay.',
       'town\'s weird tonight. stay close', '*ears track you*' ],
+    bounce6:[ 'Six. SIX. The tail is counting and the tail is FURIOUS.', '*warning growl, but make it dignified*' ],
+    ambientPuppet:[ '…walk the line. walk the line.', '*ears flat, eyes empty*' ],
+    ambientNeutral:[ '*sniffs the air, unimpressed*', 'town\'s quiet. too quiet. eh.' ],
+    ambientHostile:[ '*tracking you with narrowed eyes*', 'one sentence. still waiting on a good one.' ],
   },
   ayame: {
     name:'Ayame', title:'The Spirit Behind the Gate', boss:true,
@@ -431,25 +491,25 @@ const CAST = {
     greet:'*the fog itself kneels as she appears* So. You are the one snapping strings in MY town. Yuki won\'t stop glowing. Rin re-attached her hand for you. Even Kazuma smiled — he hasn\'t smiled since the 1800s. *quieter* Three hundred years I have guarded this shrine, and when the strings came, I could not cut a single one. You did it by JUMPING ON HEADS. So before anything else: thank you. Do not make me regret saying that. I am Ayame, and I decide who is worthy of Hollow Hills\' hearts. Answer carefully, beloved. Wrong answers will HURT.',
     qs:[
       { q:'Three hundred years I have watched the living come and go. They take our beauty, our stories, our hearts — then leave when the sun rises. Why are YOU any different?',
-        c:[ {t:'I\'m not here to take anything. I stomped on heads to say hello. I\'m here for the company.', aff:1,
+        c:[ {t:'I\'m not here to take anything. I stomped on heads to say hello. I\'m here for the company.', aff:6,
              r:'*the crushing pressure eases, slightly* …"For the company." The last one who said that stayed forty years. Hmph. Continue.'},
-            {t:'Different? I\'m the main character. Obviously.', aff:-1,
+            {t:'Different? I\'m the main character. Obviously.', aff:-7,
              r:'*a lock of your hair turns white* WRONG. This is MY story. You are a GUEST STAR at best.'},
             {t:'Maybe I\'m not different. But I\'d like to find out.', aff:0,
              r:'An honest coward\'s answer. Better than a liar\'s courage. Barely.'} ] },
       { q:'These spirits are MINE to protect. Yuki cried for sixty years. Rin pretends nothing hurts. If you break a single one of their hearts, what should I do to you?',
-        c:[ {t:'Whatever you think is fair. But I\'d rather spend forever proving you\'ll never have to.', aff:1,
+        c:[ {t:'Whatever you think is fair. But I\'d rather spend forever proving you\'ll never have to.', aff:6,
              r:'*the fog goes still* …Forever. You say that word so easily to a spirit. Do you know how long forever IS? …I do. It is long enough. Acceptable answer.'},
-            {t:'Nothing, because you\'d never catch me.', aff:-1,
+            {t:'Nothing, because you\'d never catch me.', aff:-7,
              r:'*she is suddenly INCHES from your face* I am the fog, beloved. I have ALREADY caught you. You are standing inside me RIGHT NOW.'},
             {t:'Haunt me, I guess? Standard package?', aff:0,
              r:'"Standard package." I will haunt you ARTISANALLY. Bespoke torment. Nothing but the finest for heartbreakers.'} ] },
       { q:'Final question, little heartbeat. The gate behind me leads out of Hollow Hills. Walk through it and dawn takes you home — alone, safe, free of us. Or stay in the dark, with the dead, with… me. With all of us. Choose.',
-        c:[ {t:'Keep the gate. The dark\'s got better company anyway.', aff:1,
+        c:[ {t:'Keep the gate. The dark\'s got better company anyway.', aff:6,
              r:'*for one second, the terrifying shrine spirit looks exactly like a girl who was not expecting that answer* …oh. OH. Well. Then it is decided. You are OURS now. …Mine on Thursdays.'},
             {t:'Can I sleep on it? Big decision.', aff:0,
              r:'*pinches the bridge of her nose* Three hundred years and I get "let me sleep on it." Fine. FINE. The gate isn\'t going anywhere. Neither am I. Unfortunately for you, neither are my FEELINGS.'},
-            {t:'Home, obviously. This place is a graveyard.', aff:-1,
+            {t:'Home, obviously. This place is a graveyard.', aff:-7,
              r:'IT IS A *SHRINE*. THE GRAVEYARD IS *ADJACENT*. GET OUT.'} ] },
     ],
     win:'The gate dissolves into moonlight. Ayame turns away to hide her face behind her sleeve. "Curfew is dawn. Dinner is at the shrine. Yuki picked the menu, so it is exclusively snacks. …Welcome home, beloved."',
@@ -464,14 +524,31 @@ const CAST = {
    game never explains this. That's the player's mystery to unravel.
    bond accumulates across conversations; freed = strings snapped at
    least once; dated = the hand-holding scene has happened. */
-const SAVE_KEY = 'midnightCrush.v1';
+const SAVE_KEY = 'midnightCrush.v2';   // v2: 0–100 meter + memory record
+const clamp01 = v => Math.max(0, Math.min(100, v));
+function freshBond(){
+  return { meter: CONFIG.meter.start, freed:false, romanced:false, dated:false,
+    mem: { bounces:0, falls:0, choices:[] } };   // memory feeds v0.5 callbacks
+}
 const bonds = {};
-for (const id of Object.keys(CAST)) bonds[id] = { bond:0, freed:false, romanced:false, dated:false };
+for (const id of Object.keys(CAST)) bonds[id] = freshBond();
 try {
   const s = JSON.parse(localStorage.getItem(SAVE_KEY));
-  if (s) for (const id in bonds) Object.assign(bonds[id], s[id] || {});
+  if (s) for (const id in bonds){
+    Object.assign(bonds[id], s[id] || {});
+    if (!bonds[id].mem) bonds[id].mem = { bounces:0, falls:0, choices:[] };
+  }
+  else {
+    const old = JSON.parse(localStorage.getItem('midnightCrush.v1'));
+    if (old) for (const id in bonds) if (old[id]){
+      bonds[id].meter = clamp01(CONFIG.meter.start + (old[id].bond || 0) * 15);
+      bonds[id].freed = !!old[id].freed;
+      bonds[id].romanced = !!old[id].romanced;
+      bonds[id].dated = !!old[id].dated;
+    }
+  }
 } catch(e){}
-bonds.ayame = { bond:0, freed:false, romanced:false, dated:false }; // the finale always replays
+bonds.ayame = freshBond();             // the finale always replays
 function saveBonds(){
   try {
     const s = {};
@@ -481,14 +558,14 @@ function saveBonds(){
 }
 /* Attitude: each BODY on the map has its own disposition, derived from the
    character's shared meter — the meter is always the final call.
-     bond <= hostileBond  → hostile   (hunts you, 1.25× speed)
-     bond >= friendlyBond → friendly  (won't attack; can be rudely bumped)
+     meter <= hostileMax  → hostile   (hunts you, 1.25× speed)
+     meter >= friendlyMin → friendly  (won't attack; the ONLY safe contact)
      otherwise            → neutral   (free-thinking; 0.8× as aggressive)
    Bodies re-derive at dialog ends, bump respawns, and load — not per frame,
    so individual bodies can lag the meter. That's a feature (and a mystery). */
 function deriveAttitude(id){
-  const b = bonds[id].bond, A = CONFIG.attitude;
-  return b <= A.hostileBond ? 'hostile' : b >= A.friendlyBond ? 'friendly' : 'neutral';
+  const m = bonds[id].meter, M = CONFIG.meter;
+  return m <= M.hostileMax ? 'hostile' : m >= M.friendlyMin ? 'friendly' : 'neutral';
 }
 const regreets = {
   yuki:'*she notices you and immediately pretends she didn\'t* …You came back. To talk? To me? Okay. Okay okay okay. *deep breath* Hi.',
@@ -524,8 +601,14 @@ const SFX = {
 const T = CONFIG.tile, PAL = CONFIG.palette;
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
-let W = innerWidth, H = innerHeight;
-function resize(){ W = canvas.width = innerWidth; H = canvas.height = innerHeight; }
+// The view is defined in TILES, not pixels (design §4.1): every monitor sees
+// the same slice of the world. W/H are WORLD units; Z maps them to the screen.
+let W = 0, H = 0, Z = 1;
+function resize(){
+  canvas.width = innerWidth; canvas.height = innerHeight;
+  Z = innerWidth / (CONFIG.viewTiles * CONFIG.tile);
+  W = innerWidth / Z; H = innerHeight / Z;
+}
 addEventListener('resize', resize); resize();
 
 const rows = ROWS, cols = COLS;
@@ -559,6 +642,8 @@ for (let y=0; y<rows; y++) for (let x=0; x<cols; x++){
     chars.push({ id, def:CAST[id], x:wx+5, y:wy+T-34, w:26, h:34, vx:0, vy:0, dir:-1,
       state:'roam',            // roam | talk | angry (boss finale only)
       attitude: boss ? 'boss' : (bonds[id].freed ? deriveAttitude(id) : 'puppet'),
+      spoken:false,            // each body carries ONE conversation (design §2.1)
+      juggle:0, counting:false, rainbow:false,
       spin:0, hidden:false, respawnAt:0, talkCd:0,
       ambientAt: Math.random()*20 + 8,
       walkT:Math.random()*7, aff:0, qi:0,
@@ -634,15 +719,14 @@ function openDialog(ch, mode){
   ch.mode = 'talk'; ch.mood = 'neutral';
   // context-dependent greeting: first meeting, wary (meter low), or warm
   const greet = !wasFreed ? ch.def.greet
-    : (!ch.boss && st.bond <= CONFIG.attitude.hostileBond && ch.def.regreetLow)
+    : (!ch.boss && st.meter <= CONFIG.meter.hostileMax && ch.def.regreetLow)
       ? ch.def.regreetLow
       : (regreets[ch.id] || ch.def.greet);
   sayLine(greet, [{t:'…continue', act:'next'}]);
 }
 function sayLine(text, choices){
   dText.textContent = text;
-  dAff.textContent = talking.aff>0 ? '💗'.repeat(talking.aff)
-                   : talking.aff<0 ? '💔'.repeat(-talking.aff) : '';
+  dAff.textContent = '';                 // the meter is hidden (design §2.4)
   dChoices.innerHTML = '';
   for (const c of choices){
     const b = document.createElement('button');
@@ -660,6 +744,9 @@ function handleChoice(c){
   // an answer to a question
   const aff = c.aff || 0;                          // date-scene choices carry no aff
   ch.aff += aff;
+  const mem = bonds[ch.id].mem;                    // memory feeds v0.5 callbacks
+  mem.choices.push(c.t.slice(0, 48));
+  if (mem.choices.length > 40) mem.choices.shift();
   if (ch.mode === 'date' || aff > 0) SFX.good();
   else if (aff < 0){ SFX.bad(); if (ch.boss) damagePlayer(0); } // boss punishes bad answers
   ch.mood = ch.mode === 'date' ? 'love' : aff>0 ? 'happy' : (aff<0 ? 'angry' : 'neutral');
@@ -678,14 +765,14 @@ function askQuestion(ch){
 function finishDialog(ch){
   const st = bonds[ch.id];
   if (ch.mode === 'date'){                         // hand-holding achieved 😳
-    st.dated = true; st.bond++; saveBonds();
+    st.dated = true; st.meter = clamp01(st.meter + CONFIG.meter.dateBonus); saveBonds();
     ch.mood = 'love'; SFX.good();
     burst(ch.x+ch.w/2, ch.y, PAL.heart, 24);
     sayLine(ch.def.date.win, [{t:'💜 See you tomorrow', act:'close'}]);
     return;
   }
   if (ch.boss){                                    // the finale plays by single-scene rules
-    if (ch.aff >= 2){
+    if (ch.aff >= CONFIG.meter.bossWin){
       st.romanced = true; ch.mood = 'love'; SFX.gate();
       sayLine(ch.def.win, [{t:'💜 …stay', act:'end'}]);
     } else if (ch.aff <= 0){
@@ -697,7 +784,7 @@ function finishDialog(ch){
     }
     return;
   }
-  st.bond = Math.max(CONFIG.bondFloor, st.bond + ch.aff);  // affection carries over
+  st.meter = clamp01(st.meter + ch.aff);           // affection carries over
   saveBonds();
   // the END METER is the final call on this body's state, not the convo result
   const att = deriveAttitude(ch.id);
@@ -830,6 +917,8 @@ function update(dt){
     player.prevBottom = player.y + player.h;
     moveEntity(player, dt);
     if (player.iframe > 0) player.iframe -= dt;
+    if (player.onGround)                   // touching ground resets every juggle chain
+      for (const c of chars){ c.juggle = 0; c.counting = false; }
     if (player.y > rows*T + 100){          // fell into a pit
       damagePlayer(0);
       if (!player.dead){ player.x = spawn.x; player.y = spawn.y; player.vx = player.vy = 0; }
@@ -862,12 +951,24 @@ function update(dt){
     if (ch.state === 'talk') continue;
     if (ch.talkCd > 0) ch.talkCd -= dt;
 
-    if (ch.attitude === 'bumped'){                     // flying off the screen, Mario-style
-      ch.spin += dt * 9;
-      ch.x += ch.vx * dt; ch.vy += CONFIG.gravity * dt; ch.y += ch.vy * dt;
-      if (!ch.hidden && ch.y > rows*T + 200){ ch.hidden = true; ch.respawnAt = timeT + A.bumpRespawn; }
+    if (ch.attitude === 'bumped'){                     // leaving the screen, Mario-style
+      if (ch.rainbow){                                 // the 1-in-20: flutters away, free
+        ch.spin += dt * 2.5;
+        ch.x += Math.sin(timeT*4 + ch.home.x) * 40 * dt;
+        ch.y -= 90 * dt;
+        if (Math.random() < 0.5) particles.push({ x:ch.x+ch.w/2, y:ch.y+ch.h/2,
+          vx:(Math.random()-0.5)*60, vy:30, t:0.9,
+          color:`hsl(${(timeT*300)%360} 80% 75%)`, heart:false });
+        if (!ch.hidden && ch.y < camY - 250){ ch.hidden = true; ch.respawnAt = timeT + A.bumpRespawn; }
+      } else {                                         // slowed for comedy (design §2.2)
+        ch.spin += dt * 6;
+        ch.x += ch.vx * dt;
+        ch.vy += CONFIG.gravity * CONFIG.bounce.fallGravity * dt;
+        ch.y += ch.vy * dt;
+        if (!ch.hidden && ch.y > camY + H + 100){ ch.hidden = true; ch.respawnAt = timeT + A.bumpRespawn; }
+      }
       if (ch.hidden && timeT >= ch.respawnAt){         // they come back. they remember.
-        ch.hidden = false; ch.spin = 0;
+        ch.hidden = false; ch.spin = 0; ch.rainbow = false; ch.juggle = 0;
         ch.x = ch.home.x; ch.y = ch.home.y; ch.vx = ch.vy = 0;
         ch.attitude = deriveAttitude(ch.id);
       }
@@ -895,34 +996,40 @@ function update(dt){
       if (solid(aheadTX, wallY) || !(solid(aheadTX, footY) || oneway(aheadTX, footY))) ch.dir *= -1;
       ch.vy += CONFIG.gravity*dt;
       moveEntity(ch, dt);
-      if (ch.attitude === 'friendly'){
-        if (Math.random() < 0.006) particles.push({ x:ch.x+ch.w/2, y:ch.y-6,
+      if (ch.attitude === 'friendly' && Math.random() < 0.006)
+        particles.push({ x:ch.x+ch.w/2, y:ch.y-6,
           vx:(Math.random()-0.5)*30, vy:-50, t:1.2, color:PAL.heart, heart:true });
-        if (timeT >= ch.ambientAt){                    // occasional small talk
-          ch.ambientAt = timeT + A.ambientMinS + Math.random()*(A.ambientMaxS - A.ambientMinS);
-          if (Math.abs(ch.x - player.x) < W && ch.def.ambient) say(ch, pick(ch.def.ambient), 3);
-        }
+      if (timeT >= ch.ambientAt){                      // passive lines, every band (§2.3)
+        ch.ambientAt = timeT + A.ambientMinS + Math.random()*(A.ambientMaxS - A.ambientMinS);
+        const pool = ch.attitude === 'friendly' ? ch.def.ambient
+          : ch.attitude === 'puppet' ? ch.def.ambientPuppet
+          : ch.attitude === 'hostile' ? ch.def.ambientHostile
+          : ch.def.ambientNeutral;
+        if (Math.abs(ch.x - player.x) < W && pool) say(ch, pick(pool), 3);
       }
     }
 
     if (player.dead) continue;
     if (ch.boss && !(gate && gate.open)) continue;     // unreachable until the gate opens
-    if (overlap(player, ch)){
-      const stomped = player.vy > 0 && player.prevBottom <= ch.y + 12;
+    // Swept contact check (design §4.2): while falling, test the full vertical
+    // path travelled this frame so a fast descent can't tunnel past a head.
+    const curBot = player.y + player.h;
+    const prevTop = player.prevBottom - player.h;
+    const hitX = player.x < ch.x + ch.w && player.x + player.w > ch.x;
+    const hitY = player.vy > 0
+      ? (Math.min(prevTop, player.y) < ch.y + ch.h && curBot > ch.y)
+      : (player.y < ch.y + ch.h && curBot > ch.y);
+    if (hitX && hitY){
+      const stomped = player.vy > 0 && player.prevBottom <= ch.y + CONFIG.stompGrace;
       if (stomped){
         player.vy = -CONFIG.stompBounce; SFX.stomp();
-        if (ch.attitude === 'friendly'){
-          // jumping on a FRIEND?! Rude. Off they go, Mario-style, and it costs you.
-          const wasLove = st.bond >= A.loveBond;
-          st.bond = Math.max(CONFIG.bondFloor, st.bond - A.bumpBondLoss);
-          saveBonds();
-          say(ch, wasLove && ch.def.bumpLove ? ch.def.bumpLove : pick(ch.def.bump || ['!!']), 4);
-          ch.mood = wasLove ? 'love' : 'angry';
-          ch.attitude = 'bumped'; ch.hidden = false;
-          ch.vx = 240 * (player.facing || 1); ch.vy = -640;
-          burst(ch.x+ch.w/2, ch.y, '#c9b3ff', 10);
-          SFX.hurt();
-        } else {
+        if (ch.boss){
+          const target = ch;
+          setTimeout(() => { if (gameState==='play') openDialog(target); }, 120);
+        } else if (!ch.spoken){
+          // this body's ONE conversation (design §2.1)
+          ch.spoken = true;
+          st.mem.bounces++; saveBonds();
           if (ch.attitude === 'puppet'){               // the strings snap
             burst(ch.x+ch.w/2, ch.y-30, '#e8e2ff', 12);
             flash = Math.max(flash, 0.12);
@@ -931,10 +1038,36 @@ function update(dt){
           }
           const target = ch;
           setTimeout(() => { if (gameState==='play' && target.attitude !== 'bumped') openDialog(target); }, 120);
+        } else {
+          // spent body = platforming furniture… until the juggle (design §2.2)
+          ch.juggle++;
+          st.mem.bounces++; saveBonds();
+          const B = CONFIG.bounce;
+          if (ch.juggle >= B.fall){
+            const quote = ch.counting ? 'SEVEN!'
+              : st.meter >= CONFIG.meter.love && ch.def.bumpLove ? ch.def.bumpLove
+              : pick(ch.def.bump || ['!!']);
+            say(ch, quote, B.lingerS);                 // lingers after they're gone
+            ch.mood = st.meter >= CONFIG.meter.love ? 'love' : 'angry';
+            ch.attitude = 'bumped'; ch.hidden = false;
+            if (ch.counting){                          // the 1-in-20: rainbow, free
+              ch.rainbow = true; ch.vx = 0; ch.vy = 0;
+              SFX.good();
+            } else {
+              st.meter = clamp01(st.meter - B.fallCost);
+              st.mem.falls++; saveBonds();
+              ch.vx = 200 * (player.facing || 1); ch.vy = -520;
+              SFX.hurt();
+            }
+            burst(ch.x+ch.w/2, ch.y, '#c9b3ff', 10);
+          } else if (ch.juggle === B.warn){
+            ch.counting = Math.random() < B.countChance;
+            say(ch, ch.counting ? '…six.' : pick(ch.def.bounce6 || ['Hey!!']), 2.5);
+          }
         }
       } else if (ch.attitude === 'friendly'){
         // friends are talked to like people: walk up to them
-        if (!st.dated && ch.def.date && ch.talkCd <= 0){
+        if (!st.dated && ch.def.date && st.meter >= CONFIG.meter.friendlyMin && ch.talkCd <= 0){
           openDialog(ch, 'date');
         } else if (player.hearts < CONFIG.maxHearts && !(healCd[ch.id] > 0)){
           healCd[ch.id] = CONFIG.healCooldown;
@@ -1195,6 +1328,7 @@ function renderPortrait(ch){
 
 /* ---------------- RENDER ---------------- */
 function render(){
+  ctx.setTransform(Z, 0, 0, Z, 0, 0);   // all drawing below is in world units
   const sky = ctx.createLinearGradient(0,0,0,H);
   sky.addColorStop(0,PAL.skyTop); sky.addColorStop(0.6,PAL.skyMid); sky.addColorStop(1,PAL.skyLow);
   ctx.fillStyle = sky; ctx.fillRect(0,0,W,H);
@@ -1334,7 +1468,7 @@ function render(){
       : ch.state === 'angry' ? 'angry'
       : ch.attitude === 'puppet' ? 'puppet'
       : ch.attitude === 'hostile' ? 'angry'
-      : ch.attitude === 'friendly' ? (st.bond >= CONFIG.attitude.loveBond ? 'love' : 'happy')
+      : ch.attitude === 'friendly' ? (st.meter >= CONFIG.meter.love ? 'love' : 'happy')
       : 'neutral';
     drawChibi(ctx, ch.def.look, { s:1.28, facing:ch.dir||1, walk:ch.walkT, mood,
       floaty:!!ch.def.look.ghost });
@@ -1346,10 +1480,13 @@ function render(){
     else if (ch.attitude === 'neutral') ctx.fillText('🤍', ch.x+ch.w/2, ch.y-10);
   }
 
-  // speech bubbles (one per body, following them — even off a cliff)
+  // speech bubbles (one per body, following them — even off a cliff; a parting
+  // comment lingers at the point they left the screen, design §2.2)
   ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
   for (const [ch, s] of speech){
-    if (timeT >= s.until || ch.hidden){ speech.delete(ch); continue; }
+    if (timeT >= s.until){ speech.delete(ch); continue; }
+    if (!ch.hidden){ s.fx = ch.x + ch.w/2; s.fy = ch.y; }
+    else if (s.fx === undefined){ speech.delete(ch); continue; }
     // word-wrap to ~170px lines
     const words = s.text.split(' '), lines = [];
     let line = '';
@@ -1361,7 +1498,9 @@ function render(){
     if (line) lines.push(line);
     const bw = Math.min(184, Math.max(...lines.map(l => ctx.measureText(l).width)) + 14);
     const bh = lines.length*15 + 10;
-    const bx = ch.x + ch.w/2, by = ch.y - 18 - bh;
+    // clamp into the viewport so the line stays readable after they're gone
+    const bx = Math.max(camX + bw/2 + 8, Math.min(camX + W - bw/2 - 8, s.fx));
+    const by = Math.max(camY + 40, Math.min(camY + H - bh - 30, s.fy - 18 - bh));
     ctx.globalAlpha = Math.min(1, (s.until - timeT) / 0.4);
     ctx.fillStyle = '#fff7fb';
     ctx.strokeStyle = PAL.heart; ctx.lineWidth = 1.5;
@@ -1428,9 +1567,56 @@ function frame(now){
 }
 requestAnimationFrame(frame);
 
+/* ---------------- DEBUG MENU (N) — the playtest instrument (§4.7) ----------
+   Shows the real hidden values: per-character meter + band, memory tallies,
+   per-body state, and live-editable CONFIG knobs. Strip before a public ship. */
+const dbgEl = document.getElementById('debug');
+let dbgTimer = null;
+addEventListener('keydown', e => {
+  if (e.code !== 'KeyN' || gameState === 'title') return;
+  dbgEl.classList.toggle('open');
+  clearInterval(dbgTimer);
+  if (dbgEl.classList.contains('open')){ renderDebug(); dbgTimer = setInterval(renderDebug, 500); }
+});
+const KNOBS = [
+  ['viewTiles', () => CONFIG.viewTiles, v => { CONFIG.viewTiles = v; resize(); }],
+  ['stompGrace', () => CONFIG.stompGrace, v => CONFIG.stompGrace = v],
+  ['meter.hostileMax', () => CONFIG.meter.hostileMax, v => CONFIG.meter.hostileMax = v],
+  ['meter.friendlyMin', () => CONFIG.meter.friendlyMin, v => CONFIG.meter.friendlyMin = v],
+  ['meter.love', () => CONFIG.meter.love, v => CONFIG.meter.love = v],
+  ['bounce.warn', () => CONFIG.bounce.warn, v => CONFIG.bounce.warn = v],
+  ['bounce.fall', () => CONFIG.bounce.fall, v => CONFIG.bounce.fall = v],
+  ['bounce.countChance', () => CONFIG.bounce.countChance, v => CONFIG.bounce.countChance = v],
+  ['bounce.fallCost', () => CONFIG.bounce.fallCost, v => CONFIG.bounce.fallCost = v],
+];
+function renderDebug(){
+  let h = '<h3>characters (meter is hidden in-game)</h3><table><tr><th>who</th><th>meter</th><th>band</th><th>flags</th><th>mem</th></tr>';
+  for (const id of Object.keys(CAST)){
+    const st = bonds[id], band = CAST[id].boss ? 'boss' : (st.freed ? deriveAttitude(id) : 'puppet');
+    h += `<tr><td>${CAST[id].name}</td><td>${st.meter}</td>` +
+      `<td class="band-${band}">${band}</td>` +
+      `<td>${st.freed?'freed ':''}${st.romanced?'rom ':''}${st.dated?'dated':''}</td>` +
+      `<td>b${st.mem.bounces} f${st.mem.falls} c${st.mem.choices.length}</td></tr>`;
+  }
+  h += '</table><h3>bodies</h3><table><tr><th>who</th><th>attitude</th><th>juggle</th><th>spoken</th></tr>';
+  for (const ch of chars) h += `<tr><td>${ch.def.name}</td>` +
+    `<td class="band-${ch.attitude}">${ch.attitude}${ch.hidden?' (gone)':''}</td>` +
+    `<td>${ch.juggle}${ch.counting?' 🌈':''}</td><td>${ch.spoken?'✓':''}</td></tr>`;
+  h += '</table><h3>knobs (live)</h3>';
+  KNOBS.forEach(([name, get], i) => {
+    h += `<span class="knob">${name} <input type="number" step="any" value="${get()}" data-k="${i}"></span>`;
+  });
+  h += `<div style="margin-top:6px;color:#8f7fb8">romanced ${romanced}/${CONFIG.romancesNeeded} · zoom ${Z.toFixed(2)} · state ${gameState}</div>`;
+  dbgEl.innerHTML = h;
+  dbgEl.querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
+    const v = parseFloat(inp.value);
+    if (!isNaN(v)) KNOBS[+inp.dataset.k][2](v);
+  }));
+}
+
 // debug hooks (strip before a public ship)
-window._game = { player, chars, CONFIG, bonds, saveBonds, deriveAttitude, say,
-  get state(){ return gameState; },
+window._game = { player, chars, CONFIG, bonds, saveBonds, deriveAttitude, say, speech,
+  get state(){ return gameState; }, get Z(){ return Z; }, get W(){ return W; },
   get romanced(){ return romanced; }, openDialog, gate: () => gate };
 </script>
 </body>
