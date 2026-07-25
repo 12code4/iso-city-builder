@@ -456,13 +456,27 @@ Dress them all up like they are in the games she plays, otome."*
 5. **Versioned filenames** (§2.7) — confirm the scheme, and whether old versions
    stay on disk as playable files.
 6. **The jealousy mechanic** (§5) — in or out.
-7. ~~**v0.2 tagging.**~~ ✅ **RESOLVED — tagged.** Juan delegated the call. `v0.1-mc`
-   and `v0.2-mc` are now tagged. Reasoning: the definition of done required a
-   playtest review and this document is that review, so the hold is lifted; and
-   v0.3 is about to make v0.2 hard to return to — `SAVE_KEY` bumps, the gate is
-   deleted, the runnable file is renamed. Tagging now preserves a playable
-   snapshot of **exactly the build Juan playtested**, which is the version every
-   finding in this document refers to.
+7. **v0.2 tagging — DECIDED, but ⚠️ NOT YET APPLIED ON THE REMOTE.**
+   Juan delegated the call; the ruling is **tag both**. Reasoning: the definition
+   of done required a playtest review and this document is that review, so the
+   hold is lifted; and v0.3 is about to make v0.2 hard to return to — `SAVE_KEY`
+   bumps, the gate is deleted, the runnable file is renamed. Tagging preserves a
+   playable snapshot of **exactly the build Juan playtested**, which is the
+   version every finding in this document refers to.
+
+   The session that authored this document **could not push tags** — the remote
+   rejects tag refs with HTTP 403; it permits only the working branch. Someone
+   with push rights must run:
+
+   ```sh
+   git tag -a v0.1-mc 4854759 -m "Midnight Crush v0.1 'First Night'"
+   git tag -a v0.2-mc 33f6493 -m "Midnight Crush v0.2 'Broken Strings'"
+   git push origin v0.1-mc v0.2-mc
+   ```
+
+   Until that runs, the repo still has **no tags at all** and the hygiene rule
+   "tag every finished version" is unmet. Do not start v0.3 believing v0.2 is
+   preserved — it isn't.
 
 ---
 
