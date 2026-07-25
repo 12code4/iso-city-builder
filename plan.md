@@ -4,11 +4,35 @@
 
 ## Current status
 
-v0.2 "Broken Strings" built and headless-verified. **Awaiting Juan's playtest
-review** (see playtest.md for the feedback sheet). Tagging + Witching Hour
-work are blocked on that review and on Juan's behavior design doc.
+v0.2 "Broken Strings" built and headless-verified. **Juan's playtest review is
+in** — compiled as `design-doc.md`, which supersedes both tabled README backlog
+items. Next build is **v0.3 "Close Quarters"** (design-doc.md §4): camera zoom,
+swept stomp fix, bounce juggle, behavior bands, 0–100 hidden meter, dialog once
+per body, debug menu. v0.2 tagging is still Juan's call (design-doc.md §9.7).
+
+The old v0.3 "Witching Hour" / v0.4 "Starlight Signal" plan is displaced by the
+new release plan in design-doc.md §3; re-scope those after v0.4 lands.
 
 ## Session log
+
+- **2026-07-25 — Session 2 (playtest review → design doc).**
+  - Compiled Juan's v0.2 playtest feedback into `design-doc.md` via interview.
+  - Two code findings made during the review:
+    - **The game has no zoom at all.** `W = canvas.width = innerWidth` and the
+      world draws 1:1, so the visible slice of level depends on the player's
+      monitor. Fix is to define the view in tiles (`CONFIG.viewTiles`).
+    - **Stomp detection tunnels at speed.** The 12px window at `index.html:911`
+      is smaller than one frame of travel at the 1100px/s fall clamp (~18px at
+      60fps), so fast falls onto heads register as side hits. Needs a swept check.
+  - Built two throwaway mocks (headless Chromium, not committed): a zoom
+    comparison at 24/20 tiles, and a procedural "event CG" composed from the
+    existing `drawChibi`. The CG mock established that the frame layer (lighting,
+    bokeh, petals, letterbox, textbox) is nearly free while the figure layer has
+    no pose vocabulary — which is why v0.6 targets poses rather than drawn art.
+  - Headline decisions: dialogue once per body; bounce juggle (6/7, consecutive,
+    5% rainbow); shrine gate removed for Mario-shaped levels; Ayame becomes a
+    Lakitu-style recurring hazard; parallel meters, highest wins at the finale;
+    meter goes 0–100 and hidden behind an `N` debug menu; art stays procedural.
 
 - **2026-07-25 — Session 1 (everything so far).**
   - v0.1 "First Night": core platformer (run/jump/one-way platforms/pits),
