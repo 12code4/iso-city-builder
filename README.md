@@ -40,11 +40,22 @@ both work (on-screen buttons appear on touch devices).
   takes precision.
 - Each first conversation is a 3-question dialog tree. Answers shift affection
   (💗 / 💔), and affection is **cumulative across conversations**: an "unsure"
-  chat isn't wasted, it's progress. Rejection makes that body *angry* — it hunts
-  you at double speed for a while. Consequences are visible.
-- Enough bond → they become a **friendly enemy**: still patrolling their patch
-  like the goomba they replaced, but beaming, harmless, trailing hearts — and
-  they'll patch you up if you're hurt (long cooldown).
+  chat isn't wasted, it's progress.
+- **The meter is the final call.** After any conversation, that *body's*
+  attitude re-derives from the character's shared meter:
+  - **meter high → friendly enemy** — won't attack; patrols with hearts, makes
+    occasional small talk in speech bubbles, heals you when hurt. Walk up to a
+    friend to talk (date scene, then rotating chatter). But jump on their head
+    and they get **bumped off the screen Mario-style** — a random archetype
+    reaction quote as they fly (sad, furious, "I PASSED THAT TEST", and past
+    love-level: *"why did you do this, my love"*) — it costs affection, and
+    they come back later. They remember.
+  - **meter normal → free-thinking** — same enemy behavior as under mind
+    control, but only 0.8× as aggressive. Freedom mellows people.
+  - **meter very low → hostile** — hunts you on sight at 1.25× speed. Greetings
+    turn wary until you win them back.
+  - Greetings are context-dependent: first meeting (strings snap), warm return,
+    or a cold "I made a list of grievances. You're the ENTIRE list."
 - Charm **3 hearts** to unseal the shrine gate. Behind it waits **Ayame**, the
   boss — a pure dialog battle where wrong answers cost real hearts.
 
@@ -93,10 +104,13 @@ screen offers "forget everything (new story)" once a save exists.
 - **v0.1 "First Night"** — core platformer + stomp-to-talk dating system, five
   characters, shrine gate, boss dialog battle, pastel-horror night.
 - **v0.2 "Broken Strings"** — the puppeteer lore (visible strings, glazed
-  puppet eyes, string-snap on stomp); friendly-ally state with healing;
-  character clones sharing one persistent bond (localStorage saves); date
-  scenes climaxing in hand-holding; archetypes turned up (Pretty-Cure girls,
-  Rengoku-grade gentlemen); the almost-kiss finale.
+  puppet eyes, string-snap on stomp); character clones sharing one persistent
+  bond (localStorage saves); the per-body **attitude system** (friendly /
+  free-thinking 0.8× / hostile 1.25× + chase, meter is the final call);
+  Mario-style bump-offs with archetype reaction quotes; walk-up talking,
+  ambient speech bubbles, ally healing; date scenes climaxing in hand-holding;
+  archetypes turned up (Pretty-Cure girls, Rengoku-grade gentlemen); the
+  almost-kiss finale.
 
 ## Roadmap — the two planned updates
 

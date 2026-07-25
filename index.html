@@ -141,13 +141,22 @@ const CONFIG = {
   stompBounce: 480,
   maxHearts: 3,
   iframes: 1.6,           // seconds of invulnerability after a hit
-  angrySeconds: 8,        // how long a rejected character stays dangerous
   romancesNeeded: 3,      // hearts required to open the shrine gate
-  bondToRomance: 2,       // cumulative bond that flips a character to ally
-  bondFloor: -2,          // rejection can't dig deeper than this
+  bondFloor: -2,          // nothing digs deeper than this
   healCooldown: 45,       // seconds between free heals from a friendly ally
   patrolSpeed: 55,
-  angrySpeedMult: 2.2,
+  attitude: {             // per-BODY disposition, derived from the shared meter
+    friendlyBond: 2,      // bond at/above → that body is a friendly enemy
+    hostileBond: -1,      // bond at/below → that body hunts you
+    loveBond: 4,          // "why did you do this, my love" territory
+    neutralSpeedMult: 0.8,  // free-thinking bodies mellow out vs mind control
+    hostileSpeedMult: 1.25,
+    chaseRange: 8,        // tiles; hostile bodies lock onto you inside this
+    bumpBondLoss: 1,      // jumping on a friend is RUDE
+    bumpRespawn: 30,      // seconds gone after being bumped off the screen
+    ambientMinS: 9, ambientMaxS: 22, // friendly small-talk bubble cadence
+    talkCooldown: 6,      // seconds between walk-up chats with the same body
+  },
   camLerp: 6,
   lightningChance: 0.003, // per frame
   palette: {              // pastel pink / purple / blue on deep night
@@ -195,9 +204,12 @@ put('A', 137, 8);                                         // Ayame, past the gat
 const LEVEL = grid.map(r => r.join(''));
 
 /* ---------------- CAST ----------------
-   Each entry: look (for the chibi renderer) + a 3-question dialog.
-   Choice aff: +1 warms them up, 0 neutral, -1 puts them off.
-   End of tree: aff>=2 romance · aff<=0 rejection (angry) · else unsure. */
+   Each entry: look (chibi renderer) + scene-1 dialog (qs), a date scene,
+   quips (walk-up chatter), ambient (idle bubbles), bump lines (jumped-on-
+   while-friendly), and context greetings (greet / regreet / regreetLow).
+   Choice aff: +1 warms them up, 0 neutral, -1 puts them off. After any
+   conversation the shared meter — not the convo result — decides the
+   body's attitude (see deriveAttitude). */
 const CAST = {
   yuki: {
     name:'Yuki', title:'Shy Ghost Girl',
@@ -245,6 +257,12 @@ const CAST = {
     quips:[ 'Boo! …Did I get you? Be got. Please. It\'s good for my confidence.',
       'The other me waved at you?? We are… going to have a talk. Me and me. All of us.',
       '*happy ghost noises*' ],
+    regreetLow:'*flickers, keeping her distance* …Oh. It\'s you. I\'ve been practicing my scary face for this exact moment. *it is just a sad face* …Say something nice or go away.',
+    bump:[ 'W-WHY?! I thought we were— *poof* …that was mean.',
+      'I\'m already dead and that STILL hurt my feelings!!',
+      '*sad ghost noises, rapidly getting farther away*' ],
+    bumpLove:'Why did you do this, my love…? The moss was for YOU. *the fog goes cold*',
+    ambient:[ 'boo. 💜', 'you came back!', '*happy floating*', 'the moss misses you' ],
   },
   rin: {
     name:'Rin', title:'Zombie Schoolgirl',
@@ -292,6 +310,12 @@ const CAST = {
     quips:[ 'Snack run later? You\'re buying. Still dead, still broke.',
       'How am I over here AND over there? Fufufu. Town secret. Unravel it, detective.',
       '*finger guns with a slightly loose finger* Hey. Heyyy. It\'s you.' ],
+    regreetLow:'*arms crossed, foot tapping at full zombie speed* Well well well. Look who shambled back. I made a list of grievances. It\'s alphabetized. You\'re the ENTIRE list.',
+    bump:[ 'HEY!! I was VIBING!!', 'Yellow card, cutie!! That costs affection! LITERALLY!',
+      'If my arm falls off from this you\'re carrying it—' ],
+    bumpLove:'why did you do this, my love. i memorized your SNACK ORDER. *hurt zombie noises*',
+    ambient:[ 'snack o\'clock?', 'hi hi hi!!', '*waves with the spare hand*',
+      'race you to the pit! kidding. unless?' ],
   },
   kazuma: {
     name:'Kazuma', title:'Vampire — insufferably confident about it',
@@ -339,6 +363,12 @@ const CAST = {
     quips:[ 'You may walk beside me! This is a privilege extended to very few. MAGNIFICENT posture today, by the way.',
       'Another me on the road? Impossible. There is only one of me. There has ONLY EVER BEEN one of me. …We will not discuss this further.',
       '*adjusts cape* The night suits you. I would know. I have seen four hundred of them.' ],
+    regreetLow:'*cape pointedly turned away* You. I have composed a strongly-worded ballad regarding your manners. It has FOUR MOVEMENTS. …Speak. I am listening. Magnanimously.',
+    bump:[ 'A test of my composure! I PASSED IT. *flies away with dignity*',
+      'MAGNIFICENT technique! TERRIBLE manners!',
+      'I meant to do this! I invented being airborne! In 1704!' ],
+    bumpLove:'Even now… you remain devastating. WHY, my love?! MY CAPE AND I ARE WOUNDED!',
+    ambient:[ 'SPLENDID night!', 'your posture: magnificent', 'the moon and I approve', '*cape flutter*' ],
   },
   ren: {
     name:'Ren', title:'Werewolf — smug, knows his angles',
@@ -386,6 +416,13 @@ const CAST = {
     quips:[ '*ears perk before you\'re even close* Oh. You. Good. Stay where I can see you — the town\'s weird tonight.',
       'You met another me? Weird. Handsome guy though, right? Right.',
       'The pack asked about you again. All seventeen questions. I answered ALL of them. …Favorably.' ],
+    regreetLow:'*low, rumbling growl* Bold. Coming back after that. The wolf remembers. The man ALSO remembers. We took a vote — you get one sentence. Make it a good one.',
+    bump:[ 'Wow. WOW. The pack WILL hear about this.',
+      'Lucky shot. The tail is NOT wagging. Ignore the tail.',
+      '*extremely undignified wolf yelp*' ],
+    bumpLove:'Why, my love… the frisbee meant NOTHING to you? *whimpers all the way down*',
+    ambient:[ '*tail wags*', 'you\'re in my spot. it\'s fine. stay.',
+      'town\'s weird tonight. stay close', '*ears track you*' ],
   },
   ayame: {
     name:'Ayame', title:'The Spirit Behind the Gate', boss:true,
@@ -441,6 +478,17 @@ function saveBonds(){
     for (const id in bonds) if (id !== 'ayame') s[id] = bonds[id];
     localStorage.setItem(SAVE_KEY, JSON.stringify(s));
   } catch(e){}
+}
+/* Attitude: each BODY on the map has its own disposition, derived from the
+   character's shared meter — the meter is always the final call.
+     bond <= hostileBond  → hostile   (hunts you, 1.25× speed)
+     bond >= friendlyBond → friendly  (won't attack; can be rudely bumped)
+     otherwise            → neutral   (free-thinking; 0.8× as aggressive)
+   Bodies re-derive at dialog ends, bump respawns, and load — not per frame,
+   so individual bodies can lag the meter. That's a feature (and a mystery). */
+function deriveAttitude(id){
+  const b = bonds[id].bond, A = CONFIG.attitude;
+  return b <= A.hostileBond ? 'hostile' : b >= A.friendlyBond ? 'friendly' : 'neutral';
 }
 const regreets = {
   yuki:'*she notices you and immediately pretends she didn\'t* …You came back. To talk? To me? Okay. Okay okay okay. *deep breath* Hi.',
@@ -507,10 +555,14 @@ for (let y=0; y<rows; y++) for (let x=0; x<cols; x++){
   else if (c==='D') gate = {x:wx, y:wy, open:false, anim:0};
   else if ('yrknA'.includes(c)){
     const id = {y:'yuki', r:'rin', k:'kazuma', n:'ren', A:'ayame'}[c];
+    const boss = !!CAST[id].boss;
     chars.push({ id, def:CAST[id], x:wx+5, y:wy+T-34, w:26, h:34, vx:0, vy:0, dir:-1,
-      state:'roam',            // roam | talk | romanced | angry | unsure
-      angryT:0, walkT:Math.random()*7, aff:0, qi:0,
-      home:{x:wx+5, y:wy+T-34}, boss:!!CAST[id].boss });
+      state:'roam',            // roam | talk | angry (boss finale only)
+      attitude: boss ? 'boss' : (bonds[id].freed ? deriveAttitude(id) : 'puppet'),
+      spin:0, hidden:false, respawnAt:0, talkCd:0,
+      ambientAt: Math.random()*20 + 8,
+      walkT:Math.random()*7, aff:0, qi:0,
+      home:{x:wx+5, y:wy+T-34}, boss });
   }
 }
 player.x = spawn.x; player.y = spawn.y;
@@ -565,7 +617,7 @@ const dChoices = document.getElementById('dchoices');
 const dPortrait = document.getElementById('dportrait').getContext('2d');
 let talking = null;
 
-function openDialog(ch){
+function openDialog(ch, mode){
   const st = bonds[ch.id];
   const wasFreed = st.freed;
   if (!wasFreed){ st.freed = true; saveBonds(); }
@@ -574,22 +626,18 @@ function openDialog(ch){
   dName.textContent = ch.def.name;
   dTitle.textContent = ch.def.title;
   dEl.classList.add('open');
-  if (st.romanced && !ch.boss){
-    ch.mood = 'love';
-    if (!st.dated && ch.def.date){                 // the date scene
-      ch.mode = 'date';
-      sayLine(ch.def.date.greet, [{t:'…continue', act:'next'}]);
-    } else {                                       // just saying hi
-      ch.mode = 'quip';
-      const q = ch.def.quips || ['…'];
-      quipIdx[ch.id] = (quipIdx[ch.id] || 0);
-      sayLine(q[quipIdx[ch.id]++ % q.length], [{t:'💜', act:'close'}]);
-    }
-  } else {
-    ch.mode = 'talk'; ch.mood = 'neutral';
-    sayLine(wasFreed ? (regreets[ch.id] || ch.def.greet) : ch.def.greet,
-      [{t:'…continue', act:'next'}]);
+  if (mode === 'date' && ch.def.date){             // walk-up with a pending date
+    ch.mode = 'date'; ch.mood = 'love';
+    sayLine(ch.def.date.greet, [{t:'…continue', act:'next'}]);
+    return;
   }
+  ch.mode = 'talk'; ch.mood = 'neutral';
+  // context-dependent greeting: first meeting, wary (meter low), or warm
+  const greet = !wasFreed ? ch.def.greet
+    : (!ch.boss && st.bond <= CONFIG.attitude.hostileBond && ch.def.regreetLow)
+      ? ch.def.regreetLow
+      : (regreets[ch.id] || ch.def.greet);
+  sayLine(greet, [{t:'…continue', act:'next'}]);
 }
 function sayLine(text, choices){
   dText.textContent = text;
@@ -644,41 +692,45 @@ function finishDialog(ch){
       ch.state = 'angry'; ch.mood = 'angry'; SFX.bad();
       sayLine(ch.def.lose, [{t:'😅 backing away slowly', act:'close'}]);
     } else {
-      ch.state = 'unsure'; ch.mood = 'neutral';
+      ch.mood = 'neutral';
       sayLine(ch.def.meh, [{t:'🙂 fair enough', act:'close'}]);
     }
     return;
   }
   st.bond = Math.max(CONFIG.bondFloor, st.bond + ch.aff);  // affection carries over
-  if (st.bond >= CONFIG.bondToRomance){
-    st.romanced = true; saveBonds();
-    romanced++; refreshHUD();
+  saveBonds();
+  // the END METER is the final call on this body's state, not the convo result
+  const att = deriveAttitude(ch.id);
+  if (att === 'friendly'){
+    if (!st.romanced){
+      st.romanced = true; saveBonds();
+      romanced++; refreshHUD();
+      if (romanced >= CONFIG.romancesNeeded && gate && !gate.open)
+        setTimeout(() => showHint('The shrine gate stirs… head east ⛩️', 6), 600);
+    }
     ch.mood = 'love'; SFX.good();
     burst(ch.x+ch.w/2, ch.y, PAL.heart, 18);
     sayLine(ch.def.win, [{t:'💜 See you around', act:'close'}]);
-    if (romanced >= CONFIG.romancesNeeded && gate && !gate.open)
-      setTimeout(() => showHint('The shrine gate stirs… head east ⛩️', 6), 600);
-  } else if (ch.aff <= 0){
-    saveBonds();
-    ch.state = 'angry'; ch.angryT = CONFIG.angrySeconds; ch.mood = 'angry';
-    SFX.bad();
+  } else if (att === 'hostile'){
+    ch.mood = 'angry'; SFX.bad();
     sayLine(ch.def.lose, [{t:'😅 backing away slowly', act:'close'}]);
   } else {
-    saveBonds();
-    ch.state = 'unsure'; ch.mood = 'neutral';
+    ch.mood = 'neutral';
+    if (ch.aff < 0) SFX.bad();
     sayLine(ch.def.meh, [{t:'🙂 fair enough', act:'close'}]);
   }
 }
 function closeDialog(ch){
   dEl.classList.remove('open');
   gameState = 'play';
-  if (ch.state === 'talk' || ch.state === 'unsure') ch.state = 'roam';
   if (ch.state === 'angry' && ch.boss){
     // boss rejection: hurled back down the hill, she resets
     player.x = gate ? gate.x - T*6 : spawn.x; player.y = spawn.y;
     player.vx = 0; player.vy = 0;
-    ch.state = 'roam'; ch.aff = 0;
+    ch.aff = 0;
   }
+  ch.state = 'roam';
+  if (!ch.boss){ ch.attitude = deriveAttitude(ch.id); ch.talkCd = CONFIG.attitude.talkCooldown; }
   player.vy = -CONFIG.stompBounce * 0.6;
   talking = null;
 }
@@ -720,6 +772,11 @@ function burst(x, y, color, n){
   for (let i=0;i<n;i++) particles.push({ x, y, vx:(Math.random()-0.5)*260,
     vy:-Math.random()*300-40, t:0.9+Math.random()*0.5, color, heart:Math.random()<0.5 });
 }
+
+/* ---------------- SPEECH BUBBLES (in-world, one per body) ---------------- */
+const speech = new Map();
+function say(ch, text, ttl=4){ speech.set(ch, { text, until: timeT + ttl }); }
+const pick = arr => arr[Math.floor(Math.random()*arr.length)];
 
 /* ---------------- PHYSICS ---------------- */
 function moveEntity(e, dt){
@@ -798,19 +855,39 @@ function update(dt){
   }
 
   // --- cast ---
+  const A = CONFIG.attitude;
   for (const id in healCd) if (healCd[id] > 0) healCd[id] -= dt;
   for (const ch of chars){
     const st = bonds[ch.id];
-    const friendly = st.romanced && !ch.boss;
     if (ch.state === 'talk') continue;
-    if (ch.state === 'angry' && !ch.boss){ ch.angryT -= dt; if (ch.angryT <= 0) ch.state = 'roam'; }
+    if (ch.talkCd > 0) ch.talkCd -= dt;
+
+    if (ch.attitude === 'bumped'){                     // flying off the screen, Mario-style
+      ch.spin += dt * 9;
+      ch.x += ch.vx * dt; ch.vy += CONFIG.gravity * dt; ch.y += ch.vy * dt;
+      if (!ch.hidden && ch.y > rows*T + 200){ ch.hidden = true; ch.respawnAt = timeT + A.bumpRespawn; }
+      if (ch.hidden && timeT >= ch.respawnAt){         // they come back. they remember.
+        ch.hidden = false; ch.spin = 0;
+        ch.x = ch.home.x; ch.y = ch.home.y; ch.vx = ch.vy = 0;
+        ch.attitude = deriveAttitude(ch.id);
+      }
+      continue;
+    }
+
     if (ch.boss){
       ch.y = ch.home.y - 10 + Math.sin(timeT*1.6)*8;   // hovering, waiting
       ch.dir = player.x < ch.x ? -1 : 1;
     } else {
-      const sp = CONFIG.patrolSpeed * (ch.state==='angry' ? CONFIG.angrySpeedMult : 1);
+      let sp = CONFIG.patrolSpeed;
+      if (ch.attitude === 'neutral' || ch.attitude === 'friendly') sp *= A.neutralSpeedMult;
+      if (ch.attitude === 'hostile'){
+        sp *= A.hostileSpeedMult;
+        const dx = player.x - ch.x;                    // hunts you on sight
+        if (!player.dead && Math.abs(dx) < A.chaseRange*T && Math.abs(player.y - ch.y) < T*2)
+          ch.dir = Math.sign(dx) || ch.dir;
+      }
       ch.vx = sp * ch.dir;
-      ch.walkT += dt * (ch.state==='angry' ? 16 : 7);
+      ch.walkT += dt * (ch.attitude === 'hostile' ? 14 : 7);
       const aheadX = ch.dir>0 ? ch.x+ch.w+2 : ch.x-2;
       const aheadTX = Math.floor(aheadX/T);
       const footY = Math.floor((ch.y+ch.h+4)/T);
@@ -818,30 +895,55 @@ function update(dt){
       if (solid(aheadTX, wallY) || !(solid(aheadTX, footY) || oneway(aheadTX, footY))) ch.dir *= -1;
       ch.vy += CONFIG.gravity*dt;
       moveEntity(ch, dt);
-      if (friendly && Math.random() < 0.008) particles.push({ x:ch.x+ch.w/2, y:ch.y-6,
-        vx:(Math.random()-0.5)*30, vy:-50, t:1.2, color:PAL.heart, heart:true });
+      if (ch.attitude === 'friendly'){
+        if (Math.random() < 0.006) particles.push({ x:ch.x+ch.w/2, y:ch.y-6,
+          vx:(Math.random()-0.5)*30, vy:-50, t:1.2, color:PAL.heart, heart:true });
+        if (timeT >= ch.ambientAt){                    // occasional small talk
+          ch.ambientAt = timeT + A.ambientMinS + Math.random()*(A.ambientMaxS - A.ambientMinS);
+          if (Math.abs(ch.x - player.x) < W && ch.def.ambient) say(ch, pick(ch.def.ambient), 3);
+        }
+      }
     }
+
     if (player.dead) continue;
     if (ch.boss && !(gate && gate.open)) continue;     // unreachable until the gate opens
     if (overlap(player, ch)){
       const stomped = player.vy > 0 && player.prevBottom <= ch.y + 12;
       if (stomped){
         player.vy = -CONFIG.stompBounce; SFX.stomp();
-        if (!st.freed){                                // the strings snap
-          burst(ch.x+ch.w/2, ch.y-30, '#e8e2ff', 12);
-          flash = Math.max(flash, 0.12);
+        if (ch.attitude === 'friendly'){
+          // jumping on a FRIEND?! Rude. Off they go, Mario-style, and it costs you.
+          const wasLove = st.bond >= A.loveBond;
+          st.bond = Math.max(CONFIG.bondFloor, st.bond - A.bumpBondLoss);
+          saveBonds();
+          say(ch, wasLove && ch.def.bumpLove ? ch.def.bumpLove : pick(ch.def.bump || ['!!']), 4);
+          ch.mood = wasLove ? 'love' : 'angry';
+          ch.attitude = 'bumped'; ch.hidden = false;
+          ch.vx = 240 * (player.facing || 1); ch.vy = -640;
+          burst(ch.x+ch.w/2, ch.y, '#c9b3ff', 10);
+          SFX.hurt();
         } else {
-          burst(ch.x+ch.w/2, ch.y, '#c9b3ff', 6);
+          if (ch.attitude === 'puppet'){               // the strings snap
+            burst(ch.x+ch.w/2, ch.y-30, '#e8e2ff', 12);
+            flash = Math.max(flash, 0.12);
+          } else {
+            burst(ch.x+ch.w/2, ch.y, '#c9b3ff', 6);
+          }
+          const target = ch;
+          setTimeout(() => { if (gameState==='play' && target.attitude !== 'bumped') openDialog(target); }, 120);
         }
-        const target = ch;
-        setTimeout(() => { if (gameState==='play') openDialog(target); }, 120);
-      } else if (friendly){
-        // an ally steadies you — and patches you up if you're hurt
-        if (player.hearts < CONFIG.maxHearts && !(healCd[ch.id] > 0)){
+      } else if (ch.attitude === 'friendly'){
+        // friends are talked to like people: walk up to them
+        if (!st.dated && ch.def.date && ch.talkCd <= 0){
+          openDialog(ch, 'date');
+        } else if (player.hearts < CONFIG.maxHearts && !(healCd[ch.id] > 0)){
           healCd[ch.id] = CONFIG.healCooldown;
           player.hearts++; refreshHUD(); SFX.heart();
           burst(player.x+player.w/2, player.y, PAL.heart, 10);
           showHint(`${ch.def.name} patches you up 💗`, 2.5);
+        } else if (ch.talkCd <= 0 && ch.def.quips){
+          ch.talkCd = A.talkCooldown;
+          say(ch, ch.def.quips[(quipIdx[ch.id] = (quipIdx[ch.id]||0) + 1) % ch.def.quips.length], 4.5);
         }
       } else {
         damagePlayer(player.x < ch.x ? -1 : 1);
@@ -1129,10 +1231,11 @@ function render(){
 
   // cast
   for (const ch of chars){
+    if (ch.hidden) continue;
     const st = bonds[ch.id];
     if (ch.boss && !(gate && gate.open))            // distant silhouette until the gate opens
       ctx.globalAlpha = 0.35 + 0.1*Math.sin(timeT*2);
-    if (!st.freed && !ch.boss){                     // puppet strings, swaying gently
+    if (ch.attitude === 'puppet'){                  // puppet strings, swaying gently
       ctx.strokeStyle = '#cfc4f0'; ctx.globalAlpha = 0.28; ctx.lineWidth = 1;
       const cxm = ch.x + ch.w/2, topY = ch.y - 4;
       for (let i=-1; i<=1; i++){
@@ -1142,21 +1245,52 @@ function render(){
         ctx.quadraticCurveTo(cxm + i*8 + sway, topY-90, cxm + i*10 + sway*2, topY-190);
         ctx.stroke();
       }
-      ctx.globalAlpha = ch.boss ? ctx.globalAlpha : 1;
+      ctx.globalAlpha = 1;
     }
     ctx.save();
     ctx.translate(ch.x + ch.w/2, ch.y + ch.h);
-    const mood = ch.state==='angry' ? 'angry'
-      : (st.romanced && !ch.boss) ? 'love'
-      : (!st.freed && !ch.boss) ? 'puppet' : 'neutral';
+    if (ch.attitude === 'bumped') ctx.rotate(ch.spin * (ch.vx > 0 ? 1 : -1));
+    const mood = ch.attitude === 'bumped' ? ch.mood
+      : ch.state === 'angry' ? 'angry'
+      : ch.attitude === 'puppet' ? 'puppet'
+      : ch.attitude === 'hostile' ? 'angry'
+      : ch.attitude === 'friendly' ? (st.bond >= CONFIG.attitude.loveBond ? 'love' : 'happy')
+      : 'neutral';
     drawChibi(ctx, ch.def.look, { s:1.15, facing:ch.dir||1, walk:ch.walkT, mood,
       floaty:!!ch.def.look.ghost });
     ctx.restore();
     ctx.globalAlpha = 1;
     ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
-    if (st.romanced && !ch.boss) ctx.fillText('💕', ch.x+ch.w/2, ch.y-10 + Math.sin(timeT*3)*3);
-    else if (ch.state === 'angry') ctx.fillText('💢', ch.x+ch.w/2, ch.y-10);
-    else if (ch.state === 'unsure') ctx.fillText('🤍', ch.x+ch.w/2, ch.y-10);
+    if (ch.attitude === 'friendly') ctx.fillText('💕', ch.x+ch.w/2, ch.y-10 + Math.sin(timeT*3)*3);
+    else if (ch.attitude === 'hostile') ctx.fillText('💢', ch.x+ch.w/2, ch.y-10);
+    else if (ch.attitude === 'neutral') ctx.fillText('🤍', ch.x+ch.w/2, ch.y-10);
+  }
+
+  // speech bubbles (one per body, following them — even off a cliff)
+  ctx.font = '12px sans-serif'; ctx.textAlign = 'center';
+  for (const [ch, s] of speech){
+    if (timeT >= s.until || ch.hidden){ speech.delete(ch); continue; }
+    // word-wrap to ~170px lines
+    const words = s.text.split(' '), lines = [];
+    let line = '';
+    for (const w of words){
+      const test = line ? line + ' ' + w : w;
+      if (ctx.measureText(test).width > 170 && line){ lines.push(line); line = w; }
+      else line = test;
+    }
+    if (line) lines.push(line);
+    const bw = Math.min(184, Math.max(...lines.map(l => ctx.measureText(l).width)) + 14);
+    const bh = lines.length*15 + 10;
+    const bx = ch.x + ch.w/2, by = ch.y - 18 - bh;
+    ctx.globalAlpha = Math.min(1, (s.until - timeT) / 0.4);
+    ctx.fillStyle = '#fff7fb';
+    ctx.strokeStyle = PAL.heart; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect(bx - bw/2, by, bw, bh, 8); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx-5, by+bh); ctx.lineTo(bx, by+bh+7); ctx.lineTo(bx+5, by+bh);
+    ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#463358';
+    lines.forEach((l, i) => ctx.fillText(l, bx, by + 15 + i*15));
+    ctx.globalAlpha = 1;
   }
 
   // player (lavender-haired protagonist; blinks during i-frames)
@@ -1215,7 +1349,8 @@ function frame(now){
 requestAnimationFrame(frame);
 
 // debug hooks (strip before a public ship)
-window._game = { player, chars, CONFIG, bonds, saveBonds, get state(){ return gameState; },
+window._game = { player, chars, CONFIG, bonds, saveBonds, deriveAttitude, say,
+  get state(){ return gameState; },
   get romanced(){ return romanced; }, openDialog, gate: () => gate };
 </script>
 </body>
