@@ -214,7 +214,7 @@ const CAST = {
   yuki: {
     name:'Yuki', title:'Shy Ghost Girl',
     look:{ hair:'#d3e2ff', style:'long', skin:'#f6ecf2', outfit:'#9db8e8',
-           eye:'#86a8ff', blush:true, ghost:true },
+           eye:'#86a8ff', blush:true, ghost:true, glow:true, lashes:true },
     greet:'*the strings above her snap like frost — the glassy look melts away* …huh? I was walking? How long was I walking?? *sees you* EEK! Y-you can see me?! …Wait. You\'re the one who cut the strings. Nobody\'s ever… um. H-hi. I\'m Yuki. I\'ve haunted this road for eighty years and this is the FIRST time my feet have been my own all month.',
     qs:[
       { q:'S-so… you jumped on my head. On purpose. Why would you do that??',
@@ -267,7 +267,7 @@ const CAST = {
   rin: {
     name:'Rin', title:'Zombie Schoolgirl',
     look:{ hair:'#ffb0cc', style:'twintails', skin:'#d4ead8', outfit:'#41507a',
-           eye:'#ffd166', blush:true, patch:true },
+           eye:'#ffd166', blush:true, patch:true, skirt:true, sailor:true, lashes:true },
     greet:'*shakes her head like a wet dog — the glassy stare shatters* WHOA. Okay. WOW. I was NOT driving this body just now. Someone had me on marionette autopilot and you just— *mimes scissors* —snip! Nice air time, by the way. Most people scream and run from a zombie. You DIVE-BOMBED me. Respect. I\'m Rin! Undead, unbothered, recently un-hijacked.',
     qs:[
       { q:'Real talk: I\'m a zombie, right, so everyone assumes I eat brains. But honestly? I\'d demolish a whole tray of melon bread first. What\'s YOUR forbidden late-night snack?',
@@ -320,7 +320,7 @@ const CAST = {
   kazuma: {
     name:'Kazuma', title:'Vampire — insufferably confident about it',
     look:{ hair:'#35295c', style:'swoosh', skin:'#f4eaea', outfit:'#6e2140',
-           eye:'#ff7a95', cape:true, sparkle:true },
+           eye:'#ff7a95', cape:true, sparkle:true, medallion:true, sharp:true },
     greet:'*the strings around him BURN away — he does not flinch. He catches your ankle mid-stomp, sets you down gently, and dusts your shoulder* SPLENDID!! Do you know how long I have wrestled that puppeteer\'s grip?! An eternity of walking in STRAIGHT LINES! And you shattered it by LEAPING ONTO MY HEAD! Magnificent technique! I am Kazuma — four hundred years old, devastating in moonlight, and yes, this is my natural hair volume. You have my gratitude, little mortal. Stand proud! Few have earned it!',
     qs:[
       { q:'You have precisely one chance to impress me. Tell me: what is the most beautiful thing you have ever seen? Choose carefully. I am, of course, the correct answer.',
@@ -373,7 +373,7 @@ const CAST = {
   ren: {
     name:'Ren', title:'Werewolf — smug, knows his angles',
     look:{ hair:'#d8d2c4', style:'wild', skin:'#ecd2b6', outfit:'#2e4a44',
-           eye:'#ffb03a', ears:true },
+           eye:'#ffb03a', ears:true, tail:true, sharp:true },
     greet:'*catches you on one shoulder as the strings snap — his eyes clear from dull amber to bright gold* …Huh. Head\'s quiet again. Whole month of walking back and forth like a wind-up toy, and what breaks the spell? One determined weirdo landing on me. *sets you down, gently* I\'m Ren. Yes, the ears are real. Yes, I owe you one. No, you can\'t touch the ears. …Yet. Play your cards right.',
     qs:[
       { q:'Everyone in this town is scared of the wolf. Full moon, big teeth, whole thing. You stomped on my head. So either you\'re brave or you\'re dumb. Which is it?',
@@ -427,7 +427,7 @@ const CAST = {
   ayame: {
     name:'Ayame', title:'The Spirit Behind the Gate', boss:true,
     look:{ hair:'#4a3468', style:'veil', skin:'#f4ecf8', outfit:'#7e2a4e',
-           eye:'#e06a95', ghost:true },
+           eye:'#e06a95', ghost:true, orbs:true, lashes:true, glow:true },
     greet:'*the fog itself kneels as she appears* So. You are the one snapping strings in MY town. Yuki won\'t stop glowing. Rin re-attached her hand for you. Even Kazuma smiled — he hasn\'t smiled since the 1800s. *quieter* Three hundred years I have guarded this shrine, and when the strings came, I could not cut a single one. You did it by JUMPING ON HEADS. So before anything else: thank you. Do not make me regret saying that. I am Ayame, and I decide who is worthy of Hollow Hills\' hearts. Answer carefully, beloved. Wrong answers will HURT.',
     qs:[
       { q:'Three hundred years I have watched the living come and go. They take our beauty, our stories, our hearts — then leave when the sun rises. Why are YOU any different?',
@@ -983,7 +983,24 @@ function drawChibi(g, look, opts){
   const { s=1, facing=1, walk=0, mood='neutral', floaty=false } = opts;
   g.save();
   g.scale(facing*s, s);
-  g.translate(0, floaty ? Math.sin(walk)*2 : 0);
+  const happyBounce = (mood==='happy' || mood==='love') && !floaty
+    ? -Math.abs(Math.sin(walk*1.5))*1.5 : 0;
+  g.translate(0, (floaty ? Math.sin(walk)*2 : 0) + happyBounce);
+
+  if (look.glow){                                   // soft spirit aura
+    g.globalAlpha = 0.13 + 0.05*Math.sin(walk*0.7);
+    g.fillStyle = mood==='angry' ? '#ff8fb0' : '#bcd4ff';
+    g.beginPath(); g.arc(0, -18, 19, 0, 7); g.fill();
+    g.globalAlpha = 1;
+  }
+  if (look.tail){                                   // the tail answers before he does
+    const eager = mood==='love' || mood==='happy';
+    const wag = Math.sin(walk * (eager ? 3.2 : 1)) * (mood==='angry' ? 2 : eager ? 7 : 4);
+    g.strokeStyle = look.hair; g.lineWidth = 4.5; g.lineCap = 'round';
+    g.beginPath(); g.moveTo(-7, -12);
+    g.quadraticCurveTo(-14, -14 + wag*0.5, -17, -8 + wag);
+    g.stroke();
+  }
 
   if (look.ghost){                                  // misty tail instead of legs
     g.fillStyle = look.outfit;
@@ -999,11 +1016,46 @@ function drawChibi(g, look, opts){
   }
   g.fillStyle = look.outfit;
   g.beginPath(); g.roundRect(-8, -22, 16, 15, 4); g.fill();
+  if (look.skirt){                                  // flared skirt silhouette
+    g.beginPath(); g.moveTo(-8, -13); g.lineTo(8, -13);
+    g.lineTo(11, -6); g.lineTo(-11, -6); g.closePath(); g.fill();
+  }
+  // arms, swinging opposite the legs (ghosts get stubby mitten arms)
+  const armSwing = look.ghost ? 0 : Math.sin(walk)*3.5;
+  g.strokeStyle = look.outfit; g.lineWidth = 3.6; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(-7.5, -19); g.lineTo(-9.5, (look.ghost ? -13 : -10) + armSwing); g.stroke();
+  g.beginPath(); g.moveTo(7.5, -19); g.lineTo(9.5, (look.ghost ? -13 : -10) - armSwing); g.stroke();
+  g.fillStyle = look.skin;
+  g.beginPath(); g.arc(-9.5, (look.ghost ? -12 : -9) + armSwing, 2, 0, 7); g.fill();
+  g.beginPath(); g.arc(9.5, (look.ghost ? -12 : -9) - armSwing, 2, 0, 7); g.fill();
+  if (look.sailor){                                 // school sailor collar + bow
+    g.fillStyle = '#eaf0fc';
+    g.beginPath(); g.moveTo(-8, -22); g.lineTo(0, -16); g.lineTo(8, -22);
+    g.lineTo(8, -19); g.lineTo(0, -13.5); g.lineTo(-8, -19); g.closePath(); g.fill();
+    g.fillStyle = '#ff8fb0';
+    g.beginPath(); g.moveTo(0, -16); g.lineTo(-3, -13); g.lineTo(0, -11.5); g.lineTo(3, -13);
+    g.closePath(); g.fill();
+  }
   if (look.cape){
     g.fillStyle = '#3d0f22';
     g.beginPath(); g.moveTo(-8,-21);
     g.quadraticCurveTo(-14 - Math.sin(walk)*2, -10, -10, -2);
     g.lineTo(-6,-6); g.closePath(); g.fill();
+    g.fillStyle = '#2a0a18';                        // high dramatic collar
+    g.beginPath(); g.moveTo(-8.5, -22); g.lineTo(-11, -29); g.lineTo(-5, -23); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(8.5, -22); g.lineTo(11, -29); g.lineTo(5, -23); g.closePath(); g.fill();
+  }
+  if (look.medallion){                              // four centuries of bling
+    g.fillStyle = '#e8c46a'; g.beginPath(); g.arc(0, -18.5, 2.2, 0, 7); g.fill();
+    g.fillStyle = '#a8843a'; g.beginPath(); g.arc(0, -18.5, 1.1, 0, 7); g.fill();
+  }
+  if (look.scarf){                                  // the protagonist's trailing scarf
+    g.fillStyle = look.scarf;
+    g.fillRect(-8, -23, 16, 3.5);
+    g.save(); g.translate(-8, -21);
+    g.rotate(0.5 + Math.sin(walk)*0.15);
+    g.fillRect(-9, 0, 10, 3.2);
+    g.restore();
   }
   const hy = -30;
   g.fillStyle = look.skin;
@@ -1067,13 +1119,29 @@ function drawChibi(g, look, opts){
     g.strokeStyle = '#9a90a8'; g.lineWidth = 1;
     g.beginPath(); g.moveTo(-1.8, hy+6.4); g.lineTo(1.8, hy+6.4); g.stroke();
   } else {
+    const ry = look.sharp ? 2.5 : 3.2;              // guys get narrower, keener eyes
     for (const sx of [-3.5, 3.5]){                  // big anime eyes
       g.fillStyle = '#fff';
-      g.beginPath(); g.ellipse(sx, eyeY, 2.6, 3.2, 0, 0, 7); g.fill();
+      g.beginPath(); g.ellipse(sx, eyeY, 2.6, ry, 0, 0, 7); g.fill();
       g.fillStyle = look.eye;
-      g.beginPath(); g.ellipse(sx+0.5, eyeY+0.3, 1.7, 2.4, 0, 0, 7); g.fill();
+      g.beginPath(); g.ellipse(sx+0.5, eyeY+0.3, 1.7, ry-0.8, 0, 0, 7); g.fill();
       g.fillStyle = '#fff';
-      g.beginPath(); g.arc(sx+1.1, eyeY-0.8, 0.7, 0, 7); g.fill();
+      g.beginPath(); g.arc(sx+1.1, eyeY-0.8, 0.8, 0, 7); g.fill();
+      g.beginPath(); g.arc(sx-0.6, eyeY+1.1, 0.4, 0, 7); g.fill();
+      if (look.lashes){                             // shoujo lashes, flicked outward
+        g.strokeStyle = '#5a4458'; g.lineWidth = 0.9;
+        const o = Math.sign(sx);
+        g.beginPath(); g.moveTo(sx + o*1.8, eyeY - ry + 0.4);
+        g.lineTo(sx + o*3.1, eyeY - ry - 0.8); g.stroke();
+        g.beginPath(); g.moveTo(sx + o*0.6, eyeY - ry);
+        g.lineTo(sx + o*1.2, eyeY - ry - 1.1); g.stroke();
+      }
+      if (look.sharp){                              // confident brow
+        g.strokeStyle = look.hair; g.lineWidth = 1.1;
+        const o = Math.sign(sx);
+        g.beginPath(); g.moveTo(sx - o*2, eyeY - ry - 1.2);
+        g.lineTo(sx + o*2.4, eyeY - ry - 2.2); g.stroke();
+      }
     }
     g.strokeStyle = '#b06a78'; g.lineWidth = 1.1;
     if (mood === 'happy'){
@@ -1097,6 +1165,18 @@ function drawChibi(g, look, opts){
     g.font = '5px sans-serif'; g.textAlign = 'center';
     g.fillText('✦', 12, hy-8); g.fillText('✦', -13, hy+2);
     g.globalAlpha = 1;
+  }
+  if (look.orbs){                                   // hitodama — spirit flames in orbit
+    for (let i=0; i<2; i++){
+      const a = walk*0.9 + i*Math.PI;
+      const ox = Math.cos(a)*16, oy = hy + 2 + Math.sin(a)*7;
+      g.globalAlpha = 0.75;
+      g.fillStyle = i ? '#b8e0ff' : '#ffb8d8';
+      g.beginPath(); g.arc(ox, oy, 2.6, 0, 7); g.fill();
+      g.globalAlpha = 0.35;
+      g.beginPath(); g.ellipse(ox - 3, oy - 1.5, 3.4, 1.4, -0.4, 0, 7); g.fill();
+      g.globalAlpha = 1;
+    }
   }
   g.restore();
 }
@@ -1256,7 +1336,7 @@ function render(){
       : ch.attitude === 'hostile' ? 'angry'
       : ch.attitude === 'friendly' ? (st.bond >= CONFIG.attitude.loveBond ? 'love' : 'happy')
       : 'neutral';
-    drawChibi(ctx, ch.def.look, { s:1.15, facing:ch.dir||1, walk:ch.walkT, mood,
+    drawChibi(ctx, ch.def.look, { s:1.28, facing:ch.dir||1, walk:ch.walkT, mood,
       floaty:!!ch.def.look.ghost });
     ctx.restore();
     ctx.globalAlpha = 1;
@@ -1298,7 +1378,7 @@ function render(){
     ctx.save();
     ctx.translate(player.x+player.w/2, player.y+player.h);
     drawChibi(ctx, { hair:'#a894e0', style:'wild', skin:'#f2dcc4', outfit:'#b25a80',
-      eye:'#7ec8c0' }, { s:1.1, facing:player.facing, walk:player.walkT, mood:'neutral' });
+      eye:'#7ec8c0', scarf:'#ffd6a0' }, { s:1.2, facing:player.facing, walk:player.walkT, mood:'neutral' });
     ctx.restore();
   }
 
