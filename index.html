@@ -1,1559 +1,1033 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>City Builder — v0.3</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Midnight Crush — a haunted dating platformer</title>
 <style>
-  html, body { margin: 0; height: 100%; overflow: hidden; background: #10141a; }
-  #app { position: fixed; inset: 0; touch-action: none; }
-  canvas { display: block; }
-  .hud { position: fixed; font-family: -apple-system, "Segoe UI", Arial, sans-serif; color: #fff; user-select: none; -webkit-user-select: none; }
-  #title { top: 12px; left: 14px; font-size: 14px; font-weight: 600; letter-spacing: 0.04em; opacity: 0.85; text-shadow: 0 1px 3px rgba(0,0,0,0.4); }
-  #hint { top: 32px; left: 14px; font-size: 11px; opacity: 0.55; text-shadow: 0 1px 3px rgba(0,0,0,0.4); }
-  #controls { bottom: 92px; right: 14px; display: flex; flex-direction: column; gap: 10px; }
-  #controls button, #toolbar button {
-    border: none; color: #fff; cursor: pointer; touch-action: manipulation;
-    background: rgba(20, 26, 34, 0.65);
-    backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px);
-  }
-  #controls button { width: 48px; height: 48px; border-radius: 12px; font-size: 20px; }
-  #controls button:active { background: rgba(20, 26, 34, 0.9); }
-  #toolbar {
-    bottom: 16px; left: 50%; transform: translateX(-50%);
-    display: flex; gap: 8px; padding: 8px; border-radius: 16px;
-    background: rgba(20, 26, 34, 0.5);
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-  }
-  #toolbar button {
-    min-width: 52px; height: 56px; border-radius: 12px;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    font-size: 20px; line-height: 1;
-  }
-  #toolbar button span { font-size: 9px; margin-top: 4px; opacity: 0.75; font-family: inherit; }
-  #toolbar button.selected { background: rgba(120, 170, 220, 0.55); }
-  #inspector {
-    top: 54px; left: 14px; width: 208px; padding: 12px 14px; border-radius: 14px;
-    background: rgba(20, 26, 34, 0.72);
-    backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
-    font-size: 12px; display: none;
-  }
-  #inspector.show { display: block; }
-  #inspector .ins-name { font-size: 14px; font-weight: 600; margin-bottom: 3px; padding-right: 16px; }
-  #inspector .ins-close { position: absolute; top: 9px; right: 11px; cursor: pointer; opacity: 0.55; font-size: 13px; }
-  #inspector .ins-close:hover { opacity: 1; }
-  #inspector .ins-state { opacity: 0.85; margin-bottom: 9px; }
-  #inspector .lbl { display: flex; justify-content: space-between; font-size: 10px; opacity: 0.72; }
-  #inspector .bar { height: 7px; border-radius: 4px; background: rgba(255,255,255,0.14); margin: 2px 0 7px; overflow: hidden; }
-  #inspector .bar > i { display: block; height: 100%; border-radius: 4px; transition: width 0.15s linear; }
-  #inspector .ins-foot { margin-top: 4px; font-size: 11px; opacity: 0.72; line-height: 1.5; }
-  #inspector .ins-list { margin-top: 4px; font-size: 11px; opacity: 0.88; line-height: 1.6; }
-  #inspector .ins-list a { color: #9fd0ff; cursor: pointer; }
-  #inspector button.follow {
-    margin-top: 11px; width: 100%; padding: 7px; border: none; border-radius: 9px;
-    background: rgba(120, 170, 220, 0.5); color: #fff; cursor: pointer; font-size: 12px;
-  }
-  #inspector button.follow.on { background: rgba(120, 220, 150, 0.55); }
+  :root { --ink:#efe8fa; --panel:#1c1330ee;
+    --pink:#ffa8d3; --purple:#c9b3ff; --blue:#a8d8ff; }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body { height:100%; background:#0b0716; overflow:hidden;
+    font-family:'Segoe UI', system-ui, sans-serif; color:var(--ink);
+    -webkit-user-select:none; user-select:none; touch-action:none; }
+  #game { display:block; width:100vw; height:100vh; }
+  /* ---------- HUD ---------- */
+  #hud { position:fixed; top:10px; left:12px; right:12px; display:flex;
+    justify-content:space-between; align-items:flex-start; pointer-events:none;
+    font-size:20px; text-shadow:0 2px 6px #000; z-index:5; }
+  #hint { position:fixed; top:48px; left:0; right:0; text-align:center; font-size:14px;
+    color:var(--blue); text-shadow:0 2px 6px #000; pointer-events:none; z-index:5;
+    opacity:0; transition:opacity .6s; }
+  #hint.show { opacity:1; }
+  /* ---------- Dialog ---------- */
+  #dialog { position:fixed; inset:0; display:none; z-index:10;
+    background:radial-gradient(ellipse at 50% 40%, #1a0e3199 0%, #050309dd 100%); }
+  #dialog.open { display:flex; align-items:flex-end; justify-content:center; }
+  #dbox { width:min(680px, 94vw); margin-bottom:4vh; background:var(--panel);
+    border:2px solid var(--purple); border-radius:16px; padding:16px 18px 14px;
+    box-shadow:0 0 40px #c9b3ff33, 0 12px 40px #000c; }
+  #dtop { display:flex; gap:14px; align-items:flex-start; }
+  #dportrait { width:120px; height:120px; flex:0 0 auto; border-radius:12px;
+    background:linear-gradient(180deg,#261747,#130a26); border:1px solid #6f5aa8; }
+  #dwho { flex:1; }
+  #dname { font-size:22px; font-weight:700; color:var(--pink); letter-spacing:.5px; }
+  #dtitle { font-size:12px; color:var(--blue); margin-bottom:6px; font-style:italic; }
+  #daff { font-size:16px; letter-spacing:2px; min-height:20px; }
+  #dtext { margin-top:10px; font-size:16px; line-height:1.45; min-height:64px; }
+  #dchoices { margin-top:12px; display:flex; flex-direction:column; gap:8px; }
+  #dchoices button { pointer-events:auto; text-align:left; font-size:15px;
+    padding:10px 14px; border-radius:10px; border:1px solid #7a63b5;
+    background:#2c1d4e; color:var(--ink); cursor:pointer; transition:all .12s; }
+  #dchoices button:hover { background:#3e2a6e; border-color:var(--pink);
+    transform:translateX(4px); }
+  /* ---------- Overlays (title / ending) ---------- */
+  .overlay { position:fixed; inset:0; z-index:20; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; text-align:center; gap:14px;
+    background:radial-gradient(ellipse at 50% 30%, #1f1140ee 0%, #060310f8 100%); }
+  .overlay h1 { font-size:clamp(34px,7vw,64px); color:var(--pink);
+    text-shadow:0 0 24px #ffa8d377, 0 4px 0 #000; letter-spacing:2px; }
+  .overlay h2 { font-size:clamp(15px,2.6vw,22px); color:var(--purple); font-weight:400; }
+  .overlay p { max-width:560px; color:#d5c9ee; font-size:15px; line-height:1.6; padding:0 18px; }
+  .overlay .keys { color:#93a8d8; }
+  .overlay button { margin-top:8px; font-size:19px; padding:12px 34px; border-radius:999px;
+    border:2px solid var(--pink); background:#3a1533; color:#ffe2f0; cursor:pointer;
+    box-shadow:0 0 26px #ffa8d344; }
+  .overlay button:hover { background:#5c2050; }
+  .hidden { display:none !important; }
+  /* ---------- Touch controls ---------- */
+  #touch { position:fixed; left:0; right:0; bottom:0; height:130px; z-index:6;
+    display:none; pointer-events:none; }
+  #touch.show { display:block; }
+  .tbtn { position:absolute; bottom:22px; width:74px; height:74px; border-radius:50%;
+    background:#ffffff14; border:2px solid #c9b3ff55; color:#fff; font-size:30px;
+    display:flex; align-items:center; justify-content:center; pointer-events:auto;
+    text-shadow:0 2px 4px #000; }
+  .tbtn:active { background:#ffffff33; }
+  #tL{left:20px;} #tR{left:108px;}
+  #tJ{right:24px; width:86px; height:86px; background:#ffa8d322; border-color:#ffa8d366;}
 </style>
 </head>
 <body>
-<div id="app"></div>
-<div class="hud" id="title">City Builder — v0.3</div>
-<div class="hud" id="hint">Q/E rotate · WASD or drag to pan · wheel/pinch zoom · tap to build · 🔍 to inspect</div>
-<div class="hud" id="census" style="top:12px; right:14px; font-size:12px; text-align:right; opacity:0.85; text-shadow:0 1px 3px rgba(0,0,0,0.4);"></div>
-<div class="hud" id="inspector"></div>
-<div class="hud" id="controls">
-  <button id="btn-ccw" aria-label="Rotate left">⟲</button>
-  <button id="btn-cw" aria-label="Rotate right">⟳</button>
+<canvas id="game"></canvas>
+
+<div id="hud">
+  <div id="hearts"></div>
+  <div id="romance"></div>
 </div>
-<div class="hud" id="toolbar">
-  <button data-tool="road">🛣️<span>Road</span></button>
-  <button data-tool="house">🏠<span>House</span></button>
-  <button data-tool="shop">🏪<span>Shop</span></button>
-  <button data-tool="park">🏞️<span>Park</span></button>
-  <button data-tool="bulldoze">🧨<span>Clear</span></button>
-  <button data-tool="inspect">🔍<span>Inspect</span></button>
+<div id="hint"></div>
+
+<div id="dialog">
+  <div id="dbox">
+    <div id="dtop">
+      <canvas id="dportrait" width="240" height="240"></canvas>
+      <div id="dwho">
+        <div id="dname"></div>
+        <div id="dtitle"></div>
+        <div id="daff"></div>
+      </div>
+    </div>
+    <div id="dtext"></div>
+    <div id="dchoices"></div>
+  </div>
 </div>
 
-<script type="module">
-import * as THREE from 'https://cdnjs.cloudflare.com/ajax/libs/three.js/0.164.1/three.module.min.js';
+<div id="title" class="overlay">
+  <h1>🌙 MIDNIGHT CRUSH</h1>
+  <h2>a haunted dating platformer</h2>
+  <p>The town of Hollow Hills is cursed: every soul wandering its night is
+     impossibly attractive. Don't fight them — <b>jump on their heads to strike up
+     a conversation.</b> Charm 3 hearts to open the shrine gate… and face whatever
+     is waiting behind it.</p>
+  <p class="keys">Move: ← → / A D &nbsp;·&nbsp; Jump: Space / ↑ / W &nbsp;·&nbsp; Mobile: on-screen buttons</p>
+  <button id="startBtn">Begin the Night 💜</button>
+</div>
 
-/* ============================== CONFIG ============================== */
+<div id="ending" class="overlay hidden">
+  <h1 id="endH1"></h1>
+  <h2 id="endH2"></h2>
+  <p id="endP"></p>
+  <button onclick="location.reload()">Play Again 🌙</button>
+</div>
+
+<div id="touch">
+  <div class="tbtn" id="tL">◀</div>
+  <div class="tbtn" id="tR">▶</div>
+  <div class="tbtn" id="tJ">⤒</div>
+</div>
+
+<script>
+'use strict';
+/* =====================================================================
+   MIDNIGHT CRUSH v0.1 "First Night"
+   Mario-style platformer × dating sim × pastel horror.
+   Enemies are the cast: stomping starts a conversation, not a kill.
+   Single file, zero assets: every character is a procedurally drawn chibi.
+   ===================================================================== */
+
+/* ---------------- CONFIG ---------------- */
 const CONFIG = {
-  grid: { size: 20, tile: 1 },
-  colors: {
-    sky:       0xd7e8f2,
-    grass:     0x8fbf6b,
-    gridLine:  0x79a95c,
-    asphalt:   0x3a3f45,
-    dash:      0xe8d44d,
-    shoulder:  0x565c63,
-    road:      0x7a8087,
-    sidewalk:  0xb9bdc2,
-    wallL1:    0xf5e9d2,
-    roofL1:    0xd1604d,
-    wallL2:    0xefe0c3,
-    roofL2:    0xa34632,
-    shopBody:  0x6ea3c1,
-    shopRoof:  0xf2f5f7,
-    trunk:     0x7a5638,
-    leaves:    0x4f8a4c,
-    parkLawn:  0xa8d18a,
-    bench:     0x9a7a55,
-    ghostOk:   0x8fe08a,
-    ghostBad:  0xe07a6f,
-  },
-  highway: { edge: 'south', width: 1, depth: 2 },  // 1-tile stub from edge center
-  camera: {
-    yawAngles: [45, 135, 225, 315],
-    pitchDeg: 35.264,
-    dist: 60,
-    viewStart: 12,
-    viewMin: 5, viewMax: 22,
-    rotateDur: 0.45,
-    zoomLerp: 8,
-    panKeySpeed: 1.2,      // keyboard pan: fraction of view height per second
-    followLerp: 3,         // follow-camera: how fast the look-at chases a citizen
-  },
-  anim: { popDur: 0.3 },
-  growth: { upgradeSeconds: 12, tickSeconds: 1 },
-  input: { tapMaxMove: 10, pickRadius: 28 },   // px; pickRadius = inspect tap tolerance
-  citizens: {
-    timeScale: 1, decisionHz: 2,
-    dayLength: 240,               // real seconds per in-game day (the anchor)
-    residentsPerLevel: [0, 3, 5],
-    carsPerLevel: [0, 1, 2],
-    jobsPerShop: 4,
-    rateJitter: 0.10,
-    // Designer units below: hours and per-day amounts. Per-second rates
-    // are derived ONCE at boot (see RT in the sim core). Tune here only.
-    energy:  { sleepHours: 8, sleepBelow: 25, wakeAt: 95 },
-    work:    { shiftHours: 6, recoverHours: 14, startBelow: 15 },
-    needs:   { errands: { decayPerDay: 60 }, fun: { decayPerDay: 80 } },
-    adverts: { shop: { need: 'errands', visitHours: 1.5, restore: 60 },
-               park: { need: 'fun',     visitHours: 0.75, restore: 25 } },
-    select:  { topK: 6, pickTemp: 1, distHalf: 8 },
-    move:    { walkSpeed: 0.24, driveSpeed: 0.8, carMinDist: 3, carFullDist: 12,
-               laneOffset: 0.18, walkOffset: 0.40 },   // right-hand traffic
-    // Migration: moving trucks bring 1..maxLoad new residents in from the
-    // highway edge, one truck in flight per house, staggered by dispatchHours.
-    migration: { dispatchHours: 1.5, maxLoad: 3, truckSpeed: 0.7, dispatchJitter: 0.3,
-                 maxConcurrent: 8 },   // ceiling on trucks on the map at once (anti-swarm)
-    // Deterministic names from citizen id (first[id%N] + last[floor(id/N)%M]).
-    names: {
-      first: ['Ava','Ben','Cleo','Dan','Eve','Finn','Gia','Hugo','Ivy','Jack',
-              'Kira','Leo','Mara','Nils','Ola','Pia','Quinn','Rex','Sara','Theo',
-              'Uma','Vic','Wren','Xan','Yara','Zed'],
-      last: ['Ash','Brook','Cole','Dune','Elm','Frost','Gale','Hart','Isle','Jung',
-             'Knox','Lark','Moss','Nash','Oak','Poole','Reed','Stone','Vale','West'],
-    },
-    // Emoji bubbles: brief thought at decision points; complaint when a need is
-    // starved with NO venue for it in town (diegetic "build a shop/park" hint).
-    bubbles: { showSeconds: 3, starvedBelow: 22, complaintChance: 0.35,
-               complaintCooldownHours: 5 },
+  tile: 36,
+  gravity: 2200,
+  moveSpeed: 260,
+  jumpVel: 780,
+  stompBounce: 480,
+  maxHearts: 3,
+  iframes: 1.6,           // seconds of invulnerability after a hit
+  angrySeconds: 8,        // how long a rejected character stays dangerous
+  romancesNeeded: 3,      // hearts required to open the shrine gate
+  patrolSpeed: 55,
+  angrySpeedMult: 2.2,
+  camLerp: 6,
+  lightningChance: 0.003, // per frame
+  palette: {              // pastel pink / purple / blue on deep night
+    skyTop:'#0d081c', skyMid:'#1d1440', skyLow:'#33235e',
+    star:'#dfe6ff', moon:'#eef3ff', moonShade:'#bccdf5', hills:'#191238',
+    horizonGlow:'#ff9fce',
+    stoneTop:'#9d8fd6', stoneFace:'#3b2d58', stoneDeep:'#251a3e', stoneSpeck:'#bcaef2',
+    platform:'#7c6bb8', platformTop:'#a99af0',
+    fog:'#aebfff', wisp:'#b8cfff', gateWood:'#b06a92', gateSeal:'#ff9ecd',
+    grave:'#4a4270', graveLine:'#5f568c', treeInk:'#1d1430',
+    flash:'#d2c4ff', heart:'#ffa8d3',
   },
 };
 
-/* ============================ WORLD STATE =========================== */
-// Single source of truth. Meshes are a projection of this array.
-const world = [];
-const S = CONFIG.grid.size;
-for (let x = 0; x < S; x++) {
-  world[x] = [];
-  for (let z = 0; z < S; z++) {
-    world[x][z] = { type: 'empty', level: 0, mesh: null, fixed: false,
-                    connected: false, timer: 0 };
-  }
-}
-const inBounds = (x, z) => x >= 0 && x < S && z >= 0 && z < S;
-const NB4 = [[1,0],[-1,0],[0,1],[0,-1]];
+/* ---------------- LEVEL (built in code — no ASCII alignment bugs) ------
+   # solid stone  = one-way platform  ^ gravestone  T dead tree
+   H heart pickup D shrine gate      P player start
+   cast: y Yuki  r Rin  k Kazuma  n Ren  A Ayame (boss)                */
+const COLS = 150, ROWS = 17, GROUND = 12;
+const grid = Array.from({length:ROWS}, () => Array(COLS).fill(' '));
+function put(c, x, y, w=1){ for (let i=0;i<w;i++) grid[y][x+i] = c; }
+for (let x=0; x<COLS; x++) for (let y=GROUND; y<GROUND+3; y++) grid[y][x] = '#';
+for (const [a,b] of [[34,37],[66,69],[96,98]])            // pits
+  for (let x=a; x<=b; x++) for (let y=GROUND; y<GROUND+3; y++) grid[y][x] = ' ';
+put('P', 3, GROUND-1);
+put('^', 8, GROUND-1);  put('T', 14, GROUND-1);
+put('y', 22, GROUND-1);                                   // Yuki, on the road
+put('=', 40, 9, 6);     put('H', 42, 8);
+put('r', 52, GROUND-1);                                   // Rin, on the road
+put('^', 58, GROUND-1); put('^', 61, GROUND-1);
+put('=', 74, 9, 4);     put('=', 80, 7, 5); put('H', 82, 6);
+put('=', 86, 5, 7);     put('k', 89, 4);                  // Kazuma, on his balcony
+put('T', 101, GROUND-1);
+put('n', 106, GROUND-1);                                  // Ren, on the road
+put('^', 112, GROUND-1); put('^', 115, GROUND-1);
+put('=', 118, 8, 5);    put('H', 120, 7);
+put('D', 128, GROUND-1);                                  // shrine gate
+put('A', 137, 8);                                         // Ayame, past the gate
+const LEVEL = grid.map(r => r.join(''));
 
-/* ======================= RENDERER / SCENE SETUP ===================== */
-const app = document.getElementById('app');
-const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.outputColorSpace = THREE.SRGBColorSpace;
-app.appendChild(renderer.domElement);
-
-const scene = new THREE.Scene();
-scene.background = new THREE.Color(CONFIG.colors.sky);
-const CENTER = new THREE.Vector3(S / 2, 0, S / 2);
-
-const sun = new THREE.DirectionalLight(0xfff3e0, 2.6);
-sun.position.set(S * 0.9, S * 1.1, S * 0.4);
-sun.target.position.copy(CENTER);
-sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
-const sc = sun.shadow.camera;
-sc.left = -S * 0.85; sc.right = S * 0.85;
-sc.top = S * 0.85; sc.bottom = -S * 0.85;
-sc.near = 1; sc.far = S * 3;
-scene.add(sun, sun.target);
-scene.add(new THREE.AmbientLight(0xbfd4e6, 1.1));
-
-/* ============================== GROUND ============================== */
-const ground = new THREE.Mesh(
-  new THREE.PlaneGeometry(S, S),
-  new THREE.MeshLambertMaterial({ color: CONFIG.colors.grass })
-);
-ground.rotation.x = -Math.PI / 2;
-ground.position.copy(CENTER);
-ground.receiveShadow = true;
-scene.add(ground);
-
-const grid = new THREE.GridHelper(S, S, CONFIG.colors.gridLine, CONFIG.colors.gridLine);
-grid.position.set(S / 2, 0.005, S / 2);
-grid.material.opacity = 0.35;
-grid.material.transparent = true;
-scene.add(grid);
-
-/* ========================== MESH FACTORIES ========================== */
-const M = (c) => new THREE.MeshLambertMaterial({ color: c });
-const mats = {
-  asphalt: M(CONFIG.colors.asphalt), dash: M(CONFIG.colors.dash),
-  shoulder: M(CONFIG.colors.shoulder), road: M(CONFIG.colors.road),
-  wallL1: M(CONFIG.colors.wallL1), roofL1: M(CONFIG.colors.roofL1),
-  wallL2: M(CONFIG.colors.wallL2), roofL2: M(CONFIG.colors.roofL2),
-  shopBody: M(CONFIG.colors.shopBody), shopRoof: M(CONFIG.colors.shopRoof),
-  trunk: M(CONFIG.colors.trunk), leaves: M(CONFIG.colors.leaves),
-  sidewalk: M(CONFIG.colors.sidewalk),
-  parkLawn: M(CONFIG.colors.parkLawn), bench: M(CONFIG.colors.bench),
-};
-const geos = {
-  slab: new THREE.BoxGeometry(1, 0.06, 1),
-  roadSlab: new THREE.BoxGeometry(0.76, 0.06, 0.76),
-  walkSlab: new THREE.BoxGeometry(1, 0.045, 1),
-  houseBase: new THREE.BoxGeometry(0.6, 0.45, 0.6),
-  houseBase2: new THREE.BoxGeometry(0.62, 0.8, 0.62),
-  roof: new THREE.ConeGeometry(0.48, 0.32, 4),
-  shopBody: new THREE.BoxGeometry(0.8, 0.35, 0.8),
-  shopRoof: new THREE.BoxGeometry(0.86, 0.06, 0.86),
-  trunk: new THREE.CylinderGeometry(0.06, 0.08, 0.28, 6),
-  leaves: new THREE.IcosahedronGeometry(0.26, 0),
-  lawn: new THREE.BoxGeometry(0.94, 0.05, 0.94),
-  bench: new THREE.BoxGeometry(0.3, 0.08, 0.12),
-};
-
-function shadowed(m) { m.castShadow = true; m.receiveShadow = true; return m; }
-
-const factories = {
-  highway(x, z) {
-    const m = new THREE.Mesh(geos.slab, mats.asphalt);
-    m.position.set(x + 0.5, 0.03, z + 0.5);
-    m.receiveShadow = true;
-    return m;
+/* ---------------- CAST ----------------
+   Each entry: look (for the chibi renderer) + a 3-question dialog.
+   Choice aff: +1 warms them up, 0 neutral, -1 puts them off.
+   End of tree: aff>=2 romance · aff<=0 rejection (angry) · else unsure. */
+const CAST = {
+  yuki: {
+    name:'Yuki', title:'Shy Ghost Girl',
+    look:{ hair:'#d3e2ff', style:'long', skin:'#f6ecf2', outfit:'#9db8e8',
+           eye:'#86a8ff', blush:true, ghost:true },
+    greet:'Eek—! Y-you can SEE me? Nobody ever… um. H-hi. I\'m Yuki. I\'ve been haunting this road for eighty years and you\'re the first person who didn\'t run away screaming.',
+    qs:[
+      { q:'S-so… you jumped on my head. On purpose. Why would you do that??',
+        c:[ {t:'Honestly? You looked too cute to walk past.', aff:1,
+             r:'*turns fully transparent from embarrassment* c-CUTE?? I— I am a TERRIFYING SPIRIT, I\'ll have you know… (please say it again)'},
+            {t:'I thought you were a goomba. My mistake.', aff:0,
+             r:'A goomba… EIGHTY YEARS of haunting and I read as a mushroom. Cool. Cool cool cool. *sniffles ectoplasm*'},
+            {t:'To assert dominance.', aff:-1,
+             r:'…I have possessed people for less. *the temperature drops noticeably*'} ] },
+      { q:'Being a ghost is lonely. Everyone I knew moved on. Do you… ever feel like that? Like you\'re invisible?',
+        c:[ {t:'All the time. Maybe that\'s why we can see each other.', aff:1,
+             r:'*her glow warms from blue to soft pink* …that\'s the nicest thing anyone\'s said to me since 1946.'},
+            {t:'Not really, I\'m kind of a big deal.', aff:-1,
+             r:'Oh. How wonderful for you. *starts fading through the floor*'},
+            {t:'Have you tried rattling chains? Classic visibility move.', aff:0,
+             r:'I TRIED that! Chains are heavy!! Do you know how hard it is to hold things when your hands are made of mist?!'} ] },
+      { q:'The sun will be up in a few hours and I\'ll fade until tomorrow night. If… if you came back… would you visit me?',
+        c:[ {t:'Every night. Save me this stretch of road.', aff:1,
+             r:'*small ghostly tears* Okay. Okay!! It\'s a d-date— I mean an APPOINTMENT— I mean— oh no.'},
+            {t:'Sure, if I\'m passing through.', aff:0,
+             r:'"Passing through." Right. *manages a brave little smile* I\'ll take it.'},
+            {t:'Depends. Do you have wifi in the afterlife?', aff:-1,
+             r:'…I waited eighty years for THIS conversation?'} ] },
+    ],
+    win:'Yuki floats a slow circle around you, leaving a trail of warm pink light. "It\'s official. You\'re my favorite living person. Don\'t you DARE die, I\'d never hear the end of it at ghost meetings."',
+    lose:'Yuki\'s eyes go pitch black. "GET OFF MY ROAD." The temperature drops HARD — maybe give her some space.',
+    meh:'Yuki fidgets with her sleeves. "I… need to think about it. Come talk to me again? If you want. No pressure. (Please come back.)"',
   },
-  road(x, z) {
-    // Sidewalk slab full-tile underneath, asphalt inset on top: reads as
-    // 2 lanes + sidewalks from any camera angle, no auto-tiling needed.
-    const g = new THREE.Group();
-    const walk = new THREE.Mesh(geos.walkSlab, mats.sidewalk);
-    walk.position.y = 0.0225; walk.receiveShadow = true;
-    const asphalt = new THREE.Mesh(geos.roadSlab, mats.road);
-    asphalt.position.y = 0.032; asphalt.receiveShadow = true;
-    g.add(walk, asphalt);
-    g.position.set(x + 0.5, 0, z + 0.5);
-    return g;
+  rin: {
+    name:'Rin', title:'Zombie Schoolgirl',
+    look:{ hair:'#ffb0cc', style:'twintails', skin:'#d4ead8', outfit:'#41507a',
+           eye:'#ffd166', blush:true, patch:true },
+    greet:'*catches you mid-stomp with one hand* Nice air time! Most people scream and run when they see a zombie. You DIVE-BOMBED me. I respect that. I\'m Rin! Undead, unbothered, hungry.',
+    qs:[
+      { q:'Real talk: I\'m a zombie, right, so everyone assumes I eat brains. But honestly? I\'d demolish a whole tray of melon bread first. What\'s YOUR forbidden late-night snack?',
+        c:[ {t:'Convenience-store fried chicken at 3am. No regrets.', aff:1,
+             r:'YESSS. Okay you GET it. Next full moon, snack run. You\'re buying — I\'m technically legally dead so my card got cancelled.'},
+            {t:'I only eat clean. My body is a temple.', aff:-1,
+             r:'*visibly loses interest* My body is a CRIME SCENE and it\'s still more fun than yours.'},
+            {t:'Brains, obviously. Solidarity.', aff:0,
+             r:'Ha! Flatterer. That\'s a stereotype, but a supportive one, so it\'s fine.'} ] },
+      { q:'I died in 2004 wearing this uniform and I\'ve been rocking it since. Twenty years, same fit. Be honest — still cute, or am I a walking history exhibit?',
+        c:[ {t:'Vintage is IN. You\'re decades ahead of the trend.', aff:1,
+             r:'*strikes a pose, arm falls off, reattaches it* SEE?! That\'s what I keep telling the other zombies! They wear RAGS. No pride.'},
+            {t:'It\'s giving "museum".', aff:-1,
+             r:'It\'s giving "you\'re about to get bitten", is what it\'s giving.'},
+            {t:'Fashion is temporary. Being undead is forever.', aff:0,
+             r:'Deep! Weirdly deep for someone who greets people with their shoes. But deep.'} ] },
+      { q:'Last question and it\'s a dealbreaker. Zombie movies: are we the villains… or the misunderstood main characters?',
+        c:[ {t:'Misunderstood mains. The living just have bad PR teams.', aff:1,
+             r:'*grabs your shoulders* MARRY ME. Not literally. Unless?? No wait — one date first, I have STANDARDS. I\'ve just… been dead for twenty years.'},
+            {t:'Villains. Sorry, the shambling is objectively menacing.', aff:-1,
+             r:'The shambling is a LIFESTYLE. Wow. Wooooow.'},
+            {t:'Depends on the director, honestly.', aff:0,
+             r:'A diplomat! Boring, but I\'ll allow it. Film night is still on the table. Barely.'} ] },
+    ],
+    win:'Rin high-fives you so hard her hand comes off in yours. "KEEP IT. That\'s a zombie promise ring. I want it back on the second date though, I need that hand for snacks."',
+    lose:'Rin cracks her neck 270 degrees. "New plan. Maybe I DO eat brains. Run, sweetheart." — she means it.',
+    meh:'Rin shrugs. "Solid mid. Come find me again when your banter levels up — I\'ll be here. Being dead keeps the schedule light."',
   },
-  house(x, z, level) {
-    const g = new THREE.Group();
-    const two = level >= 2;
-    const base = shadowed(new THREE.Mesh(
-      two ? geos.houseBase2 : geos.houseBase, two ? mats.wallL2 : mats.wallL1));
-    base.position.y = two ? 0.4 : 0.225;
-    const roof = shadowed(new THREE.Mesh(geos.roof, two ? mats.roofL2 : mats.roofL1));
-    roof.position.y = (two ? 0.8 : 0.45) + 0.16;
-    roof.rotation.y = Math.PI / 4;
-    g.add(base, roof);
-    g.position.set(x + 0.5, 0, z + 0.5);
-    return g;
+  kazuma: {
+    name:'Kazuma', title:'Vampire — insufferably confident about it',
+    look:{ hair:'#35295c', style:'swoosh', skin:'#f4eaea', outfit:'#6e2140',
+           eye:'#ff7a95', cape:true, sparkle:true },
+    greet:'*doesn\'t even flinch at the stomp — catches your ankle, sets you down gently, dusts your shoulder* Bold. Most mortals kneel first. I am Kazuma. Four hundred years old, devastating in moonlight, and yes — this is my natural hair volume.',
+    qs:[
+      { q:'You have precisely one chance to impress me. Tell me: what is the most beautiful thing you have ever seen? Choose carefully. I am, of course, the correct answer.',
+        c:[ {t:'*look him dead in the eyes* A mirror. Which, tragically, you\'ll never understand.', aff:1,
+             r:'*a slow, delighted grin, fangs and all* Cruel. CRUEL and clever. Four centuries and no one has ever dared. I am… intrigued.'},
+            {t:'Honestly? You. The hair alone.', aff:0,
+             r:'Correct, naturally. Though I confess I\'d hoped you would put up more of a fight. Adoration bores me by the second century.'},
+            {t:'The sunrise.', aff:-1,
+             r:'*eye twitch* You said that ON PURPOSE. To a VAMPIRE. We are enemies now.'} ] },
+      { q:'They say the curse of immortality is watching everything you love fade. I say the curse is that fashion keeps cycling back to things I already wore better. What do you fear, mortal?',
+        c:[ {t:'Being forgotten before I ever did anything worth remembering.', aff:1,
+             r:'*his smirk falters into something real* …An honest answer. How rare. Four hundred years, and honesty still catches me off guard. Well played.'},
+            {t:'Fear? Never heard of it.', aff:0,
+             r:'Ah, bravado. I invented that. In 1731. You wear my second-hand invention adequately.'},
+            {t:'Garlic breath. Yours, specifically.', aff:-1,
+             r:'I have consumed nothing but fine vintages for four hundred years, you absolute PEASANT.'} ] },
+      { q:'Final question. I have watched empires fall and stars burn out. Convince me that one night talking to you is worth an immortal\'s time.',
+        c:[ {t:'It already was. You\'ve smiled four times. I counted.', aff:1,
+             r:'*touches his own face, betrayed by it* …Five, now. Damn you. DAMN you. Very well — you have my attention, mortal. Guard it well; it outlasts kingdoms.'},
+            {t:'You\'re the one still standing here talking to me.', aff:0,
+             r:'Touché. I shall pretend I had somewhere better to be and simply chose not to go.'},
+            {t:'Eh, you seem like you have nothing but time.', aff:-1,
+             r:'"Nothing but—" I have a WINE CELLAR to alphabetize and a nemesis to brood about. I am EXTREMELY busy.'} ] },
+    ],
+    win:'Kazuma sweeps his cape and bows — actually bows. "Four hundred years of moonlight, and tonight is the first one I\'d call interesting. I shall permit you to fall for me at your own pace. Most take a fortnight."',
+    lose:'Kazuma\'s eyes go crimson. "I have turned DUCHESSES for less insolence." His cape flares — time to leave.',
+    meh:'Kazuma yawns theatrically. "Adequate. Return when your wit is sharper; I sharpen mine on the bones of lesser conversations. …That was a joke. Mostly."',
   },
-  shop(x, z) {
-    const g = new THREE.Group();
-    const body = shadowed(new THREE.Mesh(geos.shopBody, mats.shopBody));
-    body.position.y = 0.175;
-    const roof = shadowed(new THREE.Mesh(geos.shopRoof, mats.shopRoof));
-    roof.position.y = 0.38;
-    g.add(body, roof);
-    g.position.set(x + 0.5, 0, z + 0.5);
-    return g;
+  ren: {
+    name:'Ren', title:'Werewolf — smug, knows his angles',
+    look:{ hair:'#d8d2c4', style:'wild', skin:'#ecd2b6', outfit:'#2e4a44',
+           eye:'#ffb03a', ears:true },
+    greet:'*catches you on one shoulder, doesn\'t break stride* Careful. Last thing that landed on me got adopted. I\'m Ren. Yes, the ears are real. Yes, you can ask. No, you can\'t touch. …Yet. Play your cards right.',
+    qs:[
+      { q:'Everyone in this town is scared of the wolf. Full moon, big teeth, whole thing. You stomped on my head. So either you\'re brave or you\'re dumb. Which is it?',
+        c:[ {t:'Brave enough to jump, dumb enough to stay. Best of both.', aff:1,
+             r:'*barks a laugh before he can stop it* Okay. Okay, that\'s the best answer anyone\'s given me. The tail is wagging. Ignore the tail.'},
+            {t:'Neither — I have a great lawyer.', aff:0,
+             r:'Pfft. Fine, that\'s a little funny. Don\'t tell anyone I laughed — I have a reputation as the brooding one.'},
+            {t:'Dumb, clearly. Look who I\'m talking to.', aff:-1,
+             r:'*low growl* The moon is RIGHT THERE, buddy. Choose your next words like they\'re your last.'} ] },
+      { q:'Real question. Full moon nights I lose the pretty face and go full wolf — fur, fangs, howling at delivery drivers. Some people can\'t handle that. Would you still show up?',
+        c:[ {t:'Show up? I\'m bringing a frisbee.', aff:1,
+             r:'*visible internal battle* That\'s— you can\'t just— *quietly* …bring the frisbee. Tell NO ONE.'},
+            {t:'I\'d watch from a safe distance. Binoculars, maybe.', aff:0,
+             r:'Coward\'s answer, but an honest one. I respect the survival instinct. The wolf does too.'},
+            {t:'Hard pass. I\'m more of a cat person.', aff:-1,
+             r:'A CAT person. *deep breath* We\'re done here. The audacity. On MY hill.'} ] },
+      { q:'Last one. The pack says humans always leave once the novelty wears off. That we\'re a phase. Prove the pack wrong — or walk away now, no hard feelings.',
+        c:[ {t:'Novelty fades. Loyalty doesn\'t. I\'m still standing here, aren\'t I?', aff:1,
+             r:'*long silence, ears fully up* …The pack is going to be insufferable about this. Fine. FINE. You\'re pack-adjacent now. It\'s a whole thing. There\'s a barbecue.'},
+            {t:'I can\'t prove anything. But I\'d like the chance to.', aff:0,
+             r:'Hm. Honest. The wolf likes honest. The man is still deciding. Come back around.'},
+            {t:'The pack sounds smart, honestly.', aff:-1,
+             r:'*turns away* Should\'ve trusted the pack the first time. Go.'} ] },
+    ],
+    win:'Ren shoves his hands in his pockets and looks at the moon so you can\'t see him smile. "Barbecue\'s Saturday. Wear something you don\'t mind getting fur on. That\'s… everything you own now, actually."',
+    lose:'Ren\'s eyes flash amber and the growl isn\'t playful anymore. "Run. I\'ll give you a head start. For the memories."',
+    meh:'Ren tilts his head. "Jury\'s out. The wolf says yes, the man says maybe. Swing by again — democracy needs a tiebreaker."',
   },
-  park(x, z) {
-    const g = new THREE.Group();
-    const lawn = new THREE.Mesh(geos.lawn, mats.parkLawn);
-    lawn.position.y = 0.025; lawn.receiveShadow = true;
-    g.add(lawn);
-    for (const [ox, oz, s] of [[-0.22, -0.18, 1], [0.2, 0.15, 0.8]]) {
-      const trunk = shadowed(new THREE.Mesh(geos.trunk, mats.trunk));
-      trunk.position.set(ox, 0.14 * s, oz); trunk.scale.setScalar(s);
-      const leaves = shadowed(new THREE.Mesh(geos.leaves, mats.leaves));
-      leaves.position.set(ox, 0.42 * s, oz); leaves.scale.setScalar(s);
-      g.add(trunk, leaves);
-    }
-    const bench = shadowed(new THREE.Mesh(geos.bench, mats.bench));
-    bench.position.set(0.05, 0.09, -0.3);
-    g.add(bench);
-    g.rotation.y = Math.floor((x * 7 + z * 13) % 4) * Math.PI / 2;  // variety
-    g.position.set(x + 0.5, 0, z + 0.5);
-    return g;
+  ayame: {
+    name:'Ayame', title:'The Spirit Behind the Gate', boss:true,
+    look:{ hair:'#4a3468', style:'veil', skin:'#f4ecf8', outfit:'#7e2a4e',
+           eye:'#e06a95', ghost:true },
+    greet:'*the fog itself kneels as she appears* So. You are the one charming MY town. Yuki won\'t stop glowing. Rin re-attached her hand for you. Even Kazuma smiled — he hasn\'t smiled since the 1800s. I am Ayame. I have guarded this shrine for three hundred years, and I decide who is worthy of Hollow Hills\' hearts. Answer carefully, beloved. Wrong answers will HURT.',
+    qs:[
+      { q:'Three hundred years I have watched the living come and go. They take our beauty, our stories, our hearts — then leave when the sun rises. Why are YOU any different?',
+        c:[ {t:'I\'m not here to take anything. I stomped on heads to say hello. I\'m here for the company.', aff:1,
+             r:'*the crushing pressure eases, slightly* …"For the company." The last one who said that stayed forty years. Hmph. Continue.'},
+            {t:'Different? I\'m the main character. Obviously.', aff:-1,
+             r:'*a lock of your hair turns white* WRONG. This is MY story. You are a GUEST STAR at best.'},
+            {t:'Maybe I\'m not different. But I\'d like to find out.', aff:0,
+             r:'An honest coward\'s answer. Better than a liar\'s courage. Barely.'} ] },
+      { q:'These spirits are MINE to protect. Yuki cried for sixty years. Rin pretends nothing hurts. If you break a single one of their hearts, what should I do to you?',
+        c:[ {t:'Whatever you think is fair. But I\'d rather spend forever proving you\'ll never have to.', aff:1,
+             r:'*the fog goes still* …Forever. You say that word so easily to a spirit. Do you know how long forever IS? …I do. It is long enough. Acceptable answer.'},
+            {t:'Nothing, because you\'d never catch me.', aff:-1,
+             r:'*she is suddenly INCHES from your face* I am the fog, beloved. I have ALREADY caught you. You are standing inside me RIGHT NOW.'},
+            {t:'Haunt me, I guess? Standard package?', aff:0,
+             r:'"Standard package." I will haunt you ARTISANALLY. Bespoke torment. Nothing but the finest for heartbreakers.'} ] },
+      { q:'Final question, little heartbeat. The gate behind me leads out of Hollow Hills. Walk through it and dawn takes you home — alone, safe, free of us. Or stay in the dark, with the dead, with… me. With all of us. Choose.',
+        c:[ {t:'Keep the gate. The dark\'s got better company anyway.', aff:1,
+             r:'*for one second, the terrifying shrine spirit looks exactly like a girl who was not expecting that answer* …oh. OH. Well. Then it is decided. You are OURS now. …Mine on Thursdays.'},
+            {t:'Can I sleep on it? Big decision.', aff:0,
+             r:'*pinches the bridge of her nose* Three hundred years and I get "let me sleep on it." Fine. FINE. The gate isn\'t going anywhere. Neither am I. Unfortunately for you, neither are my FEELINGS.'},
+            {t:'Home, obviously. This place is a graveyard.', aff:-1,
+             r:'IT IS A *SHRINE*. THE GRAVEYARD IS *ADJACENT*. GET OUT.'} ] },
+    ],
+    win:'The gate dissolves into moonlight. Ayame turns away to hide her face behind her sleeve. "Curfew is dawn. Dinner is at the shrine. Yuki picked the menu, so it is exclusively snacks. …Welcome home, beloved."',
+    lose:'The sky splits with violet lightning. "OUT. OF. MY. SHRINE." — Ayame hurls you back down the hill. She cools off eventually. Spirits always do.',
+    meh:'Ayame studies you for a long, long moment. "Undecided. I have waited three centuries; I can wait one more conversation. Come back to me, little heartbeat."',
   },
 };
 
-/* ============================= syncTile ============================= */
-function syncTile(x, z, pop = false) {
-  const t = world[x][z];
-  if (t.mesh) { scene.remove(t.mesh); t.mesh = null; }
-  const make = factories[t.type];
-  if (make) {
-    t.mesh = make(x, z, t.level);
-    t.mesh.userData = { kind: 'building', x, z };   // for inspector raycast
-    scene.add(t.mesh);
-    if (pop) startPop(t.mesh);
-  }
+/* ---------------- AUDIO (tiny synth, no assets) ---------------- */
+let AC = null;
+function beep(freq, dur=0.09, type='square', vol=0.05, slide=0){
+  if (!AC) return;
+  const o = AC.createOscillator(), g = AC.createGain();
+  o.type = type;
+  o.frequency.setValueAtTime(freq, AC.currentTime);
+  if (slide) o.frequency.linearRampToValueAtTime(Math.max(30, freq+slide), AC.currentTime+dur);
+  g.gain.setValueAtTime(vol, AC.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.0001, AC.currentTime+dur);
+  o.connect(g).connect(AC.destination); o.start(); o.stop(AC.currentTime+dur);
 }
-
-/* ========================== POP ANIMATION =========================== */
-const anims = [];
-function startPop(mesh) {
-  mesh.scale.setScalar(0.001);
-  anims.push({ mesh, t: 0 });
-}
-function backOut(t) {
-  const c1 = 1.70158, c3 = c1 + 1;
-  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
-}
-function updateAnims(dt) {
-  for (let i = anims.length - 1; i >= 0; i--) {
-    const a = anims[i];
-    a.t = Math.min(1, a.t + dt / CONFIG.anim.popDur);
-    a.mesh.scale.setScalar(Math.max(0.001, backOut(a.t)));
-    if (a.t >= 1) { a.mesh.scale.setScalar(1); anims.splice(i, 1); }
-  }
-}
-
-/* ======================= HIGHWAY (pre-placed) ======================= */
-// A stub entering from the center of one map edge: `width` tiles wide,
-// `depth` tiles into the map. Its outer end sits on the map edge — the
-// outside connection. Player roads attach to the inner end or sides.
-const HW = CONFIG.highway;
-const cs = Math.floor(S / 2 - HW.width / 2);      // centered span start
-const hwAxis = (HW.edge === 'south' || HW.edge === 'north') ? 'z' : 'x';
-const hwTiles = [];
-if (hwAxis === 'z') {
-  const z0 = HW.edge === 'south' ? 0 : S - HW.depth;
-  for (let dx = 0; dx < HW.width; dx++)
-    for (let dz = 0; dz < HW.depth; dz++) hwTiles.push([cs + dx, z0 + dz]);
-} else {
-  const x0 = HW.edge === 'west' ? 0 : S - HW.depth;
-  for (let dx = 0; dx < HW.depth; dx++)
-    for (let dz = 0; dz < HW.width; dz++) hwTiles.push([x0 + dx, cs + dz]);
-}
-for (const [x, z] of hwTiles) {
-  const t = world[x][z];
-  t.type = 'highway'; t.fixed = true;
-  syncTile(x, z);
-}
-// Dashed center seam + shoulder strips, oriented along the travel axis.
-const minX = Math.min(...hwTiles.map(t => t[0]));
-const minZ = Math.min(...hwTiles.map(t => t[1]));
-const dashGeo = hwAxis === 'z'
-  ? new THREE.BoxGeometry(0.07, 0.012, 0.45)
-  : new THREE.BoxGeometry(0.45, 0.012, 0.07);
-for (let i = 0; i < HW.depth; i++) {
-  const dash = new THREE.Mesh(dashGeo, mats.dash);
-  if (hwAxis === 'z') dash.position.set(minX + HW.width / 2, 0.065, minZ + i + 0.5);
-  else dash.position.set(minX + i + 0.5, 0.065, minZ + HW.width / 2);
-  scene.add(dash);
-}
-const shoulderGeo = hwAxis === 'z'
-  ? new THREE.BoxGeometry(0.1, 0.014, HW.depth)
-  : new THREE.BoxGeometry(HW.depth, 0.014, 0.1);
-for (const off of [0.06, HW.width - 0.06]) {
-  const strip = new THREE.Mesh(shoulderGeo, mats.shoulder);
-  if (hwAxis === 'z') strip.position.set(minX + off, 0.065, minZ + HW.depth / 2);
-  else strip.position.set(minX + HW.depth / 2, 0.065, minZ + off);
-  scene.add(strip);
-}
-
-/* ========================== CONNECTIVITY ============================ */
-// BFS from the highway over road+highway tiles. Run on road changes only.
-function recomputeConnectivity() {
-  const queue = [];
-  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
-    const t = world[x][z];
-    t.connected = false;
-    if (t.type === 'highway') { t.connected = true; queue.push([x, z]); }
-  }
-  while (queue.length) {
-    const [x, z] = queue.pop();
-    for (const [dx, dz] of NB4) {
-      const nx = x + dx, nz = z + dz;
-      if (!inBounds(nx, nz)) continue;
-      const n = world[nx][nz];
-      if (n.type === 'road' && !n.connected) {
-        n.connected = true;
-        queue.push([nx, nz]);
-      }
-    }
-  }
-}
-recomputeConnectivity();
-
-/* ========================= GROWTH (slow tick) ======================= */
-// v0.2 rule: building frontage requires a connected ROAD. Highway tiles
-// no longer count (no pedestrian access).
-function hasConnectedRoadNeighbor(x, z) {
-  return NB4.some(([dx, dz]) => {
-    const nx = x + dx, nz = z + dz;
-    if (!inBounds(nx, nz)) return false;
-    const n = world[nx][nz];
-    return n.type === 'road' && n.connected;
-  });
-}
-let growthAcc = 0;
-function growthTick(dt) {
-  growthAcc += dt;
-  if (growthAcc < CONFIG.growth.tickSeconds) return;
-  growthAcc = 0;
-  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
-    const t = world[x][z];
-    if (t.type !== 'house' || t.level >= 2) continue;
-    if (hasConnectedRoadNeighbor(x, z)) {
-      t.timer += CONFIG.growth.tickSeconds;
-      if (t.timer >= CONFIG.growth.upgradeSeconds) {
-        t.level = 2;
-        syncTile(x, z, true);
-        onHouseUpgraded(x, z);
-      }
-    }
-  }
-}
-
-/* ============================ SIM CORE (M5) ========================= */
-// Headless citizen simulation. No rendering — the census HUD is the proof.
-// All rates are per game-second; meters clamp 0..100.
-const CZ = CONFIG.citizens;
-// Derived runtime rates: designer units (hours, per-day) -> per-second.
-const HOUR = CZ.dayLength / 24;
-const RT = {
-  energyDecay: (CZ.energy.wakeAt - CZ.energy.sleepBelow) /
-               ((24 - CZ.energy.sleepHours) * HOUR),
-  sleepFill:   (CZ.energy.wakeAt - CZ.energy.sleepBelow) /
-               (CZ.energy.sleepHours * HOUR),
-  workFill:    100 / (CZ.work.shiftHours * HOUR),
-  workDecay:   (100 - CZ.work.startBelow) / (CZ.work.recoverHours * HOUR),
-  needDecay:   Object.fromEntries(Object.entries(CZ.needs)
-                 .map(([k, v]) => [k, v.decayPerDay / CZ.dayLength])),
-  adverts:     Object.fromEntries(Object.entries(CZ.adverts)
-                 .map(([k, a]) => [k, {
-                   need: a.need,
-                   minStay: a.visitHours * HOUR,
-                   fillRate: a.restore / (a.visitHours * HOUR),
-                 }])),
-  minShift:    CZ.work.shiftHours * HOUR,
-  dispatchInterval: CZ.migration.dispatchHours * HOUR,   // secs between truck runs
-  complaintCooldown: CZ.bubbles.complaintCooldownHours * HOUR,
+const SFX = {
+  jump:  () => beep(300, .12, 'square', .04, 260),
+  stomp: () => beep(520, .08, 'triangle', .06, -180),
+  heart: () => { beep(660,.08,'sine',.05); setTimeout(()=>beep(880,.12,'sine',.05),70); },
+  hurt:  () => beep(140, .2, 'sawtooth', .06, -60),
+  good:  () => { [523,659,784,1047].forEach((f,i)=>setTimeout(()=>beep(f,.12,'sine',.045),i*80)); },
+  bad:   () => { [300,240,180].forEach((f,i)=>setTimeout(()=>beep(f,.15,'sawtooth',.05),i*100)); },
+  gate:  () => { [392,494,587,784].forEach((f,i)=>setTimeout(()=>beep(f,.2,'triangle',.05),i*120)); },
 };
-let gameTime = 0;
-let nextCitizenId = 1;
-let nextTruckId = 1;
-const citizens = [];
-const citizenById = new Map();     // id -> citizen, for O(1) lookups (bubbles, cards)
-const trucks = [];      // transient moving-truck deliveries (not citizens)
-const clamp01_100 = v => Math.max(0, Math.min(100, v));
-const rnd = (a, b) => a + Math.random() * (b - a);
-const key = (x, z) => x * S + z;
 
-/* ---- Dijkstra map: one BFS flood answers every distance query ---- */
-function dijkstraMap(sources, drive) {
-  const dist = new Int16Array(S * S).fill(-1);
-  const q = [];
-  for (const [x, z] of sources) {
-    const t = world[x][z];
-    if (t.type === 'road' || (drive && t.type === 'highway')) {
-      dist[key(x, z)] = 0; q.push([x, z]);
-    }
-  }
-  for (let h = 0; h < q.length; h++) {
-    const [x, z] = q[h];
-    const d = dist[key(x, z)];
-    for (const [dx, dz] of NB4) {
-      const nx = x + dx, nz = z + dz;
-      if (!inBounds(nx, nz) || dist[key(nx, nz)] !== -1) continue;
-      const n = world[nx][nz];
-      if (n.type === 'road' || (drive && n.type === 'highway')) {
-        dist[key(nx, nz)] = d + 1; q.push([nx, nz]);
-      }
-    }
-  }
-  return dist;
-}
-function roadAdjacents(x, z) {
-  const out = [];
-  for (const [dx, dz] of NB4) {
-    const nx = x + dx, nz = z + dz;
-    if (inBounds(nx, nz) && world[nx][nz].type === 'road') out.push([nx, nz]);
-  }
-  return out;
-}
-// Road distance from a flood to a building tile (min over its frontage).
-function tileDist(flood, x, z) {
-  let best = -1;
-  for (const [rx, rz] of roadAdjacents(x, z)) {
-    const d = flood[key(rx, rz)];
-    if (d !== -1 && (best === -1 || d < best)) best = d;
-  }
-  return best === -1 ? -1 : best + 1;
-}
-function floodFrom(x, z, drive) {           // flood from a tile's frontage
-  const t = world[x][z];                    // (or the tile itself, if it's road)
-  const src = (t.type === 'road' || (drive && t.type === 'highway'))
-    ? [[x, z]] : roadAdjacents(x, z);
-  return dijkstraMap(src, drive);
-}
+/* ---------------- STATE ---------------- */
+const T = CONFIG.tile, PAL = CONFIG.palette;
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = innerWidth, H = innerHeight;
+function resize(){ W = canvas.width = innerWidth; H = canvas.height = innerHeight; }
+addEventListener('resize', resize); resize();
 
-/* ---- Lifecycle: houses make citizens, shops make jobs ---- */
-function makeCitizen(hx, hz) {
-  const j = 1 + rnd(-CZ.rateJitter, CZ.rateJitter);   // per-citizen rate jitter
-  const awake = Math.random() < 0.5;    // half start awake: instant street life
-  return {
-    id: nextCitizenId++, home: [hx, hz], at: [hx, hz], job: null,
-    state: awake ? 'free_time' : 'sleep', phase: 'doing', mode: 'walk',
-    dest: null, travelT: 0, stayUntil: 0, activity: null,
-    meters: { energy: rnd(35, 90), work: rnd(10, 80),
-              errands: rnd(30, 80), fun: rnd(30, 80) },
-    rates: { energyDecay: RT.energyDecay * j, sleepFill: RT.sleepFill * j,
-             workDecay: RT.workDecay * j, workFill: RT.workFill * j,
-             errandsDecay: RT.needDecay.errands * j,
-             funDecay: RT.needDecay.fun * j },
-  };
-}
-// Residents no longer appear instantly: the house queues `pending` arrivals
-// and moving trucks deliver them from the highway (see MIGRATION section).
-function onHousePlaced(x, z) {
-  const t = world[x][z];
-  t.cars = { total: CZ.carsPerLevel[1], available: CZ.carsPerLevel[1] };
-  t.pending = CZ.residentsPerLevel[1];
-  t.nextDispatch = gameTime;       // eligible for a truck right away
-  t.truckInFlight = false;
-}
-function onHouseUpgraded(x, z) {
-  const t = world[x][z];
-  const addCars = CZ.carsPerLevel[2] - CZ.carsPerLevel[1];
-  t.cars.total += addCars; t.cars.available += addCars;
-  t.pending = (t.pending || 0) + (CZ.residentsPerLevel[2] - CZ.residentsPerLevel[1]);
-  if (!t.truckInFlight) t.nextDispatch = gameTime;   // new residents eligible now
-}
-function onShopPlaced(x, z) {
-  world[x][z].jobs = { total: CZ.jobsPerShop, workers: [] };
-  // One flood from the shop hires the nearest unemployed (walk network).
-  const flood = floodFrom(x, z, false);
-  const open = citizens.filter(c => !c.job)
-    .map(c => [tileDist(flood, c.home[0], c.home[1]), c])
-    .filter(([d]) => d !== -1)
-    .sort((a, b) => a[0] - b[0]);
-  for (const [, c] of open.slice(0, CZ.jobsPerShop)) hire(c, x, z);
-}
-function hire(c, x, z) {
-  c.job = [x, z];
-  world[x][z].jobs.workers.push(c.id);
-}
-function tryEmploy(c) {
-  const flood = floodFrom(c.home[0], c.home[1], false);
-  let best = null, bestD = -1;
-  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
-    const t = world[x][z];
-    if (t.type !== 'shop' || !t.jobs || t.jobs.workers.length >= t.jobs.total) continue;
-    const d = tileDist(flood, x, z);
-    if (d !== -1 && (bestD === -1 || d < bestD)) { bestD = d; best = [x, z]; }
-  }
-  if (best) hire(c, best[0], best[1]);
-}
-function onHouseRemoved(x, z) {
-  for (let i = citizens.length - 1; i >= 0; i--) {
-    const c = citizens[i];
-    if (c.home[0] === x && c.home[1] === z) {
-      if (c.job) {
-        const jt = world[c.job[0]][c.job[1]];
-        if (jt.jobs) jt.jobs.workers = jt.jobs.workers.filter(id => id !== c.id);
-      }
-      citizenById.delete(c.id);
-      citizens.splice(i, 1);
-    }
-  }
-  cancelArrivalsFor(x, z);   // send any inbound truck back out empty-handed
-}
-function onShopRemoved(x, z) {
-  const t = world[x][z];
-  if (!t.jobs) return;
-  for (const c of citizens) {
-    if (c.job && c.job[0] === x && c.job[1] === z) c.job = null;
-  }
-  delete t.jobs;
-}
+const rows = ROWS, cols = COLS;
+const tileAt = (x,y) => (y>=0 && y<rows && x>=0 && x<cols) ? LEVEL[y][x] : ' ';
+const solid = (x,y) => (x < 0 || x >= cols) ? true : tileAt(x,y) === '#';
+const oneway = (x,y) => tileAt(x,y) === '=';
 
-/* ---- Movement: real paths (M6). Walk downhill through the flood. ---- */
-function speedFor(mode) {
-  return mode === 'drive' ? CZ.move.driveSpeed : CZ.move.walkSpeed;
-}
-// Build the trip: descend the Dijkstra map from the destination's frontage
-// back to the source, then offset the polyline to sidewalk/lane, right-hand.
-function beginTravel(c, dest, flood) {
-  const dTile = world[dest[0]][dest[1]];
-  const front = (dTile.type === 'road' || dTile.type === 'highway')
-    ? [dest] : roadAdjacents(dest[0], dest[1]);
-  let bx = -1, bz = -1, bd = -1;
-  for (const [rx, rz] of front) {
-    const d = flood[key(rx, rz)];
-    if (d !== -1 && (bd === -1 || d < bd)) { bd = d; bx = rx; bz = rz; }
-  }
-  if (bd === -1) return false;
-  const tiles = [[bx, bz]];
-  let tx = bx, tz = bz, guard = S * S;
-  while (flood[key(tx, tz)] > 0 && guard-- > 0) {
-    const d = flood[key(tx, tz)];
-    for (const [dx, dz] of NB4) {
-      const nx = tx + dx, nz = tz + dz;
-      if (inBounds(nx, nz) && flood[key(nx, nz)] === d - 1) { tx = nx; tz = nz; break; }
-    }
-    tiles.push([tx, tz]);
-  }
-  tiles.reverse();                          // source frontage → dest frontage
-  const full = [c.at, ...tiles, dest];
-  const off = c.mode === 'drive' ? CZ.move.laneOffset : CZ.move.walkOffset;
-  const pts = [];
-  for (let i = 0; i < full.length - 1; i++) {
-    const [ax, az] = full[i], [bx2, bz2] = full[i + 1];
-    const hx = Math.sign(bx2 - ax), hz = Math.sign(bz2 - az);
-    if (hx === 0 && hz === 0) continue;     // duplicate tiles collapse
-    const rx = -hz * off, rz = hx * off;    // right-hand side of heading
-    pts.push([ax + 0.5 + rx, az + 0.5 + rz]);
-    pts.push([bx2 + 0.5 + rx, bz2 + 0.5 + rz]);
-  }
-  if (pts.length === 0)                     // zero-length trip: arrive in place
-    pts.push([c.at[0] + 0.5, c.at[1] + 0.5], [dest[0] + 0.5, dest[1] + 0.5]);
-  c.dest = dest; c.phase = 'traveling';
-  c.pathPts = pts; c.seg = 0;
-  c.pos = [pts[0][0], pts[0][1]];
-  c.heading = [1, 0];
-  return true;
-}
-// Advance any mover (citizen or truck) along its polyline. Returns true once
-// the polyline is exhausted. Shared by updateTravel and updateTrucks.
-function advanceAlong(m, move) {
-  while (move > 0) {
-    const b = m.pathPts[m.seg + 1];
-    if (!b) return true;
-    const dx = b[0] - m.pos[0], dz = b[1] - m.pos[1];
-    const len = Math.hypot(dx, dz);
-    if (len < 1e-6) { m.seg++; continue; }
-    m.heading = [dx / len, dz / len];
-    if (move >= len) { m.pos = [b[0], b[1]]; m.seg++; move -= len; }
-    else { m.pos = [m.pos[0] + dx / len * move, m.pos[1] + dz / len * move]; move = 0; }
-  }
-  return false;
-}
-// Per-frame advance along the polyline. Runs on game time, not tick time.
-function updateTravel(dtGame) {
-  for (const c of citizens) {
-    if (c.phase !== 'traveling' || !c.pathPts) continue;
-    if (advanceAlong(c, speedFor(c.mode) * dtGame)) { c.pathPts = null; arrive(c); }
-  }
-}
-// Road network changed under someone's feet: re-plan everyone traveling.
-function replanTravelers() {
-  for (const c of citizens) {
-    if (c.phase !== 'traveling') continue;
-    c.at = [Math.floor(c.pos[0]), Math.floor(c.pos[1])];
-    const flood = floodFrom(c.at[0], c.at[1], c.mode === 'drive');
-    if (beginTravel(c, c.dest, flood)) continue;      // same trip, new route
-    if (beginTravel(c, c.home, flood)) continue;      // trip dead: walk home
-    c.phase = 'doing'; c.activity = null;             // stranded: idle, retry
-    c.state = 'free_time';
-    c.stayUntil = gameTime + 5;
-    c.pathPts = null;
-  }
-}
+const player = { x:0, y:0, w:22, h:30, vx:0, vy:0, onGround:false, facing:1,
+  hearts:CONFIG.maxHearts, iframe:0, prevBottom:0, walkT:0, dead:false };
+let spawn = {x:3*T, y:(GROUND-2)*T};
+const chars = [], pickups = [], graves = [], trees = [], particles = [];
+let gate = null;
+let romanced = 0;
+let camX = 0, camY = 0;
+let gameState = 'title'; // title | play | dialog | ending
+let timeT = 0, flash = 0;
+const wisps = Array.from({length:14}, () => ({ x:Math.random()*cols*T,
+  y:Math.random()*9*T, s:.5+Math.random(), p:Math.random()*7 }));
 
-/* -------------------- MIGRATION: moving trucks --------------------- */
-// A truck is a transient delivery vehicle: not a citizen, so no meters and no
-// FSM (the "exactly three states" rule is untouched). It drives in from the
-// highway edge, parks at a house's curb, drops off 1..maxLoad new residents,
-// then drives back out and despawns. This is the minimal seed of the later
-// "visitor framework" (roadmap Pillar B).
-const HW_EDGE = hwTiles.find(([x, z]) => x === 0 || x === S - 1 || z === 0 || z === S - 1)
-                || hwTiles[0];
-function bestFrontageTile(x, z, flood) {       // reachable road tile at a curb
-  let bx = -1, bz = -1, bd = -1;
-  for (const [rx, rz] of roadAdjacents(x, z)) {
-    const d = flood[key(rx, rz)];
-    if (d !== -1 && (bd === -1 || d < bd)) { bd = d; bx = rx; bz = rz; }
-  }
-  return bd === -1 ? null : [bx, bz];
-}
-function dispatchTruck(x, z, flood) {           // flood = HW_EDGE drive flood, shared per tick
-  const t = world[x][z];
-  const front = bestFrontageTile(x, z, flood);
-  if (!front) return false;                    // house unreachable: wait for a road
-  const load = 1 + Math.floor(Math.random() * Math.min(CZ.migration.maxLoad, t.pending));
-  const truck = { id: nextTruckId++, target: [x, z], frontage: front,
-                  leg: 'inbound', load, at: [HW_EDGE[0], HW_EDGE[1]], mode: 'drive' };
-  if (!beginTravel(truck, front, flood)) return false;
-  trucks.push(truck);
-  t.truckInFlight = true;
-  return true;
-}
-function migrationTick() {
-  const cap = CZ.migration.maxConcurrent;
-  let flood = null;                            // build the HW_EDGE flood once per tick
-  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
-    if (trucks.length >= cap) return;          // concurrency ceiling: rest wait a tick
-    const t = world[x][z];
-    if (t.type !== 'house' || !t.pending || t.pending <= 0) continue;
-    if (t.truckInFlight || gameTime < (t.nextDispatch || 0)) continue;
-    if (!flood) flood = floodFrom(HW_EDGE[0], HW_EDGE[1], true);
-    if (!dispatchTruck(x, z, flood)) t.nextDispatch = gameTime + RT.dispatchInterval;
+for (let y=0; y<rows; y++) for (let x=0; x<cols; x++){
+  const c = LEVEL[y][x], wx = x*T, wy = y*T;
+  if (c==='P') spawn = {x:wx, y:wy - 4};
+  else if (c==='H') pickups.push({x:wx+T/2, y:wy+T/2, taken:false, p:Math.random()*7});
+  else if (c==='^') graves.push({x:wx, y:wy});
+  else if (c==='T') trees.push({x:wx, y:wy});
+  else if (c==='D') gate = {x:wx, y:wy, open:false, anim:0};
+  else if ('yrknA'.includes(c)){
+    const id = {y:'yuki', r:'rin', k:'kazuma', n:'ren', A:'ayame'}[c];
+    chars.push({ id, def:CAST[id], x:wx+5, y:wy+T-34, w:26, h:34, vx:0, vy:0, dir:-1,
+      state:'roam',            // roam | talk | romanced | angry | unsure
+      angryT:0, walkT:Math.random()*7, aff:0, qi:0,
+      home:{x:wx+5, y:wy+T-34}, boss:!!CAST[id].boss });
   }
 }
-function truckArrive(truck) {
-  if (truck.leg === 'inbound') {
-    const [hx, hz] = truck.target, ht = world[hx][hz];
-    if (ht.type === 'house') {                 // still a house (not bulldozed)
-      for (let i = 0; i < truck.load && (ht.pending || 0) > 0; i++) {
-        ht.pending--;
-        const c = makeCitizen(hx, hz);
-        citizens.push(c); citizenById.set(c.id, c); tryEmploy(c);
-      }
-      ht.truckInFlight = false;
-      const j = CZ.migration.dispatchJitter;   // stagger the next run (no shared clock)
-      ht.nextDispatch = gameTime + RT.dispatchInterval * (1 - j + Math.random() * 2 * j);
-    }
-    truck.leg = 'outbound';                     // head back to the highway edge
-    truck.at = [truck.frontage[0], truck.frontage[1]];
-    const flood = floodFrom(truck.at[0], truck.at[1], true);
-    if (!beginTravel(truck, HW_EDGE, flood)) despawnTruck(truck);
-  } else {
-    despawnTruck(truck);                        // reached the edge: gone
-  }
-}
-function despawnTruck(truck) {
-  const i = trucks.indexOf(truck);
-  if (i >= 0) trucks.splice(i, 1);
-  removeTruckMesh(truck.id);
-}
-function updateTrucks(dtGame) {
-  if (trucks.length === 0) return;
-  const spd = CZ.migration.truckSpeed;
-  for (let i = trucks.length - 1; i >= 0; i--) {   // reverse: safe against despawn splices
-    const truck = trucks[i];
-    if (!truck.pathPts) continue;
-    if (advanceAlong(truck, spd * dtGame)) { truck.pathPts = null; truckArrive(truck); }
-  }
-}
-// Road network changed: re-route trucks (the truck analogue of replanTravelers).
-function replanTrucks() {
-  for (const truck of [...trucks]) {
-    truck.at = [Math.floor(truck.pos[0]), Math.floor(truck.pos[1])];
-    const flood = floodFrom(truck.at[0], truck.at[1], true);
-    if (truck.leg === 'inbound') {
-      const ht = world[truck.target[0]][truck.target[1]];
-      if (ht.type === 'house') {
-        const front = bestFrontageTile(truck.target[0], truck.target[1], flood);
-        if (front) { truck.frontage = front; if (beginTravel(truck, front, flood)) continue; }
-        ht.truckInFlight = false;              // house unreachable now: give up, re-queue later
-      }
-      truck.leg = 'outbound';
-      if (beginTravel(truck, HW_EDGE, flood)) continue;
-      despawnTruck(truck);
-    } else if (!beginTravel(truck, HW_EDGE, flood)) {
-      despawnTruck(truck);                     // orphaned from the edge: leave cleanly
-    }
-  }
-}
-function cancelArrivalsFor(x, z) {              // house bulldozed mid-delivery
-  for (const truck of [...trucks]) {
-    if (truck.leg === 'inbound' && truck.target[0] === x && truck.target[1] === z) {
-      truck.leg = 'outbound';
-      truck.at = [Math.floor(truck.pos[0]), Math.floor(truck.pos[1])];
-      const flood = floodFrom(truck.at[0], truck.at[1], true);
-      if (!beginTravel(truck, HW_EDGE, flood)) despawnTruck(truck);
-    }
-  }
-}
-// A road was just placed/removed: let waiting houses try for a truck at once.
-function nudgeMigration() {
-  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
-    const t = world[x][z];
-    if (t.type === 'house' && t.pending > 0 && !t.truckInFlight) t.nextDispatch = gameTime;
-  }
-}
+player.x = spawn.x; player.y = spawn.y;
 
-// Mode roll happens ONCE, at home departure, gated by car availability.
-function rollModeAtDeparture(c, firstDist) {
-  const home = world[c.home[0]][c.home[1]];
-  c.mode = 'walk';
-  if (!home.cars || home.cars.available <= 0) return;
-  const p = Math.max(0, Math.min(1,
-    (firstDist - CZ.move.carMinDist) / (CZ.move.carFullDist - CZ.move.carMinDist)));
-  if (Math.random() < p) { c.mode = 'drive'; home.cars.available--; }
-}
-function returnCarIfAny(c) {
-  if (c.mode !== 'drive') return;
-  const home = world[c.home[0]][c.home[1]];
-  if (home.cars) home.cars.available = Math.min(home.cars.total, home.cars.available + 1);
-  c.mode = 'walk';
-}
-
-/* ---- Free-time decision procedure (locked spec) ---- */
-function chooseFreeTime(c) {
-  c.state = 'free_time';
-  const [cx, cz] = c.at;
-  const flood = floodFrom(cx, cz, c.mode === 'drive');
-  const cands = [];
-  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
-    const t = world[x][z], ad = RT.adverts[t.type];
-    if (!ad) continue;
-    const here = (x === cx && z === cz);
-    const d = here ? 0 : tileDist(flood, x, z);
-    if (d === -1) continue;
-    const urgency = (100 - c.meters[ad.need]) / 100;
-    const proximity = 1 / (1 + d / CZ.select.distHalf);
-    const score = ad.fillRate * ad.minStay * urgency * proximity;
-    if (score > 0) cands.push({ x, z, d, ad, score });
-  }
-  if (cands.length === 0) {                 // nowhere to go: idle where we are
-    c.phase = 'doing'; c.activity = null;
-    c.stayUntil = gameTime + 5;
-    return;
-  }
-  cands.sort((a, b) => b.score - a.score);
-  const top = cands.slice(0, CZ.select.topK);
-  const weights = top.map(o => Math.pow(o.score, CZ.select.pickTemp));
-  let r = Math.random() * weights.reduce((a, b) => a + b, 0);
-  let pick = top[0];
-  for (let i = 0; i < top.length; i++) { r -= weights[i]; if (r <= 0) { pick = top[i]; break; } }
-  if (pick.x === cx && pick.z === cz) {     // stay: restart minStay commitment
-    c.phase = 'doing'; c.activity = pick.ad;
-    c.stayUntil = gameTime + pick.ad.minStay;
-  } else if (beginTravel(c, [pick.x, pick.z], flood)) {
-    showBubble(c, pick.ad.need === 'errands' ? '🛒' : '🎈');   // off to a venue
-  } else {
-    c.phase = 'doing'; c.activity = null;   // route vanished: idle and retry
-    c.stayUntil = gameTime + 5;
-  }
-}
-function goWork(c) {
-  const flood = floodFrom(c.at[0], c.at[1], c.mode === 'drive');
-  c.state = 'work';
-  if (!beginTravel(c, c.job, flood)) chooseFreeTime(c);   // unreachable now
-  else showBubble(c, '💼');
-}
-function goHome(c) {
-  const flood = floodFrom(c.at[0], c.at[1], c.mode === 'drive');
-  c.state = 'sleep';
-  if (!beginTravel(c, c.home, flood)) {
-    c.state = 'free_time'; c.phase = 'doing'; c.activity = null;
-    c.stayUntil = gameTime + 5;                           // stranded: retry
-  } else showBubble(c, '😴');
-}
-function departFromHome(c) {
-  // Waking up: pick first destination, roll travel mode once for the excursion.
-  const wantsWork = c.job && c.meters.work <= CZ.work.startBelow;
-  const flood = floodFrom(c.home[0], c.home[1], true);  // measure on drive net
-  let dest = null, d = -1;
-  if (wantsWork) { d = tileDist(flood, c.job[0], c.job[1]); dest = 'work'; }
-  if (d === -1) {
-    // No job trip — leave for free time (distance estimate for the roll: median-ish)
-    rollModeAtDeparture(c, 6);
-    chooseFreeTime(c);
-    return;
-  }
-  rollModeAtDeparture(c, d);
-  goWork(c);
-}
-function arrive(c) {
-  c.at = c.dest; c.dest = null; c.phase = 'doing';
-  const [x, z] = c.at;
-  if (x === c.home[0] && z === c.home[1]) returnCarIfAny(c);  // excursion over
-  const t = world[x][z];
-  if (c.state === 'free_time') {
-    const ad = RT.adverts[t.type];
-    if (!ad) { chooseFreeTime(c); return; }       // venue bulldozed mid-walk
-    c.activity = ad;
-    c.stayUntil = gameTime + ad.minStay;
-  } else if (c.state === 'work') {
-    if (t.type !== 'shop' || !c.job) { chooseFreeTime(c); return; }
-    c.stayUntil = gameTime + RT.minShift;   // a shift has a minimum length
-  }
-}
-
-/* ---- The FSM tick ---- */
-function tickCitizen(c, dt) {
-  const m = c.meters, R = c.rates;
-  // Meters
-  if (c.state === 'sleep' && c.phase === 'doing') m.energy += R.sleepFill * dt;
-  else m.energy -= R.energyDecay * dt;
-  if (c.state === 'work' && c.phase === 'doing') m.work += R.workFill * dt;
-  else m.work -= R.workDecay * dt;
-  m.errands -= R.errandsDecay * dt;
-  m.fun -= R.funDecay * dt;
-  if (c.state === 'free_time' && c.phase === 'doing' && c.activity)
-    m[c.activity.need] += c.activity.fillRate * dt;
-  for (const k in m) m[k] = clamp01_100(m[k]);
-  maybeComplain(c);                  // grumble if a need is starved with no venue
-  // Travel handled per-frame in updateTravel; no decisions mid-trip.
-  if (c.phase === 'traveling') return;
-  // Doing → transitions (hysteresis pairs; interrupts only at decision points)
-  if (c.state === 'sleep') {
-    if (m.energy >= CZ.energy.wakeAt) departFromHome(c);
-  } else if (c.state === 'work') {
-    if (m.work >= 100 && gameTime >= c.stayUntil) chooseFreeTime(c);
-  } else if (c.state === 'free_time') {
-    if (gameTime >= c.stayUntil) {
-      if (m.energy <= CZ.energy.sleepBelow) goHome(c);
-      else if (c.job && m.work <= CZ.work.startBelow) goWork(c);
-      else chooseFreeTime(c);
-    }
-  }
-}
-
-/* ---- Sim tick + census ---- */
-const censusEl = document.getElementById('census');
-let simAcc = 0;
-const TICK = 1 / CZ.decisionHz;
-function simTick(dt) {
-  const g = dt * CZ.timeScale;
-  gameTime += g;
-  updateTravel(g);                 // smooth movement, every frame
-  updateTrucks(g);
-  simAcc += g;
-  while (simAcc >= TICK) {         // decisions, on the slow tick
-    simAcc -= TICK;
-    for (const c of citizens) tickCitizen(c, TICK);
-    migrationTick();
-  }
-  // Census (cheap enough to refresh per frame batch)
-  let sleep = 0, work = 0, free = 0, jobless = 0, carsOut = 0, carsTotal = 0;
-  for (const c of citizens) {
-    if (c.state === 'sleep') sleep++;
-    else if (c.state === 'work') work++;
-    else free++;
-    if (!c.job) jobless++;
-    if (c.mode === 'drive') carsOut++;
-  }
-  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++)
-    if (world[x][z].cars) carsTotal += world[x][z].cars.total;
-  let arriving = 0;
-  for (const tr of trucks) if (tr.leg === 'inbound') arriving += tr.load;
-  const day = Math.floor(gameTime / CZ.dayLength) + 1;
-  const parts = [`day ${day}`, `pop ${citizens.length}`];
-  if (citizens.length)
-    parts.push(`😴${sleep}`, `💼${work}`, `🚶${free}`, `no-job ${jobless}`, `🚗 ${carsOut}/${carsTotal}`);
-  if (arriving) parts.push(`🚚 ${arriving}`);
-  censusEl.textContent = (citizens.length === 0 && arriving === 0) ? '' : parts.join(' · ');
-}
-// Dev console access
-window._sim = { CONFIG, world, citizens, trucks, get time() { return gameTime; },
-  apply: (t, x, z) => { const prev = tool; tool = t; applyTool(x, z); tool = prev; } };
-
-/* ========================= PLACEMENT LOGIC ========================== */
-let tool = 'road';
-function canApply(x, z) {
-  if (!inBounds(x, z)) return false;
-  const t = world[x][z];
-  if (tool === 'bulldoze') return t.type !== 'empty' && !t.fixed;
-  return t.type === 'empty';
-}
-function applyTool(x, z) {
-  if (!canApply(x, z)) return;
-  const t = world[x][z];
-  if (tool === 'bulldoze') {
-    const was = t.type;
-    if (was === 'house') onHouseRemoved(x, z);
-    if (was === 'shop') onShopRemoved(x, z);
-    t.type = 'empty'; t.level = 0; t.timer = 0;
-    delete t.cars; delete t.pending; delete t.truckInFlight; delete t.nextDispatch;
-    syncTile(x, z);
-    if (was === 'road') { recomputeConnectivity(); replanTravelers(); replanTrucks(); nudgeMigration(); }
-  } else {
-    t.type = tool;
-    t.level = tool === 'house' ? 1 : 0;
-    t.timer = 0;
-    syncTile(x, z, true);
-    if (tool === 'road') { recomputeConnectivity(); replanTravelers(); replanTrucks(); nudgeMigration(); }
-    if (tool === 'house') onHousePlaced(x, z);
-    if (tool === 'shop') onShopPlaced(x, z);
-  }
-  computeServedNeeds();   // venue set changed (build/bulldoze) or reachability did (road)
-}
-
-/* ============================== CAMERA ============================== */
-const camera = new THREE.OrthographicCamera();
-camera.near = 0.1; camera.far = 300;
-const camTarget = new THREE.Vector3(S / 2, 0, S / 2);  // pannable look-at point
-const keys = new Set();
-const camState = {
-  yaw: CONFIG.camera.yawAngles[0],
-  yawFrom: CONFIG.camera.yawAngles[0],
-  yawTo: CONFIG.camera.yawAngles[0],
-  tweenT: 1,
-  view: CONFIG.camera.viewStart,
-  viewTarget: CONFIG.camera.viewStart,
-};
-const easeInOutCubic = t =>
-  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-function rotateStep(dir) {
-  camState.yawFrom = camState.yaw;
-  camState.yawTo = camState.yawTo + 90 * dir;
-  camState.tweenT = 0;
-}
-function updateCamera(dt) {
-  if (camState.tweenT < 1) {
-    camState.tweenT = Math.min(1, camState.tweenT + dt / CONFIG.camera.rotateDur);
-    const e = easeInOutCubic(camState.tweenT);
-    camState.yaw = camState.yawFrom + (camState.yawTo - camState.yawFrom) * e;
-  }
-  camState.view += (camState.viewTarget - camState.view) *
-    Math.min(1, CONFIG.camera.zoomLerp * dt);
-  const yawRad = THREE.MathUtils.degToRad(camState.yaw);
-  const pitchRad = THREE.MathUtils.degToRad(CONFIG.camera.pitchDeg);
-
-  // Follow camera: slide the look-at toward the inspected citizen (indoors →
-  // their tile center, traveling → their live position). Any manual pan cancels it.
-  if (follow && inspected && inspected.kind === 'citizen') {
-    const c = citizenById.get(inspected.id);
-    if (!c) { follow = false; }
-    else {
-      const moving = c.phase === 'traveling' && c.pos;
-      const px = moving ? c.pos[0] : c.at[0] + 0.5;
-      const pz = moving ? c.pos[1] : c.at[1] + 0.5;
-      const k = Math.min(1, CONFIG.camera.followLerp * dt);
-      camTarget.x += (px - camTarget.x) * k;
-      camTarget.z += (pz - camTarget.z) * k;
-    }
-  }
-
-  // Keyboard pan, camera-relative on the ground plane.
-  const fx = -Math.sin(yawRad), fz = -Math.cos(yawRad);   // screen-up
-  const rx = Math.cos(yawRad), rz = -Math.sin(yawRad);    // screen-right
-  let u = 0, v = 0;
-  if (keys.has('w') || keys.has('arrowup')) u += 1;
-  if (keys.has('s') || keys.has('arrowdown')) u -= 1;
-  if (keys.has('d') || keys.has('arrowright')) v += 1;
-  if (keys.has('a') || keys.has('arrowleft')) v -= 1;
-  if (u || v) {
-    follow = false;                       // manual pan cancels follow
-    const spd = camState.view * CONFIG.camera.panKeySpeed * dt;
-    camTarget.x += (fx * u + rx * v) * spd;
-    camTarget.z += (fz * u + rz * v) * spd;
-  }
-  camTarget.x = THREE.MathUtils.clamp(camTarget.x, 0, S);
-  camTarget.z = THREE.MathUtils.clamp(camTarget.z, 0, S);
-
-  const d = CONFIG.camera.dist;
-  camera.position.set(
-    camTarget.x + d * Math.cos(pitchRad) * Math.sin(yawRad),
-    d * Math.sin(pitchRad),
-    camTarget.z + d * Math.cos(pitchRad) * Math.cos(yawRad)
-  );
-  camera.lookAt(camTarget);
-  const aspect = window.innerWidth / window.innerHeight;
-  const h = camState.view;
-  camera.top = h; camera.bottom = -h;
-  camera.left = -h * aspect; camera.right = h * aspect;
-  camera.updateProjectionMatrix();
-}
-
-/* ====================== RAYCAST + GHOST PREVIEW ===================== */
-const raycaster = new THREE.Raycaster();
-const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-const hitPoint = new THREE.Vector3();
-const ndc = new THREE.Vector2();
-
-function pickGround(clientX, clientY) {
-  ndc.set((clientX / window.innerWidth) * 2 - 1,
-          -(clientY / window.innerHeight) * 2 + 1);
-  raycaster.setFromCamera(ndc, camera);
-  return raycaster.ray.intersectPlane(groundPlane, hitPoint)
-    ? hitPoint.clone() : null;
-}
-function pickTile(clientX, clientY) {
-  const p = pickGround(clientX, clientY);
-  if (!p) return null;
-  const x = Math.floor(p.x), z = Math.floor(p.z);  // floor, never round
-  return inBounds(x, z) ? [x, z] : null;
-}
-
-const ghostMat = new THREE.MeshBasicMaterial({
-  color: CONFIG.colors.ghostOk, transparent: true, opacity: 0.45, depthWrite: false });
-const ghost = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.1, 0.92), ghostMat);
-ghost.visible = false;
-scene.add(ghost);
-function updateGhost(tile) {
-  if (tool === 'inspect' || !tile) { ghost.visible = false; return; }
-  const [x, z] = tile;
-  ghost.visible = true;
-  ghost.position.set(x + 0.5, 0.08, z + 0.5);
-  ghostMat.color.setHex(canApply(x, z) ? CONFIG.colors.ghostOk : CONFIG.colors.ghostBad);
-}
-
-/* ===================== WALKERS & CARS (M6 render) =================== */
-// Pure projection of sim state: meshes exist only while a citizen is
-// traveling; a per-frame sweep creates/moves/removes them. No sim logic here.
-const agentMeshes = new Map();              // citizen id -> { group, kind }
-const agentMatCache = new Map();
-const AM = c => {
-  if (!agentMatCache.has(c)) agentMatCache.set(c, M(c));
-  return agentMatCache.get(c);
-};
-const walkerPalette = [0xe2725b, 0x5b8ee2, 0x64b06a, 0xd9a441, 0x9a6fb8, 0x53b3ad];
-const carPalette = [0xc4544d, 0x4d7fc4, 0x58a05e, 0xd8c04f, 0x8a8f96, 0x4b4f55];
-const agentGeos = {
-  body: new THREE.BoxGeometry(0.14, 0.26, 0.14),
-  head: new THREE.SphereGeometry(0.07, 8, 6),
-  carBody: new THREE.BoxGeometry(0.46, 0.13, 0.24),
-  carTop: new THREE.BoxGeometry(0.24, 0.10, 0.20),
-};
-function makeAgentMesh(c) {
-  const g = new THREE.Group();
-  if (c.mode === 'drive') {
-    const body = shadowed(new THREE.Mesh(agentGeos.carBody, AM(carPalette[c.id % carPalette.length])));
-    body.position.y = 0.12;
-    const top = shadowed(new THREE.Mesh(agentGeos.carTop, AM(0xd8e2ea)));
-    top.position.set(-0.03, 0.23, 0);
-    g.add(body, top);
-  } else {
-    const body = shadowed(new THREE.Mesh(agentGeos.body, AM(walkerPalette[c.id % walkerPalette.length])));
-    body.position.y = 0.16;
-    const head = shadowed(new THREE.Mesh(agentGeos.head, AM(0xf2d6b3)));
-    head.position.y = 0.36;
-    g.add(body, head);
-  }
-  scene.add(g);
-  return g;
-}
-function updateAgentMeshes() {
-  const seen = new Set();
-  for (const c of citizens) {
-    if (c.phase !== 'traveling' || !c.pathPts) continue;
-    seen.add(c.id);
-    let e = agentMeshes.get(c.id);
-    if (!e || e.kind !== c.mode) {          // mode changed since last trip
-      if (e) scene.remove(e.group);
-      e = { group: makeAgentMesh(c), kind: c.mode };
-      agentMeshes.set(c.id, e);
-    }
-    e.group.position.set(c.pos[0], 0.06, c.pos[1]);
-    e.group.rotation.y = Math.atan2(-c.heading[1], c.heading[0]);
-  }
-  for (const [id, e] of agentMeshes) {      // indoors or gone: sweep away
-    if (!seen.has(id)) { scene.remove(e.group); agentMeshes.delete(id); }
-  }
-}
-
-// Moving trucks — same pure-projection pattern as walkers/cars.
-const truckMeshes = new Map();
-const truckGeos = {
-  body: new THREE.BoxGeometry(0.5, 0.24, 0.3),
-  cab:  new THREE.BoxGeometry(0.16, 0.2, 0.28),
-};
-function makeTruckMesh() {
-  const g = new THREE.Group();
-  const body = shadowed(new THREE.Mesh(truckGeos.body, AM(0xe0b23c)));
-  body.position.y = 0.17;
-  const cab = shadowed(new THREE.Mesh(truckGeos.cab, AM(0xd3dae0)));
-  cab.position.set(0.33, 0.13, 0);          // cab at the front of the box
-  g.add(body, cab);
-  scene.add(g);
-  return g;
-}
-function removeTruckMesh(id) {
-  const m = truckMeshes.get(id);
-  if (m) { scene.remove(m); truckMeshes.delete(id); }
-}
-function updateTruckMeshes() {
-  const seen = new Set();
-  for (const truck of trucks) {
-    if (!truck.pathPts) continue;
-    seen.add(truck.id);
-    let m = truckMeshes.get(truck.id);
-    if (!m) { m = makeTruckMesh(); truckMeshes.set(truck.id, m); }
-    m.position.set(truck.pos[0], 0.06, truck.pos[1]);
-    m.rotation.y = Math.atan2(-truck.heading[1], truck.heading[0]);
-  }
-  for (const [id, m] of truckMeshes) if (!seen.has(id)) { scene.remove(m); truckMeshes.delete(id); }
-}
-
-/* ============================ INSPECTOR ============================= */
-// Tap a walker/car or a building (with the 🔍 tool) to open a live DOM card.
-// Pure reading surface: reads sim state, never writes it.
-const insEl = document.getElementById('inspector');
-let inspected = null;                 // {kind:'citizen', id} | {kind:'building', x, z, sig}
-let follow = false;                   // wired by the follow camera (v0.3b)
-
-function nameFor(id) {
-  const F = CZ.names.first, L = CZ.names.last;
-  return F[id % F.length] + ' ' + L[Math.floor(id / F.length) % L.length];
-}
-const METERS = [
-  ['energy', 'Energy', '#5b8ee2'], ['work', 'Work', '#d9a441'],
-  ['errands', 'Errands', '#64b06a'], ['fun', 'Fun', '#c77dd0'],
-];
-function describeState(c) {
-  const mv = c.mode === 'drive' ? '🚗' : '🚶';
-  if (c.state === 'sleep')
-    return c.phase === 'traveling' ? [mv, 'heading home to sleep'] : ['😴', 'asleep at home'];
-  if (c.state === 'work')
-    return c.phase === 'traveling' ? [mv, 'commuting to work'] : ['💼', 'at work'];
-  if (c.phase === 'traveling') return [mv, 'out and about'];
-  if (c.activity && c.activity.need === 'errands') return ['🛒', 'running errands'];
-  if (c.activity && c.activity.need === 'fun') return ['🎡', 'relaxing at the park'];
-  return ['🚶', 'wandering'];
-}
-function closeCard() { inspected = null; follow = false; insEl.classList.remove('show'); }
-
-function openCitizenCard(c) {
-  inspected = { kind: 'citizen', id: c.id };
-  follow = false;                     // fresh subject: don't inherit follow state
-  insEl.classList.add('show');
-  insEl.innerHTML =
-    `<span class="ins-close">✕</span>` +
-    `<div class="ins-name">${nameFor(c.id)}</div>` +
-    `<div class="ins-state" data-state></div>` +
-    METERS.map(([k, label, col]) =>
-      `<div class="lbl"><span>${label}</span><span data-mv="${k}"></span></div>` +
-      `<div class="bar"><i data-mf="${k}" style="background:${col}"></i></div>`).join('') +
-    `<div class="ins-foot" data-foot></div>` +
-    `<button class="follow" data-follow></button>`;
-  insEl.querySelector('.ins-close').onclick = closeCard;
-  wireFollowButton();
-  // Cache element refs once (avoids ~11 querySelector calls per frame).
-  const refs = { state: insEl.querySelector('[data-state]'), foot: insEl.querySelector('[data-foot]'),
-                 follow: insEl.querySelector('[data-follow]'), mf: {}, mv: {} };
-  for (const [k] of METERS) {
-    refs.mf[k] = insEl.querySelector(`[data-mf="${k}"]`);
-    refs.mv[k] = insEl.querySelector(`[data-mv="${k}"]`);
-  }
-  inspected.refs = refs;
-  updateInspector();
-}
-function updateCitizenCard() {
-  const c = citizenById.get(inspected.id);
-  if (!c) { closeCard(); return; }                 // citizen despawned (home bulldozed)
-  const r = inspected.refs;
-  const [icon, text] = describeState(c);
-  if (r.state) r.state.textContent = `${icon} ${text}`;
-  for (const [k] of METERS) {
-    const v = Math.round(c.meters[k]);
-    if (r.mf[k]) r.mf[k].style.width = v + '%';
-    if (r.mv[k]) r.mv[k].textContent = v;
-  }
-  if (r.foot) r.foot.textContent = `home ${c.home[0]},${c.home[1]} · ` +
-    (c.job ? `job ${c.job[0]},${c.job[1]}` : 'no job');
-  if (r.follow) {   // keep label in sync (pan cancels follow)
-    r.follow.textContent = follow ? '● Following' : '◎ Follow';
-    r.follow.classList.toggle('on', follow);
-  }
-}
-
-function openBuildingCard(x, z) {
-  if (!['house', 'shop', 'park'].includes(world[x][z].type)) { closeCard(); return; }
-  inspected = { kind: 'building', x, z, sig: '' };
-  follow = false;
-  insEl.classList.add('show');
-  updateBuildingCard(true);
-}
-function updateBuildingCard(force) {
-  const { x, z } = inspected;
-  const t = world[x][z];
-  if (!['house', 'shop', 'park'].includes(t.type)) { closeCard(); return; }  // bulldozed
-  let html, sig;
-  if (t.type === 'house') {
-    const res = citizens.filter(c => c.home[0] === x && c.home[1] === z);
-    const cap = CZ.residentsPerLevel[t.level] || res.length;
-    sig = `H${t.level}|${res.map(c => c.id).join(',')}|${t.pending || 0}|${t.cars ? t.cars.available : 0}`;
-    if (sig === inspected.sig && !force) return;
-    html = `<span class="ins-close">✕</span><div class="ins-name">🏠 House · L${t.level}</div>` +
-      `<div class="ins-state">${res.length}/${cap} residents` +
-      (t.pending ? ` · 🚚 ${t.pending} arriving` : ``) +
-      (t.cars ? ` · 🚗 ${t.cars.available}/${t.cars.total}` : ``) + `</div>` +
-      `<div class="ins-list">` + (res.length
-        ? res.map(c => `<a data-cid="${c.id}">${nameFor(c.id)}</a>`).join('<br>')
-        : `<i style="opacity:.6">nobody home yet</i>`) + `</div>`;
-  } else if (t.type === 'shop') {
-    const workers = (t.jobs ? t.jobs.workers : []).map(id => citizenById.get(id)).filter(Boolean);
-    sig = `S|${workers.map(c => c.id).join(',')}`;
-    if (sig === inspected.sig && !force) return;
-    html = `<span class="ins-close">✕</span><div class="ins-name">🏪 Shop</div>` +
-      `<div class="ins-state">${t.jobs ? t.jobs.workers.length : 0}/${t.jobs ? t.jobs.total : 0} jobs filled</div>` +
-      `<div class="ins-list">` + (workers.length
-        ? workers.map(c => `<a data-cid="${c.id}">${nameFor(c.id)}</a>`).join('<br>')
-        : `<i style="opacity:.6">no workers yet</i>`) + `</div>`;
-  } else {   // park
-    const visitors = citizens.filter(c =>
-      c.at && c.at[0] === x && c.at[1] === z && c.state === 'free_time' && c.phase === 'doing');
-    sig = `P|${visitors.length}`;
-    if (sig === inspected.sig && !force) return;
-    html = `<span class="ins-close">✕</span><div class="ins-name">🏞️ Park</div>` +
-      `<div class="ins-state">${visitors.length} ${visitors.length === 1 ? 'person' : 'people'} relaxing here</div>`;
-  }
-  inspected.sig = sig;
-  insEl.innerHTML = html;
-  insEl.querySelector('.ins-close').onclick = closeCard;
-  insEl.querySelectorAll('[data-cid]').forEach(a => a.onclick = () => {
-    const c = citizenById.get(+a.dataset.cid);
-    if (c) openCitizenCard(c);
-  });
-}
-function wireFollowButton() {
-  const btn = insEl.querySelector('[data-follow]');
-  if (btn) btn.onclick = () => { follow = !follow; };
-}
-
-function updateInspector() {
-  if (!inspected) return;
-  if (inspected.kind === 'citizen') updateCitizenCard();
-  else updateBuildingCard(false);
-}
-
-// Picking. Citizens: nearest screen-projected walker within pickRadius px
-// (generous, works at far zoom). Buildings: raycast against tile meshes.
-const _projV = new THREE.Vector3();
-function pickCitizen(cx, cy) {
-  let best = null, bestD = CONFIG.input.pickRadius;
-  for (const c of citizens) {
-    if (c.phase !== 'traveling' || !c.pos) continue;
-    _projV.set(c.pos[0], 0.3, c.pos[1]).project(camera);
-    if (_projV.z > 1) continue;                     // behind the camera
-    const sx = (_projV.x * 0.5 + 0.5) * window.innerWidth;
-    const sy = (-_projV.y * 0.5 + 0.5) * window.innerHeight;
-    const d = Math.hypot(sx - cx, sy - cy);
-    if (d < bestD) { bestD = d; best = c; }
-  }
-  return best;
-}
-function pickBuilding(cx, cy) {
-  ndc.set((cx / window.innerWidth) * 2 - 1, -(cy / window.innerHeight) * 2 + 1);
-  raycaster.setFromCamera(ndc, camera);
-  const roots = [];
-  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
-    const t = world[x][z];
-    if (t.mesh && (t.type === 'house' || t.type === 'shop' || t.type === 'park')) roots.push(t.mesh);
-  }
-  const hits = raycaster.intersectObjects(roots, true);
-  for (const h of hits) {
-    let o = h.object;
-    while (o && !(o.userData && o.userData.kind)) o = o.parent;
-    if (o) return o.userData;
-  }
-  return null;
-}
-function handleInspectTap(cx, cy) {
-  const c = pickCitizen(cx, cy);
-  if (c) { openCitizenCard(c); return; }
-  const b = pickBuilding(cx, cy);
-  if (b) openBuildingCard(b.x, b.z);
-  else closeCard();
-}
-// Debug/test surface (paired with window._sim.apply; stripped before v0.2/v0.3 ship).
-Object.assign(window._sim, { nameFor, inspectCitizen: openCitizenCard,
-  inspectBuilding: openBuildingCard, closeCard, handleInspectTap, pickCitizen,
-  screenOf: (c) => {
-    _projV.set(c.pos[0], 0.3, c.pos[1]).project(camera);
-    return [(_projV.x * 0.5 + 0.5) * window.innerWidth, (-_projV.y * 0.5 + 0.5) * window.innerHeight];
-  },
-  getInspected: () => inspected, getFollow: () => follow,
-  getCamTarget: () => [camTarget.x, camTarget.z] });
-
-/* ============================= BUBBLES ============================= */
-// Billboard emoji above heads. Thought bubbles fire at decision points (sparse
-// — no per-frame cost); complaint bubbles fire when a need is starved AND no
-// venue for it exists in town — the city grumbling what to build next.
-const bubbleTex = new Map();
-function emojiTexture(str) {
-  let tex = bubbleTex.get(str);
-  if (tex) return tex;
-  const cv = document.createElement('canvas'); cv.width = cv.height = 64;
-  const ctx = cv.getContext('2d');
-  ctx.font = '42px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText(str, 32, 36);
-  tex = new THREE.CanvasTexture(cv); tex.colorSpace = THREE.SRGBColorSpace;
-  bubbleTex.set(str, tex); return tex;                 // cached + shared, never disposed
-}
-const bubbles = new Map();          // citizen id -> { sprite, until }
-function showBubble(c, str, dur = CZ.bubbles.showSeconds) {
-  let b = bubbles.get(c.id);
-  if (!b) {
-    const mat = new THREE.SpriteMaterial({ map: emojiTexture(str), transparent: true, depthTest: false });
-    const sprite = new THREE.Sprite(mat);
-    sprite.scale.set(0.55, 0.55, 0.55); sprite.renderOrder = 999;
-    scene.add(sprite);
-    b = { sprite }; bubbles.set(c.id, b);
-  } else {
-    b.sprite.material.map = emojiTexture(str);
-  }
-  b.until = gameTime + dur;
-}
-const COMPLAINT_ICON = { errands: '🛒❓', fun: '🎈❓' };
-let servedNeeds = new Set();
-let complaintCount = 0;             // debug/test counter
-// Which advert-needs have a REACHABLE venue. Reachability-gated so a shop you
-// placed but never connected still lets citizens grumble (visible consequence).
-// Recomputed on world change only (via applyTool), not per frame.
-function computeServedNeeds() {
-  servedNeeds.clear();
-  for (let x = 0; x < S; x++) for (let z = 0; z < S; z++) {
-    const ad = RT.adverts[world[x][z].type];
-    if (ad && hasConnectedRoadNeighbor(x, z)) servedNeeds.add(ad.need);
-  }
-}
-function maybeComplain(c) {
-  if (gameTime < (c.nextComplaint || 0)) return;
-  for (const need in COMPLAINT_ICON) {
-    if (c.meters[need] <= CZ.bubbles.starvedBelow && !servedNeeds.has(need)) {
-      if (Math.random() < CZ.bubbles.complaintChance) {
-        showBubble(c, COMPLAINT_ICON[need]);
-        c.nextComplaint = gameTime + RT.complaintCooldown;
-        complaintCount++;
-      }
-      return;
-    }
-  }
-}
-function updateBubbles() {
-  if (bubbles.size === 0) return;
-  for (const [id, b] of bubbles) {
-    const c = citizenById.get(id);
-    if (!c || gameTime > b.until) {
-      scene.remove(b.sprite); b.sprite.material.dispose(); bubbles.delete(id); continue;
-    }
-    const moving = c.phase === 'traveling' && c.pos;
-    const x = moving ? c.pos[0] : c.at[0] + 0.5;
-    const z = moving ? c.pos[1] : c.at[1] + 0.5;
-    b.sprite.position.set(x, 0.75, z);
-  }
-}
-Object.assign(window._sim, { showBubble, getBubbleCount: () => bubbles.size,
-  getServedNeeds: () => [...servedNeeds], getComplaintCount: () => complaintCount });
-
-/* =============================== INPUT ============================== */
-document.getElementById('btn-cw').addEventListener('click', () => rotateStep(1));
-document.getElementById('btn-ccw').addEventListener('click', () => rotateStep(-1));
-window.addEventListener('keydown', (e) => {
-  const k = e.key.toLowerCase();
-  if (k === 'q') rotateStep(-1);
-  if (k === 'e') rotateStep(1);
-  keys.add(k);
+/* ---------------- INPUT ---------------- */
+const keys = {};
+addEventListener('keydown', e => {
+  if (['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Space'].includes(e.code)) e.preventDefault();
+  keys[e.code] = true;
+  if (gameState==='title' && (e.code==='Enter'||e.code==='Space')) startGame();
 });
-window.addEventListener('keyup', (e) => keys.delete(e.key.toLowerCase()));
-window.addEventListener('blur', () => keys.clear());
+addEventListener('keyup', e => keys[e.code] = false);
+const touch = {l:false, r:false, j:false};
+function bindTouch(id, k){
+  const el = document.getElementById(id);
+  el.addEventListener('pointerdown', e => { e.preventDefault(); touch[k]=true; });
+  for (const ev of ['pointerup','pointercancel','pointerleave'])
+    el.addEventListener(ev, () => touch[k]=false);
+}
+bindTouch('tL','l'); bindTouch('tR','r'); bindTouch('tJ','j');
+if ('ontouchstart' in window) document.getElementById('touch').classList.add('show');
 
-document.querySelectorAll('#toolbar button').forEach(btn => {
-  btn.addEventListener('click', () => {
-    tool = btn.dataset.tool;
-    document.querySelectorAll('#toolbar button')
-      .forEach(b => b.classList.toggle('selected', b === btn));
-  });
-});
-document.querySelector('#toolbar button[data-tool="road"]').classList.add('selected');
+document.getElementById('startBtn').addEventListener('click', startGame);
+function startGame(){
+  if (gameState!=='title') return;
+  try { AC = AC || new (window.AudioContext||window.webkitAudioContext)(); } catch(e){}
+  document.getElementById('title').classList.add('hidden');
+  gameState = 'play';
+  showHint('Jump on someone\'s head to say hi 💜', 5);
+}
 
-renderer.domElement.addEventListener('wheel', (e) => {
-  e.preventDefault();
-  const f = Math.exp(e.deltaY * 0.0012);
-  camState.viewTarget = THREE.MathUtils.clamp(
-    camState.viewTarget * f, CONFIG.camera.viewMin, CONFIG.camera.viewMax);
-}, { passive: false });
+/* ---------------- HUD ---------------- */
+const heartsEl = document.getElementById('hearts');
+const romanceEl = document.getElementById('romance');
+const hintEl = document.getElementById('hint');
+let hintT = 0;
+function showHint(msg, secs){ hintEl.textContent = msg; hintEl.classList.add('show'); hintT = secs; }
+function refreshHUD(){
+  heartsEl.textContent = '💗'.repeat(player.hearts) + '🖤'.repeat(CONFIG.maxHearts - player.hearts);
+  romanceEl.textContent = `💕 ${romanced}/${CONFIG.romancesNeeded}` + (gate && gate.open ? ' ⛩️' : '');
+}
+refreshHUD();
 
-// Pointer handling. Rules:
-// - 2 active pointers => pinch zoom; the gesture is poisoned for taps.
-// - 1 pointer, moved < tapMaxMove px, never multi-touch => tap => place.
-const pointers = new Map();
-let pinchStartDist = 0, pinchStartView = 0;
-let gestureMulti = false;
+/* ---------------- DIALOG ---------------- */
+const dEl = document.getElementById('dialog');
+const dName = document.getElementById('dname'), dTitle = document.getElementById('dtitle');
+const dAff = document.getElementById('daff'), dText = document.getElementById('dtext');
+const dChoices = document.getElementById('dchoices');
+const dPortrait = document.getElementById('dportrait').getContext('2d');
+let talking = null;
 
-renderer.domElement.addEventListener('pointerdown', (e) => {
-  pointers.set(e.pointerId, { x: e.clientX, y: e.clientY,
-                              sx: e.clientX, sy: e.clientY });
-  if (pointers.size === 2) {
-    gestureMulti = true;
-    const [a, b] = [...pointers.values()];
-    pinchStartDist = Math.hypot(a.x - b.x, a.y - b.y);
-    pinchStartView = camState.viewTarget;
+function openDialog(ch){
+  talking = ch; ch.state = 'talk'; ch.aff = 0; ch.qi = 0; ch.mood = 'neutral';
+  gameState = 'dialog';
+  dName.textContent = ch.def.name;
+  dTitle.textContent = ch.def.title;
+  dEl.classList.add('open');
+  sayLine(ch.def.greet, [{t:'…continue', act:'next'}]);
+}
+function sayLine(text, choices){
+  dText.textContent = text;
+  dAff.textContent = talking.aff>0 ? '💗'.repeat(talking.aff)
+                   : talking.aff<0 ? '💔'.repeat(-talking.aff) : '';
+  dChoices.innerHTML = '';
+  for (const c of choices){
+    const b = document.createElement('button');
+    b.textContent = c.t;
+    b.addEventListener('click', () => handleChoice(c));
+    dChoices.appendChild(b);
   }
-});
-renderer.domElement.addEventListener('pointermove', (e) => {
-  if (e.pointerType === 'mouse' && pointers.size === 0) {
-    updateGhost(pickTile(e.clientX, e.clientY));  // desktop hover preview
-  }
-  const p = pointers.get(e.pointerId);
-  if (!p) return;
-  p.x = e.clientX; p.y = e.clientY;
-  // Single-pointer drag = pan. The grabbed ground point stays under the
-  // pointer; the tap threshold keeps small jitters as taps.
-  if (pointers.size === 1 && !gestureMulti) {
-    if (!p.pan && Math.hypot(p.x - p.sx, p.y - p.sy) >= CONFIG.input.tapMaxMove) {
-      p.pan = pickGround(p.sx, p.sy);
-      ghost.visible = false;
-    }
-    if (p.pan) {
-      follow = false;                     // drag pan cancels follow
-      const hit = pickGround(e.clientX, e.clientY);
-      if (hit) { camTarget.x += p.pan.x - hit.x; camTarget.z += p.pan.z - hit.z; }
-    }
-  }
-  if (pointers.size === 2 && pinchStartDist > 0) {
-    const [a, b] = [...pointers.values()];
-    const d = Math.hypot(a.x - b.x, a.y - b.y);
-    camState.viewTarget = THREE.MathUtils.clamp(
-      pinchStartView * (pinchStartDist / d),
-      CONFIG.camera.viewMin, CONFIG.camera.viewMax);
-  }
-});
-function releasePointer(e) {
-  const p = pointers.get(e.pointerId);
-  pointers.delete(e.pointerId);
-  if (pointers.size < 2) pinchStartDist = 0;
-  if (!p) return;
-  const moved = Math.hypot(p.x - p.sx, p.y - p.sy);
-  if (!gestureMulti && moved < CONFIG.input.tapMaxMove && e.type === 'pointerup') {
-    if (tool === 'inspect') {
-      handleInspectTap(e.clientX, e.clientY);
+}
+function handleChoice(c){
+  const ch = talking;
+  if (!ch) return;
+  if (c.act === 'end')  return ending(true);
+  if (c.act === 'close') return closeDialog(ch);
+  if (c.act === 'next') return askQuestion(ch);
+  // an answer to a question
+  ch.aff += c.aff;
+  if (c.aff > 0) SFX.good();
+  else if (c.aff < 0){ SFX.bad(); if (ch.boss) damagePlayer(0); } // boss punishes bad answers
+  ch.mood = c.aff>0 ? 'happy' : (c.aff<0 ? 'angry' : 'neutral');
+  ch.qi++;
+  sayLine(c.r, [{t:'…continue', act:'next'}]);
+}
+function askQuestion(ch){
+  if (player.dead){ closeDialog(ch); return; }
+  if (ch.qi >= ch.def.qs.length) return finishDialog(ch);
+  ch.mood = 'neutral';
+  const q = ch.def.qs[ch.qi];
+  const shuffled = [...q.c].sort(() => Math.random()-0.5);
+  sayLine(q.q, shuffled);
+}
+function finishDialog(ch){
+  if (ch.aff >= 2){
+    ch.state = 'romanced'; ch.mood = 'love';
+    if (!ch.boss){
+      romanced++; SFX.good(); burst(ch.x+ch.w/2, ch.y, PAL.heart, 18);
+      refreshHUD();
+      sayLine(ch.def.win, [{t:'💜 See you around', act:'close'}]);
+      if (romanced >= CONFIG.romancesNeeded && gate && !gate.open)
+        setTimeout(() => showHint('The shrine gate stirs… head east ⛩️', 6), 600);
     } else {
-      const tile = pickTile(e.clientX, e.clientY);
-      if (tile) applyTool(tile[0], tile[1]);
+      SFX.gate();
+      sayLine(ch.def.win, [{t:'💜 …stay', act:'end'}]);
     }
-    if (e.pointerType !== 'mouse') ghost.visible = false;
+  } else if (ch.aff <= 0){
+    ch.state = 'angry'; ch.angryT = CONFIG.angrySeconds; ch.mood = 'angry';
+    SFX.bad();
+    sayLine(ch.def.lose, [{t:'😅 backing away slowly', act:'close'}]);
+  } else {
+    ch.state = 'unsure'; ch.mood = 'neutral';
+    sayLine(ch.def.meh, [{t:'🙂 fair enough', act:'close'}]);
   }
-  if (pointers.size === 0) gestureMulti = false;
 }
-renderer.domElement.addEventListener('pointerup', releasePointer);
-renderer.domElement.addEventListener('pointercancel', releasePointer);
-
-window.addEventListener('resize', () => {
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-/* ============================= MAIN LOOP ============================ */
-computeServedNeeds();          // initialize the complaint gate before the loop
-const clock = new THREE.Clock();
-function tick() {
-  const dt = Math.min(clock.getDelta(), 0.05);
-  updateCamera(dt);
-  updateAnims(dt);
-  growthTick(dt);
-  simTick(dt);
-  updateAgentMeshes();
-  updateTruckMeshes();
-  updateBubbles();
-  updateInspector();
-  renderer.render(scene, camera);
-  requestAnimationFrame(tick);
+function closeDialog(ch){
+  dEl.classList.remove('open');
+  gameState = 'play';
+  if (ch.state === 'talk' || ch.state === 'unsure') ch.state = 'roam';
+  if (ch.state === 'angry' && ch.boss){
+    // boss rejection: hurled back down the hill, she resets
+    player.x = gate ? gate.x - T*6 : spawn.x; player.y = spawn.y;
+    player.vx = 0; player.vy = 0;
+    ch.state = 'roam'; ch.aff = 0;
+  }
+  player.vy = -CONFIG.stompBounce * 0.6;
+  talking = null;
 }
-tick();
+function ending(){
+  gameState = 'ending';
+  dEl.classList.remove('open');
+  document.getElementById('endH1').textContent = '🌙💜 HAPPILY HAUNTED';
+  document.getElementById('endH2').textContent = 'ever after';
+  document.getElementById('endP').textContent =
+    `You charmed ${romanced} heart${romanced===1?'':'s'} of Hollow Hills — and the shrine ` +
+    `spirit herself. The fog is warm now. The ghosts wave when you pass. Kazuma still ` +
+    `insists you fell for him first. (He's wrong. Probably.)`;
+  document.getElementById('ending').classList.remove('hidden');
+}
+
+/* ---------------- DAMAGE / DEATH ---------------- */
+function damagePlayer(knockDir){
+  if (player.iframe > 0 || player.dead) return;
+  player.hearts--; refreshHUD(); SFX.hurt();
+  flash = Math.max(flash, 0.35);
+  if (player.hearts <= 0){ respawn(); return; }
+  player.iframe = CONFIG.iframes;
+  if (knockDir){ player.vx = 380*knockDir; player.vy = -350; }
+}
+function respawn(){
+  player.dead = true;
+  setTimeout(() => {
+    player.x = spawn.x; player.y = spawn.y; player.vx = 0; player.vy = 0;
+    player.hearts = CONFIG.maxHearts; player.iframe = 2; player.dead = false;
+    refreshHUD();
+    showHint('The night is patient. Try again. 🌙', 3);
+  }, 700);
+}
+
+/* ---------------- PARTICLES ---------------- */
+function burst(x, y, color, n){
+  for (let i=0;i<n;i++) particles.push({ x, y, vx:(Math.random()-0.5)*260,
+    vy:-Math.random()*300-40, t:0.9+Math.random()*0.5, color, heart:Math.random()<0.5 });
+}
+
+/* ---------------- PHYSICS ---------------- */
+function moveEntity(e, dt){
+  e.x += e.vx * dt;
+  let x0 = Math.floor(e.x/T), x1 = Math.floor((e.x+e.w)/T);
+  let y0 = Math.floor(e.y/T), y1 = Math.floor((e.y+e.h-1)/T);
+  for (let ty=y0; ty<=y1; ty++){
+    if (e.vx > 0 && solid(x1,ty)){ e.x = x1*T - e.w - 0.01; e.vx = 0; }
+    if (e.vx < 0 && solid(x0,ty)){ e.x = (x0+1)*T + 0.01; e.vx = 0; }
+  }
+  const prevBottom = e.y + e.h;
+  e.y += e.vy * dt;
+  e.onGround = false;
+  x0 = Math.floor(e.x/T); x1 = Math.floor((e.x+e.w)/T);
+  y0 = Math.floor(e.y/T); y1 = Math.floor((e.y+e.h)/T);
+  for (let tx=x0; tx<=x1; tx++){
+    if (e.vy > 0){
+      if (solid(tx,y1) || (oneway(tx,y1) && prevBottom <= y1*T+1)){
+        e.y = y1*T - e.h - 0.01; e.vy = 0; e.onGround = true;
+      }
+    } else if (e.vy < 0 && solid(tx,y0)){
+      e.y = (y0+1)*T + 0.01; e.vy = 0;
+    }
+  }
+}
+const overlap = (a,b) => a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y;
+
+/* ---------------- UPDATE ---------------- */
+function update(dt){
+  timeT += dt;
+  if (hintT > 0){ hintT -= dt; if (hintT <= 0) hintEl.classList.remove('show'); }
+  if (flash > 0) flash -= dt;
+  if (Math.random() < CONFIG.lightningChance) flash = Math.max(flash, 0.18 + Math.random()*0.18);
+
+  for (const w of wisps){ w.x += Math.sin(timeT*0.3+w.p)*10*dt; w.y += Math.cos(timeT*0.23+w.p)*8*dt; }
+  for (let i=particles.length-1; i>=0; i--){ const p = particles[i];
+    p.t -= dt; p.x += p.vx*dt; p.y += p.vy*dt; p.vy += 700*dt;
+    if (p.t<=0) particles.splice(i,1); }
+
+  if (gameState !== 'play') return;
+
+  // --- player ---
+  if (!player.dead){
+    const left  = keys.ArrowLeft || keys.KeyA || touch.l;
+    const right = keys.ArrowRight|| keys.KeyD || touch.r;
+    const jump  = keys.Space || keys.ArrowUp || keys.KeyW || touch.j;
+    player.vx = (right?CONFIG.moveSpeed:0) - (left?CONFIG.moveSpeed:0);
+    if (player.vx){ player.facing = Math.sign(player.vx); player.walkT += dt*10; }
+    if (jump && player.onGround){ player.vy = -CONFIG.jumpVel; SFX.jump(); }
+    player.vy = Math.min(player.vy + CONFIG.gravity*dt, 1100);
+    player.prevBottom = player.y + player.h;
+    moveEntity(player, dt);
+    if (player.iframe > 0) player.iframe -= dt;
+    if (player.y > rows*T + 100){          // fell into a pit
+      damagePlayer(0);
+      if (!player.dead){ player.x = spawn.x; player.y = spawn.y; player.vx = player.vy = 0; }
+    }
+  }
+
+  // --- gate ---
+  if (gate){
+    const px = player.x + player.w/2;
+    if (!gate.open && romanced >= CONFIG.romancesNeeded && Math.abs(px-(gate.x+T/2)) < T*4){
+      gate.open = true; SFX.gate(); refreshHUD();
+      showHint('⛩️ The gate opens for a charmed heart…', 4);
+    }
+    if (gate.open && gate.anim < 1) gate.anim = Math.min(1, gate.anim + dt*0.8);
+    if (!gate.open){
+      const g = {x:gate.x+6, y:gate.y-T*2, w:T-12, h:T*3};
+      if (overlap(player, g)){
+        player.x = px < g.x+g.w/2 ? g.x - player.w - 0.5 : g.x + g.w + 0.5;
+        const need = CONFIG.romancesNeeded - romanced;
+        showHint(`The gate is sealed. Charm ${need} more heart${need===1?'':'s'} 💕`, 3);
+      }
+    }
+  }
+
+  // --- cast ---
+  for (const ch of chars){
+    if (ch.state === 'talk') continue;
+    if (ch.state === 'angry' && !ch.boss){ ch.angryT -= dt; if (ch.angryT <= 0) ch.state = 'roam'; }
+    if (ch.state === 'romanced'){
+      ch.vx = 0; ch.walkT += dt*3;
+      if (Math.random() < 0.01) particles.push({ x:ch.x+ch.w/2, y:ch.y-6,
+        vx:(Math.random()-0.5)*30, vy:-50, t:1.2, color:PAL.heart, heart:true });
+    } else if (ch.boss){
+      ch.y = ch.home.y - 10 + Math.sin(timeT*1.6)*8;   // hovering, waiting
+      ch.dir = player.x < ch.x ? -1 : 1;
+    } else {
+      const sp = CONFIG.patrolSpeed * (ch.state==='angry' ? CONFIG.angrySpeedMult : 1);
+      ch.vx = sp * ch.dir;
+      ch.walkT += dt * (ch.state==='angry' ? 16 : 7);
+      const aheadX = ch.dir>0 ? ch.x+ch.w+2 : ch.x-2;
+      const aheadTX = Math.floor(aheadX/T);
+      const footY = Math.floor((ch.y+ch.h+4)/T);
+      const wallY = Math.floor((ch.y+ch.h/2)/T);
+      if (solid(aheadTX, wallY) || !(solid(aheadTX, footY) || oneway(aheadTX, footY))) ch.dir *= -1;
+      ch.vy += CONFIG.gravity*dt;
+      moveEntity(ch, dt);
+    }
+    if (player.dead) continue;
+    if (ch.boss && !(gate && gate.open)) continue;     // unreachable until the gate opens
+    if (overlap(player, ch)){
+      const stomped = player.vy > 0 && player.prevBottom <= ch.y + 12;
+      if (ch.state === 'romanced'){
+        if (stomped){ player.vy = -CONFIG.stompBounce; SFX.stomp(); }
+      } else if (stomped){
+        player.vy = -CONFIG.stompBounce; SFX.stomp();
+        burst(ch.x+ch.w/2, ch.y, '#c9b3ff', 8);
+        const target = ch;
+        setTimeout(() => { if (gameState==='play' && target.state!=='romanced') openDialog(target); }, 120);
+      } else {
+        damagePlayer(player.x < ch.x ? -1 : 1);
+      }
+    }
+    // the boss confronts you herself when you approach
+    if (ch.boss && gate && gate.open && ch.state==='roam' &&
+        Math.abs(player.x - ch.x) < T*1.8 && Math.abs(player.y - ch.y) < T*2.5){
+      openDialog(ch);
+    }
+  }
+
+  // --- pickups ---
+  for (const p of pickups){
+    if (p.taken) continue;
+    const bob = Math.sin(timeT*3+p.p)*4;
+    if (Math.abs(player.x+player.w/2 - p.x) < 22 && Math.abs(player.y+player.h/2 - (p.y+bob)) < 26){
+      p.taken = true; SFX.heart();
+      if (player.hearts < CONFIG.maxHearts){ player.hearts++; refreshHUD(); }
+      burst(p.x, p.y, PAL.heart, 8);
+    }
+  }
+
+  // --- camera ---
+  const tx = player.x + player.w/2 - W/2;
+  const ty = player.y + player.h/2 - H*0.58;
+  camX += (tx - camX) * Math.min(1, CONFIG.camLerp*dt);
+  camY += (ty - camY) * Math.min(1, CONFIG.camLerp*dt);
+  camX = Math.max(0, Math.min(cols*T - W, camX));
+  camY = Math.max(-T*6, Math.min(rows*T - H + T, camY));
+}
+
+/* ---------------- CHIBI RENDERER ----------------
+   One function draws every character, in-world and in the portrait.
+   Anchored at feet-center. s≈1.15 in world, s≈4.6 for portraits. */
+function drawChibi(g, look, opts){
+  const { s=1, facing=1, walk=0, mood='neutral', floaty=false } = opts;
+  g.save();
+  g.scale(facing*s, s);
+  g.translate(0, floaty ? Math.sin(walk)*2 : 0);
+
+  if (look.ghost){                                  // misty tail instead of legs
+    g.fillStyle = look.outfit;
+    g.beginPath();
+    g.moveTo(-8, -14); g.quadraticCurveTo(-9, -2, -5, 0);
+    g.quadraticCurveTo(-2, -4, 0, 0); g.quadraticCurveTo(2, -4, 5, 0);
+    g.quadraticCurveTo(9, -2, 8, -14); g.closePath(); g.fill();
+  } else {
+    const lg = Math.sin(walk)*3;
+    g.fillStyle = '#2a2140';
+    g.fillRect(-6, -8+Math.max(0,lg*0.6), 4, 8-Math.max(0,lg*0.6));
+    g.fillRect(2, -8+Math.max(0,-lg*0.6), 4, 8-Math.max(0,-lg*0.6));
+  }
+  g.fillStyle = look.outfit;
+  g.beginPath(); g.roundRect(-8, -22, 16, 15, 4); g.fill();
+  if (look.cape){
+    g.fillStyle = '#3d0f22';
+    g.beginPath(); g.moveTo(-8,-21);
+    g.quadraticCurveTo(-14 - Math.sin(walk)*2, -10, -10, -2);
+    g.lineTo(-6,-6); g.closePath(); g.fill();
+  }
+  const hy = -30;
+  g.fillStyle = look.skin;
+  g.beginPath(); g.arc(0, hy, 10, 0, 7); g.fill();
+
+  g.fillStyle = look.hair;
+  if (look.style === 'long'){
+    g.beginPath(); g.arc(0, hy-1.5, 10.5, Math.PI, 0); g.fill();
+    g.fillRect(-10.5, hy-2, 4, 16); g.fillRect(6.5, hy-2, 4, 16);
+  } else if (look.style === 'twintails'){
+    g.beginPath(); g.arc(0, hy-1.5, 10.5, Math.PI, 0); g.fill();
+    const sway = Math.sin(walk)*2;
+    g.beginPath(); g.ellipse(-12, hy+3+sway, 3.4, 8, 0.3, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(12, hy+3-sway, 3.4, 8, -0.3, 0, 7); g.fill();
+  } else if (look.style === 'swoosh'){
+    g.beginPath(); g.arc(0, hy-2, 10.7, Math.PI*0.9, Math.PI*2.1); g.fill();
+    g.beginPath(); g.moveTo(-9,hy-4); g.quadraticCurveTo(2,hy-16, 12,hy-6);
+    g.quadraticCurveTo(6,hy-9, -2,hy-6); g.closePath(); g.fill();
+  } else if (look.style === 'wild'){
+    g.beginPath(); g.arc(0, hy-1.5, 10.7, Math.PI, 0); g.fill();
+    for (let i=-2;i<=2;i++){ g.beginPath();
+      g.moveTo(i*4-2, hy-8); g.lineTo(i*4, hy-15 - Math.abs(i)); g.lineTo(i*4+2, hy-8);
+      g.closePath(); g.fill(); }
+  } else if (look.style === 'veil'){
+    g.beginPath(); g.arc(0, hy-1.5, 10.7, Math.PI, 0); g.fill();
+    g.fillRect(-10.5, hy-2, 4, 20); g.fillRect(6.5, hy-2, 4, 20);
+    g.globalAlpha = 0.3; g.fillStyle = '#e6d8ff';
+    g.beginPath(); g.roundRect(-12, hy-12, 24, 26, 6); g.fill();
+    g.globalAlpha = 1;
+  }
+  if (look.ears){                                   // wolf ears
+    g.fillStyle = look.hair;
+    g.beginPath(); g.moveTo(-8,hy-7); g.lineTo(-6,hy-16); g.lineTo(-2,hy-9); g.closePath(); g.fill();
+    g.beginPath(); g.moveTo(8,hy-7); g.lineTo(6,hy-16); g.lineTo(2,hy-9); g.closePath(); g.fill();
+  }
+  // face
+  const eyeY = hy+1;
+  if (mood === 'angry'){
+    g.strokeStyle = look.eye; g.lineWidth = 1.6;
+    g.beginPath(); g.moveTo(1,eyeY-3); g.lineTo(6,eyeY-1); g.stroke();
+    g.beginPath(); g.moveTo(-1,eyeY-3); g.lineTo(-6,eyeY-1); g.stroke();
+    g.fillStyle = look.eye;
+    g.beginPath(); g.ellipse(3.5, eyeY+1, 1.7, 2.2, 0, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(-3.5, eyeY+1, 1.7, 2.2, 0, 0, 7); g.fill();
+    g.strokeStyle = '#a05060'; g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(-2.5, hy+6.5); g.quadraticCurveTo(0, hy+5, 2.5, hy+6.5); g.stroke();
+  } else if (mood === 'love'){
+    g.fillStyle = '#ff6f9f'; g.font = '7px sans-serif'; g.textAlign = 'center';
+    g.fillText('♥', -3.5, eyeY+3); g.fillText('♥', 3.5, eyeY+3);
+    g.strokeStyle = '#c05a70'; g.lineWidth = 1.2;
+    g.beginPath(); g.moveTo(-3, hy+6); g.quadraticCurveTo(0, hy+8.5, 3, hy+6); g.stroke();
+  } else {
+    for (const sx of [-3.5, 3.5]){                  // big anime eyes
+      g.fillStyle = '#fff';
+      g.beginPath(); g.ellipse(sx, eyeY, 2.6, 3.2, 0, 0, 7); g.fill();
+      g.fillStyle = look.eye;
+      g.beginPath(); g.ellipse(sx+0.5, eyeY+0.3, 1.7, 2.4, 0, 0, 7); g.fill();
+      g.fillStyle = '#fff';
+      g.beginPath(); g.arc(sx+1.1, eyeY-0.8, 0.7, 0, 7); g.fill();
+    }
+    g.strokeStyle = '#b06a78'; g.lineWidth = 1.1;
+    if (mood === 'happy'){
+      g.beginPath(); g.moveTo(-2.6, hy+5.5); g.quadraticCurveTo(0, hy+8, 2.6, hy+5.5); g.stroke();
+    } else {
+      g.beginPath(); g.moveTo(-1.8, hy+6.2); g.lineTo(1.8, hy+6.2); g.stroke();
+    }
+  }
+  if (look.blush){
+    g.fillStyle = '#ffa0b855';
+    g.beginPath(); g.ellipse(-6.4, hy+4, 2.2, 1.3, 0, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(6.4, hy+4, 2.2, 1.3, 0, 0, 7); g.fill();
+  }
+  if (look.patch){                                  // Rin's cute bandage
+    g.fillStyle = '#ead9c8';
+    g.save(); g.translate(6.5, hy-4); g.rotate(0.5); g.fillRect(-3,-1.2,6,2.4); g.restore();
+  }
+  if (look.sparkle && mood !== 'angry'){            // uber-confident sparkles
+    g.fillStyle = '#ffe9b0';
+    g.globalAlpha = 0.4 + 0.6*(Math.sin(walk*2)+1)/2;
+    g.font = '5px sans-serif'; g.textAlign = 'center';
+    g.fillText('✦', 12, hy-8); g.fillText('✦', -13, hy+2);
+    g.globalAlpha = 1;
+  }
+  g.restore();
+}
+
+function renderPortrait(ch){
+  const g = dPortrait;
+  g.clearRect(0,0,240,240);
+  const grad = g.createRadialGradient(120,90,10,120,120,160);
+  grad.addColorStop(0, ch.mood==='angry' ? '#4a1235' : '#2e1c58');
+  grad.addColorStop(1, '#0d0718');
+  g.fillStyle = grad; g.fillRect(0,0,240,240);
+  g.save(); g.translate(120, 214);
+  drawChibi(g, ch.def.look, { s:4.6, facing:1, walk:timeT*3, mood:ch.mood||'neutral' });
+  g.restore();
+}
+
+/* ---------------- RENDER ---------------- */
+function render(){
+  const sky = ctx.createLinearGradient(0,0,0,H);
+  sky.addColorStop(0,PAL.skyTop); sky.addColorStop(0.6,PAL.skyMid); sky.addColorStop(1,PAL.skyLow);
+  ctx.fillStyle = sky; ctx.fillRect(0,0,W,H);
+  // stars
+  ctx.fillStyle = PAL.star;
+  const span = W+200;
+  for (let i=0;i<60;i++){
+    const sx = ((i*173.3 - camX*0.05) % span + span) % span - 100;
+    const sy = (i*97.7) % (H*0.7);
+    ctx.globalAlpha = 0.25 + 0.55*Math.abs(Math.sin(timeT*0.8 + i));
+    ctx.fillRect(sx, sy, 2, 2);
+  }
+  ctx.globalAlpha = 1;
+  // moon (pastel blue)
+  const mx = W*0.78 - camX*0.03, my = H*0.16;
+  ctx.fillStyle = PAL.moon; ctx.beginPath(); ctx.arc(mx,my,46,0,7); ctx.fill();
+  ctx.fillStyle = PAL.moonShade;
+  ctx.beginPath(); ctx.arc(mx-14,my-8,7,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(mx+10,my+12,5,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(mx+16,my-14,4,0,7); ctx.fill();
+  ctx.globalAlpha = 0.18; ctx.fillStyle = PAL.moon;
+  ctx.beginPath(); ctx.arc(mx,my,62,0,7); ctx.fill();
+  ctx.globalAlpha = 1;
+  // pastel-pink glow bleeding up from the horizon
+  const hg = ctx.createLinearGradient(0,H*0.42,0,H*0.66);
+  hg.addColorStop(0,'#0000'); hg.addColorStop(1,PAL.horizonGlow+'2e');
+  ctx.fillStyle = hg; ctx.fillRect(0,H*0.42,W,H*0.24);
+  // far hills
+  ctx.fillStyle = PAL.hills;
+  ctx.beginPath(); ctx.moveTo(0,H);
+  for (let x=0;x<=W;x+=40) ctx.lineTo(x, H*0.55 + Math.sin((x+camX*0.15)*0.006)*40);
+  ctx.lineTo(W,H); ctx.fill();
+  // background wisps
+  for (const w of wisps){
+    const sx = w.x - camX*0.5, sy = w.y - camY*0.5;
+    if (sx<-40 || sx>W+40) continue;
+    ctx.globalAlpha = 0.10 + 0.08*Math.sin(timeT+w.p);
+    ctx.fillStyle = PAL.wisp;
+    ctx.beginPath(); ctx.arc(sx, sy, 8*w.s, 0, 7); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.save();
+  ctx.translate(-Math.round(camX), -Math.round(camY));
+
+  // trees & graves (behind tiles)
+  ctx.lineCap = 'round';
+  for (const t of trees){
+    const bx = t.x+T/2, by = t.y+T;
+    ctx.strokeStyle = PAL.treeInk; ctx.lineWidth = 7;
+    ctx.beginPath(); ctx.moveTo(bx, by); ctx.lineTo(bx, by-70); ctx.stroke();
+    ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.moveTo(bx,by-46); ctx.lineTo(bx-26, by-72); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx,by-58); ctx.lineTo(bx+24, by-86); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(bx-26,by-72); ctx.lineTo(bx-38, by-84); ctx.stroke();
+  }
+  for (const gv of graves){
+    ctx.fillStyle = PAL.grave;
+    ctx.beginPath(); ctx.roundRect(gv.x+8, gv.y+10, T-16, T-10, [8,8,0,0]); ctx.fill();
+    ctx.fillStyle = PAL.graveLine;
+    ctx.fillRect(gv.x+14, gv.y+18, T-28, 3); ctx.fillRect(gv.x+14, gv.y+25, T-28, 3);
+  }
+
+  // tiles (only the visible window)
+  const x0 = Math.max(0, Math.floor(camX/T)-1), x1 = Math.min(cols, Math.ceil((camX+W)/T)+1);
+  const y0 = Math.max(0, Math.floor(camY/T)-1), y1 = Math.min(rows, Math.ceil((camY+H)/T)+1);
+  for (let y=y0; y<y1; y++) for (let x=x0; x<x1; x++){
+    const c = LEVEL[y][x];
+    if (c === '#'){
+      const top = !solid(x, y-1);
+      ctx.fillStyle = top ? PAL.stoneFace : PAL.stoneDeep;
+      ctx.fillRect(x*T, y*T, T, T);
+      if (top){
+        ctx.fillStyle = PAL.stoneTop; ctx.fillRect(x*T, y*T, T, 6);
+        ctx.fillStyle = PAL.stoneSpeck;
+        ctx.fillRect(x*T+3, y*T, 4, 3); ctx.fillRect(x*T+16, y*T, 6, 3); ctx.fillRect(x*T+27, y*T, 4, 3);
+      } else {
+        ctx.strokeStyle = '#1c1234'; ctx.lineWidth = 1;
+        ctx.strokeRect(x*T+.5, y*T+.5, T-1, T-1);
+      }
+    } else if (c === '='){
+      ctx.fillStyle = PAL.platform;
+      ctx.beginPath(); ctx.roundRect(x*T, y*T+4, T, 12, 3); ctx.fill();
+      ctx.fillStyle = PAL.platformTop; ctx.fillRect(x*T+2, y*T+4, T-4, 4);
+    }
+  }
+
+  // shrine gate
+  if (gate){
+    const gx = gate.x, gy = gate.y - T*2;
+    ctx.fillStyle = PAL.gateWood;
+    ctx.fillRect(gx-6, gy-14, 8, T*3+14); ctx.fillRect(gx+T-2, gy-14, 8, T*3+14);
+    ctx.fillRect(gx-14, gy-16, T+28, 10); ctx.fillRect(gx-8, gy-30, T+16, 9);
+    if (gate.anim < 1){
+      ctx.globalAlpha = 1-gate.anim;
+      ctx.fillStyle = PAL.gateSeal;
+      const lift = gate.anim * T*2.6;
+      for (let i=0;i<4;i++) ctx.fillRect(gx+2+i*8, gy-4-lift, 4, T*3);
+      ctx.globalAlpha = 1;
+    }
+    ctx.fillStyle = '#ffd6ea'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(gate.open ? '⛩️' : `💕 ${Math.min(romanced,CONFIG.romancesNeeded)}/${CONFIG.romancesNeeded}`,
+      gx+T/2, gy-36);
+  }
+
+  // pickups
+  ctx.font = '22px sans-serif'; ctx.textAlign = 'center';
+  for (const p of pickups){
+    if (p.taken) continue;
+    ctx.globalAlpha = 0.9;
+    ctx.fillText('💗', p.x, p.y + Math.sin(timeT*3+p.p)*4 + 8);
+  }
+  ctx.globalAlpha = 1;
+
+  // cast
+  for (const ch of chars){
+    if (ch.boss && !(gate && gate.open))            // distant silhouette until the gate opens
+      ctx.globalAlpha = 0.35 + 0.1*Math.sin(timeT*2);
+    ctx.save();
+    ctx.translate(ch.x + ch.w/2, ch.y + ch.h);
+    const mood = ch.state==='angry' ? 'angry' : ch.state==='romanced' ? 'love' : 'neutral';
+    drawChibi(ctx, ch.def.look, { s:1.15, facing:ch.dir||1, walk:ch.walkT, mood,
+      floaty:!!ch.def.look.ghost });
+    ctx.restore();
+    ctx.globalAlpha = 1;
+    ctx.font = '14px sans-serif'; ctx.textAlign = 'center';
+    if (ch.state === 'romanced') ctx.fillText('💕', ch.x+ch.w/2, ch.y-10 + Math.sin(timeT*3)*3);
+    else if (ch.state === 'angry') ctx.fillText('💢', ch.x+ch.w/2, ch.y-10);
+    else if (ch.state === 'unsure') ctx.fillText('🤍', ch.x+ch.w/2, ch.y-10);
+  }
+
+  // player (lavender-haired protagonist; blinks during i-frames)
+  if (!player.dead && (player.iframe <= 0 || Math.floor(timeT*14)%2===0)){
+    ctx.save();
+    ctx.translate(player.x+player.w/2, player.y+player.h);
+    drawChibi(ctx, { hair:'#a894e0', style:'wild', skin:'#f2dcc4', outfit:'#b25a80',
+      eye:'#7ec8c0' }, { s:1.1, facing:player.facing, walk:player.walkT, mood:'neutral' });
+    ctx.restore();
+  }
+
+  // particles
+  for (const p of particles){
+    ctx.globalAlpha = Math.min(1, p.t);
+    if (p.heart){ ctx.font = '12px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('💗', p.x, p.y); }
+    else { ctx.fillStyle = p.color; ctx.fillRect(p.x-2, p.y-2, 4, 4); }
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+
+  // ground fog (pastel blue)
+  const fy = H*0.86;
+  ctx.fillStyle = PAL.fog + '22';
+  for (let i=0;i<3;i++){
+    ctx.beginPath();
+    for (let x=0;x<=W;x+=30){
+      const yy = fy + i*16 + Math.sin((x+camX*0.4)*0.012 + timeT*0.6 + i*2)*10;
+      x===0 ? ctx.moveTo(x,yy) : ctx.lineTo(x,yy);
+    }
+    ctx.lineTo(W,H); ctx.lineTo(0,H); ctx.fill();
+  }
+  // vignette — the horror lives at the edges
+  const vg = ctx.createRadialGradient(W/2,H/2,H*0.35,W/2,H/2,H*0.85);
+  vg.addColorStop(0,'#0000'); vg.addColorStop(1,'#05030b8c');
+  ctx.fillStyle = vg; ctx.fillRect(0,0,W,H);
+  // lightning / damage flash
+  if (flash > 0){
+    ctx.globalAlpha = Math.min(0.5, flash);
+    ctx.fillStyle = PAL.flash;
+    ctx.fillRect(0,0,W,H);
+    ctx.globalAlpha = 1;
+  }
+}
+
+/* ---------------- MAIN LOOP ---------------- */
+let last = performance.now();
+function frame(now){
+  const dt = Math.min(0.033, (now-last)/1000);
+  last = now;
+  update(dt);
+  render();
+  if (gameState==='dialog' && talking) renderPortrait(talking);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// debug hooks (strip before a public ship)
+window._game = { player, chars, CONFIG, get state(){ return gameState; },
+  get romanced(){ return romanced; }, openDialog, gate: () => gate };
 </script>
 </body>
 </html>

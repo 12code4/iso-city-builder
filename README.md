@@ -1,95 +1,105 @@
-# Isometric City Builder
+# 🌙 Midnight Crush — a haunted dating platformer
 
-A browser-based isometric city builder — true 3D on an orthographic camera locked
-to isometric angles, built with [Three.js](https://threejs.org/). Place roads and
-buildings on a grid, connect them to the highway, and watch a living little city
-grow: residents arrive by moving truck, commute to work, run errands, relax in
-parks, and grumble when the town is missing something.
+> **This branch is its own project.** The `main` branch of this repo is the
+> isometric city builder; `claude/anime-dating-sim-platformer-eji5ot` is
+> **Midnight Crush**, a Mario-style platformer crossed with an anime dating sim,
+> wrapped in pastel-pink-purple-blue horror. Built as a gift game. 💜
 
-Everything lives in a single self-contained `index.html` (no build step).
+The town of Hollow Hills is cursed: every soul wandering its night is impossibly
+attractive. You don't fight the "enemies" — **you jump on their heads to start a
+conversation.** Every goomba-slot is a cute anime girl or an uber-confident hot
+anime guy with a real dialog tree. Charm three hearts to open the shrine gate,
+then survive a conversation with the spirit guarding it.
 
-**Current version: v0.3 "Alive"** — placement + growth (v0.1), a full citizen
-simulation with pathfinding walkers and cars (v0.2), and an observability layer
-that lets you watch individual citizens live their day (v0.3).
+Everything lives in a single self-contained `index.html` — no build step, no
+assets, no dependencies. Every character is a procedurally drawn chibi.
+
+**Current version: v0.1 "First Night"**
 
 ## Running it
 
-No build, no install. Because the page loads Three.js from a CDN, it needs an
-internet connection the first time.
-
-- **Simplest:** open `index.html` in a modern browser.
-- **If your browser blocks ES-module imports over `file://`,** serve the folder:
-  ```bash
-  python3 -m http.server 8000
-  # then visit http://localhost:8000/index.html
-  ```
-
-Desktop and mobile touch are both supported.
-
-## Controls
+Open `index.html` in any modern browser. That's it. Desktop and mobile touch
+both work (on-screen buttons appear on touch devices).
 
 | Action | Desktop | Mobile |
 | --- | --- | --- |
-| Place / bulldoze | click with a tool selected | tap |
-| Inspect a citizen or building | 🔍 tool, then click | 🔍 tool, then tap |
-| Pan | WASD / arrows, or drag | one-finger drag |
-| Rotate (4 iso angles) | Q / E, or the ⟲ ⟳ buttons | on-screen buttons |
-| Zoom | mouse wheel | pinch |
+| Move | ← → or A / D | ◀ ▶ buttons |
+| Jump | Space / ↑ / W | ⤒ button |
+| Talk to someone | jump on their head | jump on their head |
+| Answer | click a dialog choice | tap a dialog choice |
 
-Toolbar: **Road · House · Shop · Park · Clear · Inspect**. Roads must connect to
-the pre-placed highway stub; houses only grow and only receive residents when
-they have a connected road, so build streets first.
+## The design (v0.1 build)
 
-## What's built
+**Core loop — Mario × dating sim:**
+- Side-scrolling platformer: run, jump, one-way platforms, pits, heart pickups.
+- Every "enemy" is a character. **Stomp = start a conversation**, not a kill.
+  Touching them from the side still hurts, like Mario — flirting takes precision.
+- Each conversation is a 3-question dialog tree. Answers shift affection
+  (💗 / 💔). End result: **romanced** (they light up and become an ally),
+  **unsure** (come back and try again), or **rejected** — they get *angry* and
+  hunt you at double speed for a while. Consequences are visible.
+- Charm **3 hearts** to unseal the shrine gate. Behind it waits **Ayame**, the
+  boss — a pure dialog battle where wrong answers cost real hearts.
 
-- **Placement & growth** — 20×20 grid, ghost preview, bulldoze, pop-in animation;
-  houses upgrade to level 2 when served by a connected road.
-- **The highway** — a fixed edge stub that anchors the map and is the city's
-  import artery: every new resident drives in from it.
-- **Citizen simulation** — each resident is an agent with energy/work/errands/fun
-  meters and a strict three-state machine (sleep / work / free-time), meter-driven
-  with no global clock, so the city never falls into synchronized "rush hours."
-  Citizens path over the road network as walkers or cars (mode chosen by distance
-  and car availability).
-- **Migration** — houses don't spawn residents instantly; a **moving truck** drives
-  in from the highway, drops off 1–3 new residents, and leaves. Unreachable houses
-  stay empty until you connect them.
-- **Inspectors** — tap any walker or building for a live card: a citizen's name,
-  what they're doing, their meters, and home/job; a building's residents, workers,
-  or current visitors.
-- **Follow camera** — track a single citizen through their whole day.
-- **Bubbles** — citizens show thought bubbles at decision points, and *complaint*
-  bubbles when a need is starved and there's no venue for it — the city telling you
-  what to build next.
+**The cast (all procedurally drawn chibis with moods):**
 
-## Project structure & documentation
+| | Character | Slot | Personality |
+| --- | --- | --- | --- |
+| 👻 | **Yuki** — shy ghost girl | goomba | 80 years of haunting, flustered by one compliment |
+| 🧟‍♀️ | **Rin** — zombie schoolgirl | goomba | died in 2004, unbothered, snack-driven |
+| 🦇 | **Kazuma** — vampire | koopa | insufferably confident, 400 years old, "natural hair volume" |
+| 🐺 | **Ren** — werewolf | koopa | smug pretty-boy, tail betrays him |
+| ⛩️ | **Ayame** — shrine spirit | boss | 300-year yandere guardian of everyone's hearts |
 
-Everything is one HTML file; the documentation is split by purpose:
+**The aesthetic (her palette):** pastel pinks, purples, and blues glowing
+against a deep-night horror backdrop — pastel-blue moon, drifting fog, ghost
+wisps, dead trees, gravestones, random violet lightning, and a heavy vignette.
+Cute where the light is, scary where it isn't.
 
-| File | What it is |
-| --- | --- |
-| [`index.html`](index.html) | The entire game — CONFIG, world state, sim, and renderer in one module. |
-| [`CLAUDE.md`](CLAUDE.md) | **Stable architecture reference** — locked decisions, the world model, and the systems (citizens, migration, inspectors, bubbles). Read this first to understand how it works. |
-| [`roadmap.md`](roadmap.md) | **Designed-ahead features** — the pillars planned for v0.4+ (economy, traffic, density, new needs) and the rules every feature must pass. |
-| [`plan.md`](plan.md) | **Session-by-session dev log** — what was built when, test results, and tuning notes. |
+**Architecture rules (inherited from the city builder's discipline):**
+- All tuning lives in one `CONFIG` object (physics, palette, timers, thresholds).
+- The level is **built in code**, not hand-aligned ASCII — no alignment bugs.
+- One `drawChibi()` renders every character at every size (world + portrait):
+  single source of truth for how a character looks.
+- Dialog is data (`CAST`), not code: adding a character = adding an entry.
+  Zero new engine logic per character.
+- Tiny WebAudio synth for SFX — still zero assets.
 
-All game tuning lives in a single `CONFIG` object at the top of `index.html` — grid
-size, colors, camera, growth timers, and every citizen/migration/bubble rate.
+## Roadmap — the two planned updates
 
-## Roadmap (short version)
+### Update 1 — v0.2 "The Witching Hour" *(horror deepens)*
 
-- **v0.2 — Citizens** ✅ sim core, walkers & cars, migration, scale-tested.
-- **v0.3 — Alive** ✅ names, inspectors, follow camera, thought & complaint bubbles.
-- **v0.4 — Payday** (next) — money, build costs, income from real citizen visits,
-  delivery trucks supplying shops.
-- **v0.5 — Rush Hour** — traffic congestion, then land value & density.
+She loves horror, so the horror gets teeth:
 
-See [`roadmap.md`](roadmap.md) for the full designs and sequencing.
+- **The Shade** — an *unromanceable* stalker. At intervals the night deepens:
+  colors drain, a heartbeat starts, and a shadow with too many eyes hunts you.
+  You can't talk to it. You hide behind gravestones or you run. Rejected
+  characters join the hunt while they're angry.
+- **Memory & persistence** — characters remember previous conversations
+  (localStorage save). Romanced characters get a **second scene**: a date at a
+  location in the level (graveyard picnic with Rin, moonlit balcony with
+  Kazuma…), each with its own dialog tree and story payoff.
+- **Gifts** — collectible items hidden in the darkest corners of the map
+  (melon bread, a vintage '31 red, a frisbee…). Holding the right gift unlocks
+  a special dialog choice that character can't resist.
+- **Ambience pass** — low synth drone, proximity heartbeat for the Shade,
+  per-character leitmotif stingers.
 
-## Tech notes
+### Update 2 — v0.3 "Starlight Signal" *(her sci-fi side: World 2)*
 
-- Three.js (ES-module build) with an orthographic camera; depth sorting comes free
-  from the z-buffer. Flat-colored geometry, soft shadows, warm palette — no textures.
-- Meshes are a **projection** of the world/citizen state, never the source of truth.
-- Pointer events (one input path for mouse and touch); no external assets besides
-  the Three.js module.
+- **World 2: the Aurora, a derelict orbital station** — the curse reached
+  space. New tileset: pastel neon on void-black, starfields, broken airlocks,
+  **low-gravity jump physics** and a jetpack double-jump power-up.
+- **New cast:** **Vega** (deadpan android girl who is *learning* what flirting
+  is, badly), **Prince Altair** (alien royalty, somehow more confident than
+  Kazuma — they must never meet), and boss **MOTHER**, the station AI — a
+  horror/sci-fi dialog battle where she quotes your own past conversations
+  back at you.
+- **Endings gallery** — tracks every romance across both worlds; unlockable
+  epilogue cards per character.
+
+## Repo hygiene
+
+Same standing process as `main`: granular commits, tag each finished version
+(`v0.1-mc` style tags to avoid colliding with the city builder's tags), docs
+updated every release. `window._game` debug hooks stay until a public ship.
