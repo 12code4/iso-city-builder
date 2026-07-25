@@ -4,16 +4,35 @@
 
 ## Current status
 
-v0.2 "Broken Strings" built and headless-verified. **Juan's playtest review is
-in** — compiled as `design-doc.md`, which supersedes both tabled README backlog
-items. Next build is **v0.3 "Close Quarters"** (design-doc.md §4): camera zoom,
-swept stomp fix, bounce juggle, behavior bands, 0–100 hidden meter, dialog once
-per body, debug menu. v0.2 tagging is still Juan's call (design-doc.md §9.7).
+**v0.3 "Close Quarters" built and headless-verified (16/16 checks).** Built to
+`design-doc.md` §4. Runnable: `midnight-crush-v0.3-close-quarters.html`; v0.1/v0.2
+kept on disk; `index.html` is a launcher. Next playtest should use the `N` debug
+menu to correct every `[PROPOSED]` number, then v0.4 "Open Road".
 
 The old v0.3 "Witching Hour" / v0.4 "Starlight Signal" plan is displaced by the
-new release plan in design-doc.md §3; re-scope those after v0.4 lands.
+release plan in design-doc.md §3; re-scope those after v0.4 lands.
 
 ## Session log
+
+- **2026-07-25 — Session 3 (build v0.3 "Close Quarters").**
+  - Merged the design-doc branch → main as doc-of-record.
+  - Noted the two city-builder branches (`v0.4-art-immersion`,
+    `v0.5-charm-critters`) fork the OLD line — MUST NOT merge to main; their
+    version numbers also collide with Midnight Crush's. Flagged to Juan.
+  - Versioning (§2.7): runnable → `midnight-crush-v0.3-close-quarters.html`
+    with a history header; v0.1/v0.2 kept playable; `index.html` → launcher.
+  - Built v0.3 §4: camera zoom (`viewTiles`, `setTransform`), swept stomp fix,
+    bounce juggle (dialog-per-body, 6 warn / 7 fall, 5% rainbow-free), 0–100
+    hidden meter (v1→v2 migration, memory record, weighted choices), all-band
+    ambient chatter, `N` debug menu. Aggression-beyond-speed stubbed (§9.2).
+    Gate + level untouched in v0.3 as instructed.
+  - Each update now on its own branch (`v0.3-close-quarters`). Pages: one site
+    per repo (GitHub limit) → serve main's launcher; older versions download.
+  - Tags still 403 from this environment — v0.1-mc/v0.2-mc need Juan's push.
+  - Regression suite (scratch): zoom invariance @1280/1920, v1→v2 migration,
+    terminal-velocity stomp 15/15, dialog-per-body, 7-bounce fall+cost+memory,
+    ground reset, rainbow-free variant, weighted meter math, hidden meter,
+    debug menu. All pass, no console errors.
 
 - **2026-07-25 — Session 2 (playtest review → design doc).**
   - Compiled Juan's v0.2 playtest feedback into `design-doc.md` via interview.

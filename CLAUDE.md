@@ -32,11 +32,16 @@ Browser Mario-style platformer × Japanese-style dating sim × pastel horror.
 An unseen puppeteer (the game's "Bowser") has the town of Hollow Hills
 mind-controlled on visible strings. Every enemy slot is a cute anime girl or
 an uber-confident hot anime guy. Stomping snaps a body's strings and starts a
-conversation instead of a kill. Charm 3 hearts → shrine gate → boss dialog
-battle → almost-kiss finale.
+conversation instead of a kill; each body talks once, then becomes a
+springboard. Romance accumulates as you travel (the shrine gate is removed in
+v0.4); the finale's almost-kiss goes to whoever has the highest meter.
 
-Single self-contained `index.html`. Zero assets: characters are procedurally
-drawn chibis, SFX is a tiny WebAudio synth. Desktop + mobile touch.
+Single self-contained runnable file (see below). Zero assets: characters are
+procedurally drawn chibis, SFX is a tiny WebAudio synth. Desktop + mobile touch.
+
+**The design doc (`design-doc.md`) is the current source of authority.** It
+compiles Juan's v0.2 playtest into law and a release plan (v0.3–v0.7). Read it
+before building. `[PROPOSED]` numbers in it are guesses, not decisions.
 
 ## Locked decisions
 
@@ -69,67 +74,95 @@ drawn chibis, SFX is a tiny WebAudio synth. Desktop + mobile touch.
   share one bond/memory. Characters deflect questions about it. Unraveling it
   is long-game content; no code may "fix" or lampshade it away.
 
+## Runnable files (design-doc §2.7)
+
+The runnable is renamed each release: `midnight-crush-vX.Y-title.html`, opening
+with a version-history comment block. Prior versions stay on disk as playable
+snapshots. `index.html` is a **launcher page** linking every version (also what
+GitHub Pages serves). Update every doc's file references in the same commit.
+Current runnable: `midnight-crush-v0.3-close-quarters.html`.
+
 ## Core state
 
 - `bonds[id]` — ONE record per character (not per body), persisted to
-  localStorage (`midnightCrush.v1`): `{ bond, freed, romanced, dated }`.
-  `romanced` is a HIGH-WATER mark (gate progress never regresses).
-  Ayame is never persisted — the finale replays each session.
+  localStorage (`midnightCrush.v2`): `{ meter, freed, romanced, dated, mem }`.
+  `meter` is **0–100 and hidden** from the player. `mem` = `{ bounces, falls,
+  choices }` (lifetime, feeds v0.5 callbacks). `romanced` is a HIGH-WATER mark.
+  Ayame is never persisted — the finale replays. v1→v2 migration in place.
 - `chars[]` — bodies on the map. Per-body: position/physics, `attitude`
   ('puppet' | 'friendly' | 'neutral' | 'hostile' | 'bumped' | 'boss'),
-  `talkCd`, `ambientAt`, `spin/hidden/respawnAt` (bump lifecycle).
+  `spoken` (this body's one conversation is used), `juggle/counting/rainbow`
+  (bounce chain), `talkCd`, `ambientAt`, `spin/hidden/respawnAt` (fall lifecycle).
 - Attitude derives via `deriveAttitude(id)` at interaction points ONLY
-  (dialog end, bump respawn, load) — never per frame. Bodies lagging the
+  (dialog end, fall respawn, load) — never per frame. Bodies lagging the
   meter is intentional (mystery + per-instance feel).
 
-## Attitude bands (CONFIG.attitude)
+## Attitude bands (CONFIG.meter / CONFIG.attitude)
 
-- bond ≥ friendlyBond (2) → **friendly**: no damage; 0.8× patrol; ambient
-  speech bubbles; heart particles; heals player on walk-up (healCooldown).
-  Stomp = Mario-style bump-off: archetype quote (bumpLove at bond ≥ loveBond),
-  −bumpBondLoss, body flies off spinning, respawns after bumpRespawn.
-- hostileBond (−1) < bond < friendlyBond → **neutral** (free-thinking):
-  regular enemy at 0.8× aggression.
-- bond ≤ hostileBond → **hostile**: hunts player within chaseRange at 1.25×
-  speed; wary `regreetLow` greeting.
-- `puppet` = strings never snapped on THIS body (per-body in-session; on load,
-  bodies of a freed character load string-free — known simplification).
+- meter ≥ friendlyMin (55) → **friendly**: the ONLY safe contact. 0.8× patrol;
+  ambient bubbles; heart particles; walk-up → date (once) / heal / quip.
+  Stomp a spent friendly = the juggle (see below).
+- hostileMax (19) < meter < friendlyMin → **neutral** (free-thinking): regular
+  enemy, damages on contact, 0.8× aggression.
+- meter ≤ hostileMax (19) → **hostile**: damages; hunts player within
+  chaseRange at 1.25×; wary `regreetLow` greeting.
+- `puppet` = strings never snapped on THIS body (per-body in-session).
+
+## Dialog-per-body + the bounce juggle (design §2.1/§2.2)
+
+- Each BODY carries ONE conversation (`spoken`). First stomp → strings snap +
+  dialog. After that the body is platforming furniture.
+- Stomping a spent body starts a **juggle**: consecutive airborne bounces
+  counted on the body; touching the ground resets EVERY body's chain. Bounce
+  `warn` (6) → annoyance line; `fall` (7) → they leave the screen Mario-style
+  (slowed `fallGravity` for comedy), costing `fallCost` meter, parting line
+  lingers `lingerS`. `countChance` (5%): they count out loud and flutter off in
+  a rainbow at ZERO cost — do NOT balance this joke away (§2.2). Bodies respawn
+  after `bumpRespawn`, attitude re-derived.
+- Choice weights are varied per question (not uniform ±1); meter is the sum.
 
 ## Interaction matrix (who does what on contact)
 
-|            | stomp                            | side contact              |
-| ---------- | -------------------------------- | ------------------------- |
-| puppet     | strings snap + dialog (greet)    | damage                    |
-| neutral    | dialog (regreet)                 | damage                    |
-| hostile    | dialog (regreetLow)              | damage                    |
-| friendly   | BUMP-OFF (quote, −bond, respawn) | date → heal → quip bubble |
-| boss       | dialog                           | auto-confront in range    |
+|            | stomp (unspoken)              | stomp (spent)      | side contact         |
+| ---------- | ----------------------------- | ------------------ | -------------------- |
+| puppet     | strings snap + dialog         | —                  | damage               |
+| neutral    | dialog (regreet)              | juggle             | damage               |
+| hostile    | dialog (regreetLow)           | juggle             | damage               |
+| friendly   | dialog                        | juggle → fall      | date / heal / quip   |
+| boss       | dialog                        | dialog             | auto-confront        |
 
 ## Fragile systems / watch list
 
-- Dialog must never open on a 'bumped' body (guarded in the stomp timeout).
-- `talkCd` guards walk-up spam; closeDialog re-arms it and bounces the player.
-- Boss uses the old `ch.state === 'angry'` path for the hurl-back; nobody
-  else uses ch.state beyond 'talk'/'roam'. Don't reintroduce state-machine
-  branches — attitude bands own behavior.
+- Stomp uses a SWEPT check (design §4.2): test the player's vertical travel
+  this frame, not a fixed window — a terminal-velocity fall must not tunnel
+  past a head. `CONFIG.stompGrace` is the tunable tolerance.
+- Rendering runs under `ctx.setTransform(Z,…)`; W/H are WORLD units, not
+  pixels. Anything reading W/H (ambient radius, bubble wrap) is world-scaled.
+- Dialog must never open on a 'bumped' body (guarded).
+- Boss still uses the `ch.state==='angry'` path for the hurl-back; nobody else
+  uses ch.state beyond 'talk'/'roam'. Don't reintroduce state-machine branches.
 - Sprite scale (1.28 world) is visual only; hitboxes unchanged at w26 h34.
-- localStorage save: bump `SAVE_KEY` version if the bonds shape changes.
+- localStorage: bump `SAVE_KEY` if the bonds shape changes (currently v2).
+- Debug menu (`N`) and `window._game` stay until a public ship.
 
-## Backlog / tabled (see README "Design backlog")
+## Open — Juan to rule (design §9)
 
-- Dialog-trigger rework (stomp-always-talks blocks springboard tech) — TABLED,
-  awaiting Juan's design doc. Do not build ahead of it.
-- Angry/neutral/friendly behavior design doc — OWNER: JUAN. Open questions
-  listed in README.
-- `window._game` debug hooks stay until a public ship.
+- Every `[PROPOSED]` number (band boundaries, start=25, weights, bounce knobs)
+  is a GUESS — live CONFIG knobs, exposed in the `N` menu, corrected by play.
+- "Increased aggression" beyond speed (chase persistence / range / fear radius
+  / damage) — JUAN authoring; band structure ships with speed as the only tell,
+  extra knobs stubbed.
+- Jealousy mechanic (§5) — in/out undecided.
+- Versioned-filename scheme confirmed (§2.7); keeping old files on disk = yes.
 
 ## Milestones
 
-- v0.1 "First Night" ✅ — core platformer + stomp-to-talk + 5-character cast,
-  gate, boss, ending. Headless-verified.
-- v0.2 "Broken Strings" ✅ (pending Juan's playtest review before tagging) —
-  puppeteer lore + strings, shared persistent bonds + clones, attitude bands,
-  bump-offs, walk-up talking, date scenes, ambient bubbles, visual pass.
-- v0.3 "The Witching Hour" — see roadmap.md. Blocked on playtest feedback +
-  behavior design doc.
-- v0.4 "Starlight Signal" — see roadmap.md.
+- v0.1 "First Night" ✅ — core platformer + stomp-to-talk + cast + gate + boss.
+- v0.2 "Broken Strings" ✅ — puppeteer lore, shared bonds + clones, attitude
+  bands, bump-offs, date scenes, ambient bubbles, visual pass. (playtested)
+- v0.3 "Close Quarters" ✅ — camera zoom, swept stomp fix, bounce juggle,
+  dialog-per-body, 0–100 hidden meter, all-band chatter, N debug menu.
+- v0.4 "Open Road" — gate removed, multi-level, view→20 tiles, Ayame as
+  recurring hazard, highest-meter finale. See roadmap.md / design-doc §5.
+- v0.5 "Sweet Nothings" — conversation pools, memory callbacks, dialogue
+  expansion. v0.6 "Picture Book" — CG system. v0.7 "Dress Rehearsal" — costumes.

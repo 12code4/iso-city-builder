@@ -8,9 +8,15 @@ scheduled. (The city builder's roadmap is preserved on branch
 
 ## Where we are
 
-v0.2 "Broken Strings" is built, pending Juan's playtest review. Next builds
-are gated on: (1) playtest feedback, (2) Juan's angry/neutral/friendly
-behavior design doc, (3) the dialog-trigger decision (see README backlog).
+**`design-doc.md` supersedes this file's near-term plan** — it's Juan's v0.2
+playtest compiled into law + the v0.3–v0.7 release sequence. This file keeps the
+long-horizon ideas and anything not yet folded into the doc.
+
+v0.3 "Close Quarters" is built (camera zoom, swept stomp fix, bounce juggle,
+dialog-per-body, 0–100 hidden meter, N debug menu). The two formerly-tabled
+README questions (dialog trigger, behavior bands) are ANSWERED in the doc.
+Still open per design-doc §9: all `[PROPOSED]` numbers, Juan's aggression spec,
+the jealousy mechanic.
 
 ## The through-line
 
@@ -30,35 +36,31 @@ is a locked design rule, not a placeholder.
 4. **Keep it innocent.** Hand-holding is intense; the kiss is the endgame;
    nothing goes further, ever.
 
-## v0.3 — "The Witching Hour" (horror deepens)
+## Scheduled — see design-doc.md for the authoritative specs
 
-- **The Shade** — the puppeteer's collector, unromanceable. At intervals the
-  night deepens: colors drain, a heartbeat starts, a shadow with too many
-  eyes stalks the roads trying to RE-STRING freed friends. Can't be talked
-  to; hide behind gravestones, outrun it, or protect allies (freed bodies
-  fight to stay awake). Hostile (heartbroken) bodies are easier to re-string:
-  heartbreak has consequences.
-- **Gifts** — collectibles hidden in the darkest corners (melon bread, a
-  frisbee, a moon-viewing teacup…). The right gift unlocks an irresistible
-  dialog choice + a third date scene per character (next ladder rung: an
-  almost-kiss each, always interrupted).
-- **Clone mystery, act I** — freed bodies occasionally reference things only
-  another body experienced; a hidden counter tracks how much the player has
-  noticed.
-- **Ambience pass** — low drone, proximity heartbeat for the Shade,
-  per-character leitmotif stingers.
+- **v0.4 "Open Road"** — gate removed; multi-level Mario structure; view→20
+  tiles; springboard-gated secrets; Ayame as a Lakitu-style recurring hazard;
+  highest-meter finale.
+- **v0.5 "Sweet Nothings"** — conversation pools; memory & callbacks; branching
+  trees; the big dialogue expansion.
+- **v0.6 "Picture Book"** — procedural event-CG system (frame layer + pose
+  vocabulary in `drawChibi`); collectible CG gallery.
+- **v0.7 "Dress Rehearsal"** — costume pass (Pretty-Cure dresses, pastels,
+  flowers, pastries), all as `drawChibi` look flags.
 
-## v0.4 — "Starlight Signal" (sci-fi World 2)
+## Displaced ideas — re-scope after v0.4 lands
 
-- **The Aurora, a derelict orbital station** — the strings lead UP. Pastel
-  neon on void-black, starfields, broken airlocks, low-gravity jumps, jetpack
-  double-jump power-up.
-- **New cast:** Vega (deadpan android girl learning to flirt, badly), Prince
-  Altair (alien royalty, somehow more confident than Kazuma — they must never
-  meet), boss MOTHER (station AI) — quotes your past conversations back at
-  you, which should be impossible unless she's been listening through the
-  strings. First hard evidence of who the puppeteer is.
-- **Endings gallery** — every romance across both worlds; epilogue cards.
+These were the old v0.3/v0.4; the feel-first replan (design-doc §3) displaced
+them. Keep for later; do not build without rescheduling.
+
+- **The Witching Hour (horror layer)** — a Shade that RE-STRINGS freed friends
+  (heartbroken/hostile bodies easier to recapture); gifts unlocking irresistible
+  choices + a further date rung; clone-mystery act I; an ambience pass. Slots
+  naturally on top of the v0.3 attitude bands.
+- **Starlight Signal (sci-fi World 2)** — the Aurora station; low-gravity +
+  jetpack; new cast (Vega, Prince Altair, boss MOTHER who quotes your past
+  conversations — impossible unless she hears through the strings). The
+  puppeteer's first hard tell.
 
 ## Final version — working title "Cut the Last String"
 

@@ -14,22 +14,25 @@ wants a word with you. Every goomba-slot is a cute anime girl or an
 uber-confident hot anime guy with a real dialog tree. Charm three hearts to
 open the shrine gate, then survive a conversation with the spirit guarding it.
 
-Everything lives in a single self-contained `index.html` — no build step, no
-assets, no dependencies. Every character is a procedurally drawn chibi.
+Every version is a single self-contained HTML file — no build step, no assets,
+no dependencies. Every character is a procedurally drawn chibi.
 
-**Current version: v0.2 "Broken Strings"**
+**Current version: v0.3 "Close Quarters"**
 
 ## Running it
 
-Open `index.html` in any modern browser. That's it. Desktop and mobile touch
-both work (on-screen buttons appear on touch devices).
+Open `index.html` (a launcher linking every version) or the versioned file
+directly — `midnight-crush-v0.3-close-quarters.html` — in any modern browser.
+Desktop and mobile touch both work (on-screen buttons appear on touch devices).
 
 | Action | Desktop | Mobile |
 | --- | --- | --- |
 | Move | ← → or A / D | ◀ ▶ buttons |
 | Jump | Space / ↑ / W | ⤒ button |
-| Talk to someone | jump on their head | jump on their head |
+| Talk to someone | jump on their head (first time frees them) | same |
+| Bounce off a freed body | jump on their head again (7 in a row = they leave!) | same |
 | Answer | click a dialog choice | tap a dialog choice |
+| **Debug menu** (playtest) | press **N** — shows hidden meters + live knobs | — |
 
 ## The design
 
@@ -112,47 +115,38 @@ screen offers "forget everything (new story)" once a save exists.
   ambient speech bubbles, ally healing; date scenes climaxing in hand-holding;
   archetypes turned up (Pretty-Cure girls, Rengoku-grade gentlemen); the
   almost-kiss finale.
+- **v0.3 "Close Quarters"** — the feel patch. Camera zoom (view defined in
+  tiles, identical on every monitor); a real fix for fast-fall stomps tunneling
+  into side-hits; **dialog is now once per body** — a freed body becomes a
+  springboard, and bouncing one **seven times in a row** sends them off the
+  screen Mario-style (5% of the time they count out loud and flutter away in a
+  rainbow, free). Hidden **0–100 meter** with weighted choices; all four
+  behavior bands get ambient chatter; an **N debug menu** exposes the hidden
+  values and live-tunes every knob for playtesting.
 
-## Roadmap — the two planned updates
+## Roadmap
 
-The through-line: **the puppeteer is still out there.** Every update escalates
-toward meeting whoever holds the strings, and the romance ladder climbs one
-rung per update — the finale kiss stays just out of reach until the end.
+The whole roadmap and its reasoning now live in [`design-doc.md`](design-doc.md)
+(Juan's v0.2 playtest, compiled into law + the v0.3–v0.7 release plan) and in
+[`roadmap.md`](roadmap.md). The short version:
 
-### Update 1 — v0.3 "The Witching Hour" *(horror deepens)*
+- **v0.4 "Open Road"** — remove the shrine gate; multi-level Mario-shaped
+  structure; tighter 20-tile view; Ayame becomes a Lakitu-style recurring
+  hazard; the finale's almost-kiss goes to the **highest meter** (Tokimeki
+  structure). Levels designed around the new springboard tech.
+- **v0.5 "Sweet Nothings"** — conversation pools (many convos per character),
+  memory & callbacks ("you bounced on me 12 times", "you killed me — but I was
+  already dead"), branching trees, much more dialogue.
+- **v0.6 "Picture Book"** — the otome **event-CG** system (procedural: frame
+  layer + a pose vocabulary in `drawChibi` so hand-holding actually reads),
+  collectible CG gallery.
+- **v0.7 "Dress Rehearsal"** — the costume pass: Pretty-Cure dresses, pastels,
+  flowers, pastries — all as `drawChibi` look flags.
 
-She loves horror, so the horror gets teeth — and now it has an owner:
-
-- **The Shade** — the puppeteer's collector, *unromanceable*. At intervals the
-  night deepens: colors drain, a heartbeat starts, and a shadow with too many
-  eyes stalks the roads trying to **re-string the friends you've freed**. You
-  can't talk to it. Hide behind gravestones, outrun it, or lure it past allies —
-  freed characters fight to stay awake, and protecting them is the horror-date
-  content. Rejected (angry) characters are easier for it to re-string:
-  heartbreak has consequences.
-- **Gifts** — collectible items hidden in the darkest corners of the map
-  (melon bread, a frisbee, a moon-viewing teacup…). Holding the right gift
-  unlocks a dialog choice that character can't resist — and a third date scene
-  per character (next ladder rung: an *almost*-kiss each, always interrupted).
-- **Clone mystery, act I** — freed clones occasionally say things only another
-  clone experienced; a hidden counter tracks how much the player has noticed.
-- **Ambience pass** — low synth drone, proximity heartbeat for the Shade,
-  per-character leitmotif stingers.
-
-### Update 2 — v0.4 "Starlight Signal" *(her sci-fi side: World 2)*
-
-- **World 2: the Aurora, a derelict orbital station** — the strings lead UP.
-  New tileset: pastel neon on void-black, starfields, broken airlocks,
-  **low-gravity jump physics** and a jetpack double-jump power-up.
-- **New cast:** **Vega** (deadpan android girl *learning* what flirting is,
-  badly), **Prince Altair** (alien royalty, somehow more confident than
-  Kazuma — they must never meet), and boss **MOTHER**, the station AI — a
-  horror/sci-fi dialog battle where she quotes your own past conversations
-  back at you… which should be impossible, unless she's been listening
-  through the strings. First hard evidence of who the puppeteer is.
-- **Endings gallery** — every romance across both worlds; unlockable epilogue
-  cards per character. Sets up the final version: confronting the puppeteer,
-  the truth about the clones, and — at long, long last — the kiss.
+The through-line survives: **the puppeteer is still out there**, every release
+climbs one rung of the romance ladder, and the true kiss waits for the finale.
+(The old "Witching Hour" horror ideas and the sci-fi "Starlight Signal" world
+are parked for re-scoping after v0.4 — see roadmap.md.)
 
 ## Design backlog (tabled — do not build yet)
 
