@@ -2,37 +2,143 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Midnight Crush — version launcher</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Midnight Crush — play</title>
 <style>
-  :root { --pink:#ffa8d3; --purple:#c9b3ff; --blue:#a8d8ff; }
+  :root { --pink:#ffa8d3; --purple:#c9b3ff; --blue:#a8d8ff; --panel:#160e2af2; }
   * { margin:0; padding:0; box-sizing:border-box; }
-  body { min-height:100vh; display:flex; flex-direction:column; align-items:center;
-    justify-content:center; gap:18px; padding:24px; text-align:center;
-    background:radial-gradient(ellipse at 50% 30%, #1f1140 0%, #060310 100%);
+  html, body { height:100%; background:#0b0716; overflow:hidden;
     font-family:'Segoe UI', system-ui, sans-serif; color:#efe8fa; }
-  h1 { font-size:clamp(30px,6vw,54px); color:var(--pink);
+  #frame { position:fixed; inset:0; width:100%; height:100%; border:0; display:block; background:#0b0716; }
+
+  /* version tab — a small pill top-left */
+  #tab { position:fixed; top:12px; left:12px; z-index:10; display:flex; align-items:center;
+    gap:8px; padding:8px 14px; border-radius:999px; cursor:pointer;
+    background:var(--panel); border:1px solid var(--purple); color:#efe8fa;
+    font-size:14px; box-shadow:0 4px 18px #0009; backdrop-filter:blur(4px);
+    -webkit-user-select:none; user-select:none; transition:opacity .3s; }
+  #tab:hover { border-color:var(--pink); }
+  #tab .moon { font-size:16px; }
+  #tab .ver { color:var(--pink); font-weight:600; }
+  #tab .car { color:var(--purple); font-size:11px; }
+  /* fade the tab out while you play; any pointer move brings it back */
+  body.idle #tab { opacity:0; pointer-events:none; }
+
+  /* menu overlay */
+  #menu { position:fixed; inset:0; z-index:11; display:none;
+    background:radial-gradient(ellipse at 30% 20%, #1f1140f2 0%, #060310fa 100%);
+    padding:24px; overflow:auto; }
+  #menu.open { display:flex; flex-direction:column; align-items:center; }
+  #menu h1 { margin-top:24px; font-size:clamp(28px,6vw,52px); color:var(--pink);
     text-shadow:0 0 24px #ffa8d377, 0 4px 0 #000; letter-spacing:2px; }
-  h2 { font-size:clamp(14px,2.4vw,20px); color:var(--purple); font-weight:400; }
-  .play { margin-top:6px; font-size:20px; padding:14px 40px; border-radius:999px;
-    border:2px solid var(--pink); background:#3a1533; color:#ffe2f0;
-    text-decoration:none; box-shadow:0 0 26px #ffa8d344; }
-  .play:hover { background:#5c2050; }
-  .versions { margin-top:14px; display:flex; flex-direction:column; gap:8px; }
-  .versions a { color:var(--blue); text-decoration:none; font-size:14px; }
-  .versions a:hover { color:var(--pink); text-decoration:underline; }
-  .note { margin-top:10px; font-size:12px; color:#8f7fb8; max-width:460px; }
+  #menu h2 { color:var(--purple); font-weight:400; font-size:clamp(13px,2.4vw,18px);
+    margin-bottom:22px; }
+  .cards { display:flex; flex-direction:column; gap:12px; width:min(560px, 94vw); }
+  .card { text-align:left; padding:14px 18px; border-radius:14px; cursor:pointer;
+    background:#221541; border:1px solid #5f4a8f; transition:all .12s; }
+  .card:hover { border-color:var(--pink); background:#2e1c54; transform:translateY(-2px); }
+  .card.current { border-color:var(--pink); box-shadow:0 0 0 1px var(--pink) inset; }
+  .card .t { font-size:17px; color:#fff; }
+  .card .t .num { color:var(--pink); font-weight:700; }
+  .card .t .badge { font-size:11px; color:#0b0716; background:var(--pink);
+    border-radius:999px; padding:1px 8px; margin-left:8px; vertical-align:middle; }
+  .card .d { font-size:13px; color:#c9b8e8; margin-top:4px; line-height:1.4; }
+  .card .dl { font-size:12px; color:var(--blue); margin-top:6px; display:inline-block; }
+  .card .dl:hover { color:var(--pink); }
+  #menu .close { margin-top:20px; font-size:14px; color:#9a8cc0; cursor:pointer;
+    -webkit-user-select:none; user-select:none; }
+  #menu .close:hover { color:var(--pink); }
+  #menu .foot { margin-top:14px; font-size:11px; color:#7a6ca0; max-width:520px;
+    text-align:center; line-height:1.5; }
 </style>
 </head>
 <body>
-  <h1>🌙 MIDNIGHT CRUSH</h1>
-  <h2>a haunted dating platformer</h2>
-  <a class="play" href="midnight-crush-v0.3-close-quarters.html">Play latest — v0.3 “Close Quarters” 💜</a>
-  <div class="versions">
-    <a href="midnight-crush-v0.2-broken-strings.html">v0.2 “Broken Strings” — the build behind the design doc</a>
-    <a href="midnight-crush-v0.1-first-night.html">v0.1 “First Night” — where it all started</a>
+  <iframe id="frame" title="Midnight Crush" allow="autoplay"></iframe>
+
+  <div id="tab" title="Switch version">
+    <span class="moon">🌙</span>
+    <span><span class="ver" id="tabVer">v0.3</span> <span class="car">“Close Quarters” ▾</span></span>
   </div>
-  <p class="note">Every version is a single self-contained file — saves live in your
-  browser and are shared between versions that use the same save format.</p>
+
+  <div id="menu">
+    <h1>🌙 MIDNIGHT CRUSH</h1>
+    <h2>choose a version</h2>
+    <div class="cards" id="cards"></div>
+    <div class="close" id="menuClose">✕ close — back to the game</div>
+    <p class="foot">Each version is a self-contained file. Saves live in your browser
+      and are shared between versions that use the same save format. Press <b>N</b>
+      inside v0.3 for the playtest debug menu.</p>
+  </div>
+
+<script>
+'use strict';
+// newest first; `id` is the ?v= deep-link key
+const VERSIONS = [
+  { id:'v0.3', file:'midnight-crush-v0.3-close-quarters.html', num:'v0.3',
+    title:'Close Quarters', latest:true,
+    desc:'The feel patch: camera zoom, fixed stomps, the bounce juggle (talk once, then springboard), a hidden 0–100 meter, and an N debug menu.' },
+  { id:'v0.2', file:'midnight-crush-v0.2-broken-strings.html', num:'v0.2',
+    title:'Broken Strings',
+    desc:'Puppeteer lore + visible strings, shared bonds across clones, attitude bands, bump-offs, date scenes, and the almost-kiss finale.' },
+  { id:'v0.1', file:'midnight-crush-v0.1-first-night.html', num:'v0.1',
+    title:'First Night',
+    desc:'Where it started: the core platformer, stomp-to-talk dating, the five-character cast, the shrine gate and boss.' },
+];
+
+const frame = document.getElementById('frame');
+const menu = document.getElementById('menu');
+const tab = document.getElementById('tab');
+const tabVer = document.getElementById('tabVer');
+const cards = document.getElementById('cards');
+
+function versionFromUrl(){
+  const m = location.hash.match(/v=([\w.]+)/) || location.search.match(/v=([\w.]+)/);
+  return VERSIONS.find(v => v.id === (m && m[1])) || VERSIONS[0];
+}
+function load(v, pushHash){
+  if (frame.getAttribute('data-v') !== v.id){
+    frame.src = v.file;
+    frame.setAttribute('data-v', v.id);
+  }
+  tabVer.textContent = v.num;
+  tab.querySelector('.car').textContent = '“' + v.title + '” ▾';
+  if (pushHash) location.hash = 'v=' + v.id;
+  document.querySelectorAll('.card').forEach(c => c.classList.toggle('current', c.dataset.id === v.id));
+  document.title = 'Midnight Crush — ' + v.num + ' ' + v.title;
+  // keyboard control belongs to the game, not the launcher chrome
+  setTimeout(() => { try { frame.contentWindow.focus(); } catch(e){} }, 60);
+}
+function openMenu(){ menu.classList.add('open'); document.body.classList.remove('idle'); }
+function closeMenu(){ menu.classList.remove('open'); setTimeout(() => { try { frame.contentWindow.focus(); } catch(e){} }, 60); }
+
+// build cards
+for (const v of VERSIONS){
+  const el = document.createElement('div');
+  el.className = 'card'; el.dataset.id = v.id;
+  el.innerHTML = `<div class="t"><span class="num">${v.num}</span> “${v.title}”` +
+    (v.latest ? '<span class="badge">latest</span>' : '') + `</div>` +
+    `<div class="d">${v.desc}</div>` +
+    `<a class="dl" href="${v.file}" download>⤓ download this version</a>`;
+  el.addEventListener('click', e => {
+    if (e.target.classList.contains('dl')) return;   // let the download link work
+    load(v, true); closeMenu();
+  });
+  cards.appendChild(el);
+}
+
+tab.addEventListener('click', openMenu);
+document.getElementById('menuClose').addEventListener('click', closeMenu);
+addEventListener('keydown', e => { if (e.code === 'Escape' && menu.classList.contains('open')) closeMenu(); });
+addEventListener('hashchange', () => load(versionFromUrl(), false));
+
+// auto-hide the version tab while playing; a pointer move brings it back
+let idleT = null;
+function wake(){ document.body.classList.remove('idle'); clearTimeout(idleT);
+  idleT = setTimeout(() => { if (!menu.classList.contains('open')) document.body.classList.add('idle'); }, 3500); }
+addEventListener('pointermove', wake); addEventListener('pointerdown', wake);
+
+load(versionFromUrl(), false);
+wake();
+</script>
 </body>
 </html>
