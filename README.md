@@ -17,19 +17,19 @@ open the shrine gate, then survive a conversation with the spirit guarding it.
 Every version is a single self-contained HTML file — no build step, no assets,
 no dependencies. Every character is a procedurally drawn chibi.
 
-**Current version: v0.3 "Close Quarters"**
+**Current version: v0.4 "Open Road"**
 
 ## ▶ Play
 
 **[Play Midnight Crush →](https://12code4.github.io/iso-city-builder/)**
 
-One page, every version: it opens the latest build and has an in-page menu to
-switch to any older version (deep-linkable, e.g. `…/#v=v0.2`). Desktop and
+One page, every version: it opens the latest build (v0.4) and has an in-page
+menu to switch to any older version (deep-linkable, e.g. `…/#v=v0.2`). Desktop and
 mobile touch both work. *(Live once GitHub Pages is enabled for this repo —
 Settings → Pages → deploy from `main` / root.)*
 
 Prefer local? Open `index.html` (the same launcher) or a versioned file
-directly, e.g. `midnight-crush-v0.3-close-quarters.html`, in any browser.
+directly, e.g. `midnight-crush-v0.4-open-road.html`, in any browser.
 
 | Action | Desktop | Mobile |
 | --- | --- | --- |
@@ -129,6 +129,14 @@ screen offers "forget everything (new story)" once a save exists.
   rainbow, free). Hidden **0–100 meter** with weighted choices; all four
   behavior bands get ambient chatter; an **N debug menu** exposes the hidden
   values and live-tunes every knob for playtesting.
+- **v0.4 "Open Road"** — the shrine gate is gone. **Three nights** crossed
+  Mario-style (enter left, exit at a glowing lantern): the Long Road, the
+  Graveyard Hill — where **Ayame hovers overhead Lakitu-style dropping warding
+  charms** — and the Shrine Path. View tightened to 20 tiles; springboard
+  bounces now lift you a full jump-height plus the friend you bounced off
+  (secrets tucked accordingly, never required for progress); and the finale
+  plays by Tokimeki rules: **the almost-kiss goes to whoever holds your
+  heart highest** — interrupted, of course, by everyone at once.
 
 ## Roadmap
 
@@ -136,10 +144,7 @@ The whole roadmap and its reasoning now live in [`design-doc.md`](design-doc.md)
 (Juan's v0.2 playtest, compiled into law + the v0.3–v0.7 release plan) and in
 [`roadmap.md`](roadmap.md). The short version:
 
-- **v0.4 "Open Road"** — remove the shrine gate; multi-level Mario-shaped
-  structure; tighter 20-tile view; Ayame becomes a Lakitu-style recurring
-  hazard; the finale's almost-kiss goes to the **highest meter** (Tokimeki
-  structure). Levels designed around the new springboard tech.
+- ~~**v0.4 "Open Road"**~~ ✅ shipped — see version history above.
 - **v0.5 "Sweet Nothings"** — conversation pools (many convos per character),
   memory & callbacks ("you bounced on me 12 times", "you killed me — but I was
   already dead"), branching trees, much more dialogue.

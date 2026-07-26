@@ -4,15 +4,31 @@
 
 ## Current status
 
-**v0.3 "Close Quarters" built and headless-verified (16/16 checks).** Built to
-`design-doc.md` §4. Runnable: `midnight-crush-v0.3-close-quarters.html`; v0.1/v0.2
-kept on disk; `index.html` is a launcher. Next playtest should use the `N` debug
-menu to correct every `[PROPOSED]` number, then v0.4 "Open Road".
+**v0.4 "Open Road" built and headless-verified (21/21 checks).** Runnable:
+`midnight-crush-v0.4-open-road.html`; all prior versions playable via the
+`index.html` menu launcher. Next: Juan playtests nights 1–3 with the `N` menu
+([PROPOSED] numbers still uncorrected); then v0.5 "Sweet Nothings" + the caves
+& gifts direction (see roadmap).
 
 The old v0.3 "Witching Hour" / v0.4 "Starlight Signal" plan is displaced by the
 release plan in design-doc.md §3; re-scope those after v0.4 lands.
 
 ## Session log
+
+- **2026-07-26 — Session 4 (Q16 swoon + build v0.4 "Open Road").**
+  - Q16 fix on v0.3: the 'swoon' treatment — the hand-holding date climax gets
+    a warm wash, pulsing bloom, portrait halo, drifting petals (frame-layer
+    slice of §2.6 only; pose vocabulary stays scheduled for v0.6).
+  - Built v0.4 per design §5 on branch v0.4-open-road: gate removed, three
+    nights with lantern exits + night-card transitions (+_world.level in the
+    save), viewTiles→20, Lakitu Ayame with 封 warding charms on Night 2,
+    highest-meter almost-kiss finale with per-character kiss-lean lines.
+  - Juan's mid-build directives, implemented/logged: springboard bounce =
+    jump height + npc height (derived stompBounce=871, implemented);
+    progression never gated on head-bounces (levels comply); hidden caves
+    with gift items → secret scenes (LOGGED to roadmap, build with v0.5/v0.6).
+  - Verified: 21/21 v0.4 checks + swoon suite + v0.3 regression 16/16.
+  - Launcher gains v0.4 as default; docs synced.
 
 - **2026-07-25 — Session 3 (build v0.3 "Close Quarters").**
   - Merged the design-doc branch → main as doc-of-record.

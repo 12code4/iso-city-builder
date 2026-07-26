@@ -33,8 +33,13 @@ An unseen puppeteer (the game's "Bowser") has the town of Hollow Hills
 mind-controlled on visible strings. Every enemy slot is a cute anime girl or
 an uber-confident hot anime guy. Stomping snaps a body's strings and starts a
 conversation instead of a kill; each body talks once, then becomes a
-springboard. Romance accumulates as you travel (the shrine gate is removed in
-v0.4); the finale's almost-kiss goes to whoever has the highest meter.
+springboard. The game is THREE NIGHTS (levels), Mario-shaped — enter left,
+exit right at a lantern; no gate. Romance accumulates across nights (bodies
+reset per night, the shared meter doesn't); the finale's almost-kiss goes to
+whoever has the highest meter. Ayame is a Lakitu-style hazard on Night 2 and
+the finale conversation on Night 3. Springboard rule: a bounce lifts you a
+full jump height + the NPC's height (derived, CONFIG.stompBounce). Progression
+NEVER requires a head-bounce (Juan's rule) — springboards gate only secrets.
 
 Single self-contained runnable file (see below). Zero assets: characters are
 procedurally drawn chibis, SFX is a tiny WebAudio synth. Desktop + mobile touch.
@@ -80,7 +85,8 @@ The runnable is renamed each release: `midnight-crush-vX.Y-title.html`, opening
 with a version-history comment block. Prior versions stay on disk as playable
 snapshots. `index.html` is a **launcher page** linking every version (also what
 GitHub Pages serves). Update every doc's file references in the same commit.
-Current runnable: `midnight-crush-v0.3-close-quarters.html`.
+Current runnable: `midnight-crush-v0.4-open-road.html`. `index.html` embeds
+the chosen version in an iframe with an in-page version menu (the Pages entry).
 
 ## Core state
 
@@ -162,7 +168,7 @@ Current runnable: `midnight-crush-v0.3-close-quarters.html`.
   bands, bump-offs, date scenes, ambient bubbles, visual pass. (playtested)
 - v0.3 "Close Quarters" ✅ — camera zoom, swept stomp fix, bounce juggle,
   dialog-per-body, 0–100 hidden meter, all-band chatter, N debug menu.
-- v0.4 "Open Road" — gate removed, multi-level, view→20 tiles, Ayame as
-  recurring hazard, highest-meter finale. See roadmap.md / design-doc §5.
+- v0.4 "Open Road" ✅ — gate removed, three nights, view→20 tiles, Lakitu
+  Ayame + warding charms, springboard rule + secrets, highest-meter finale.
 - v0.5 "Sweet Nothings" — conversation pools, memory callbacks, dialogue
   expansion. v0.6 "Picture Book" — CG system. v0.7 "Dress Rehearsal" — costumes.

@@ -57,7 +57,7 @@
 
   <div id="tab" title="Switch version">
     <span class="moon">🌙</span>
-    <span><span class="ver" id="tabVer">v0.3</span> <span class="car">“Close Quarters” ▾</span></span>
+    <span><span class="ver" id="tabVer">v0.4</span> <span class="car">“Open Road” ▾</span></span>
   </div>
 
   <div id="menu">
@@ -67,15 +67,18 @@
     <div class="close" id="menuClose">✕ close — back to the game</div>
     <p class="foot">Each version is a self-contained file. Saves live in your browser
       and are shared between versions that use the same save format. Press <b>N</b>
-      inside v0.3 for the playtest debug menu.</p>
+      inside v0.3+ for the playtest debug menu.</p>
   </div>
 
 <script>
 'use strict';
 // newest first; `id` is the ?v= deep-link key
 const VERSIONS = [
+  { id:'v0.4', file:'midnight-crush-v0.4-open-road.html', num:'v0.4',
+    title:'Open Road', latest:true,
+    desc:'The gate is gone: three nights crossed Mario-style, Ayame hovering overhead dropping warding charms, springboard secrets, and a finale where the almost-kiss goes to whoever holds your heart highest.' },
   { id:'v0.3', file:'midnight-crush-v0.3-close-quarters.html', num:'v0.3',
-    title:'Close Quarters', latest:true,
+    title:'Close Quarters',
     desc:'The feel patch: camera zoom, fixed stomps, the bounce juggle (talk once, then springboard), a hidden 0–100 meter, and an N debug menu.' },
   { id:'v0.2', file:'midnight-crush-v0.2-broken-strings.html', num:'v0.2',
     title:'Broken Strings',

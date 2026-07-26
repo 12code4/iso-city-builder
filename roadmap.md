@@ -38,9 +38,15 @@ is a locked design rule, not a placeholder.
 
 ## Scheduled — see design-doc.md for the authoritative specs
 
-- **v0.4 "Open Road"** — gate removed; multi-level Mario structure; view→20
-  tiles; springboard-gated secrets; Ayame as a Lakitu-style recurring hazard;
-  highest-meter finale.
+- ~~**v0.4 "Open Road"**~~ ✅ SHIPPED — gate removed; three nights; view→20;
+  springboard rule (jump + npc height) + secrets; Lakitu Ayame; highest-meter
+  finale.
+- **Juan's caves & gifts direction (2026-07-26, designed-ahead — build with
+  v0.5/v0.6):** hidden CAVES — openings disguised inside otherwise solid-looking
+  geometry — holding ITEMS the player can give to specific characters to unlock
+  SECRET SCENES. Springboard-only secret spots stay in (lure someone nearby,
+  bounce off them); level progression is never gated on head-bounces. This
+  supersedes/absorbs the old 'gifts' idea from the displaced Witching Hour list.
 - **v0.5 "Sweet Nothings"** — conversation pools; memory & callbacks; branching
   trees; the big dialogue expansion.
 - **v0.6 "Picture Book"** — procedural event-CG system (frame layer + pose
