@@ -53,6 +53,24 @@
     background:#2c1d4e; color:var(--ink); cursor:pointer; transition:all .12s; }
   #dchoices button:hover { background:#3e2a6e; border-color:var(--pink);
     transform:translateX(4px); }
+  /* ---------- Swoon: the date-climax (hand-holding) treatment ---------- */
+  /* The intense beat of the whole game gets its own look — warm wash, a soft
+     bloom on the portrait, drifting petals, slower text. Blushing IS content. */
+  #dialog.swoon { background:radial-gradient(ellipse at 50% 42%,
+    #4a1a3fcc 0%, #2a0f33ee 45%, #070310f4 100%); transition:background .8s ease; }
+  #dialog.swoon #dbox { border-color:var(--pink);
+    box-shadow:0 0 60px #ffa8d366, 0 0 22px #ffd6ea55 inset, 0 12px 40px #000c;
+    animation:swoonPulse 3.2s ease-in-out infinite; }
+  #dialog.swoon #dportrait { box-shadow:0 0 26px #ffa8d3aa; border-color:var(--pink); }
+  #dialog.swoon #dtext { color:#ffe6f3; }
+  #dialog.swoon #dname::after { content:' 💞'; }
+  @keyframes swoonPulse { 0%,100% { box-shadow:0 0 44px #ffa8d344, 0 0 22px #ffd6ea44 inset, 0 12px 40px #000c; }
+    50% { box-shadow:0 0 72px #ffa8d380, 0 0 26px #ffd6ea66 inset, 0 12px 40px #000c; } }
+  .petal { position:fixed; top:-24px; z-index:11; pointer-events:none;
+    font-size:18px; will-change:transform, opacity;
+    animation:petalFall linear forwards; }
+  @keyframes petalFall { 0% { transform:translateY(-24px) rotate(0deg); opacity:0; }
+    12% { opacity:.9; } 100% { transform:translateY(102vh) rotate(320deg); opacity:0; } }
   /* ---------- Overlays (title / ending) ---------- */
   .overlay { position:fixed; inset:0; z-index:20; display:flex; flex-direction:column;
     align-items:center; justify-content:center; text-align:center; gap:14px;
@@ -708,6 +726,7 @@ function openDialog(ch, mode){
   if (!wasFreed){ st.freed = true; saveBonds(); }
   talking = ch; ch.state = 'talk'; ch.aff = 0; ch.qi = 0;
   gameState = 'dialog';
+  setSwoon(false);
   dName.textContent = ch.def.name;
   dTitle.textContent = ch.def.title;
   dEl.classList.add('open');
@@ -723,6 +742,24 @@ function openDialog(ch, mode){
       ? ch.def.regreetLow
       : (regreets[ch.id] || ch.def.greet);
   sayLine(greet, [{t:'…continue', act:'next'}]);
+}
+let petalTimer = null;
+function setSwoon(on){                    // the date-climax romantic wash (Q16)
+  dEl.classList.toggle('swoon', on);
+  clearInterval(petalTimer); petalTimer = null;
+  if (!on){ dEl.querySelectorAll('.petal').forEach(p => p.remove()); return; }
+  const glyphs = ['🌸','💗','🌷','💞','✿'];
+  petalTimer = setInterval(() => {
+    if (!dEl.classList.contains('swoon')){ clearInterval(petalTimer); return; }
+    const p = document.createElement('div');
+    p.className = 'petal'; p.textContent = glyphs[(Math.random()*glyphs.length)|0];
+    p.style.left = (Math.random()*100) + 'vw';
+    p.style.fontSize = (13 + Math.random()*12) + 'px';
+    const dur = 4 + Math.random()*3;
+    p.style.animationDuration = dur + 's';
+    dEl.appendChild(p);
+    setTimeout(() => p.remove(), dur*1000 + 200);
+  }, 340);
 }
 function sayLine(text, choices){
   dText.textContent = text;
@@ -751,6 +788,8 @@ function handleChoice(c){
   else if (aff < 0){ SFX.bad(); if (ch.boss) damagePlayer(0); } // boss punishes bad answers
   ch.mood = ch.mode === 'date' ? 'love' : aff>0 ? 'happy' : (aff<0 ? 'angry' : 'neutral');
   ch.qi++;
+  // the hand-holding beat is the last date question — swoon from here through the win
+  if (ch.mode === 'date' && ch.qi >= ch.def.date.qs.length){ setSwoon(true); SFX.heart(); }
   sayLine(c.r, [{t:'…continue', act:'next'}]);
 }
 function askQuestion(ch){
@@ -809,6 +848,7 @@ function finishDialog(ch){
 }
 function closeDialog(ch){
   dEl.classList.remove('open');
+  setSwoon(false);
   gameState = 'play';
   if (ch.state === 'angry' && ch.boss){
     // boss rejection: hurled back down the hill, she resets
