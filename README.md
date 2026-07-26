@@ -19,11 +19,17 @@ no dependencies. Every character is a procedurally drawn chibi.
 
 **Current version: v0.3 "Close Quarters"**
 
-## Running it
+## ▶ Play
 
-Open `index.html` (a launcher linking every version) or the versioned file
-directly — `midnight-crush-v0.3-close-quarters.html` — in any modern browser.
-Desktop and mobile touch both work (on-screen buttons appear on touch devices).
+**[Play Midnight Crush →](https://12code4.github.io/iso-city-builder/)**
+
+One page, every version: it opens the latest build and has an in-page menu to
+switch to any older version (deep-linkable, e.g. `…/#v=v0.2`). Desktop and
+mobile touch both work. *(Live once GitHub Pages is enabled for this repo —
+Settings → Pages → deploy from `main` / root.)*
+
+Prefer local? Open `index.html` (the same launcher) or a versioned file
+directly, e.g. `midnight-crush-v0.3-close-quarters.html`, in any browser.
 
 | Action | Desktop | Mobile |
 | --- | --- | --- |
