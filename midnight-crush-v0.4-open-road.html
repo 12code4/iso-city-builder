@@ -3,12 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Midnight Crush v0.3 “Close Quarters” — a haunted dating platformer</title>
+<title>Midnight Crush v0.4 “Open Road” — a haunted dating platformer</title>
 <!--
   MIDNIGHT CRUSH — version history (latest first)
-  v0.3 "Close Quarters"  — the feel patch (this file): camera zoom (viewTiles),
-        swept stomp detection, the 7-bounce juggle, dialog once per body,
+  v0.4 "Open Road"       — (this file) the shrine gate is gone: three NIGHTS
+        (levels) crossed Mario-style, view tightened to 20 tiles, springboard
+        secrets, Ayame as a Lakitu-style hazard on Night 2, and the finale's
+        almost-kiss goes to whoever holds the highest (hidden) meter.
+  v0.3 "Close Quarters"  — the feel patch: camera zoom (viewTiles), swept
+        stomp detection, the 7-bounce juggle, dialog once per body,
         0–100 hidden meter + N debug menu, all-band ambient chatter.
+        (playable: midnight-crush-v0.3-close-quarters.html)
   v0.2 "Broken Strings"  — puppeteer lore + strings, shared persistent bonds,
         attitude bands, bump-offs, date scenes, visual pass.
         (playable: midnight-crush-v0.2-broken-strings.html)
@@ -85,6 +90,12 @@
     box-shadow:0 0 26px #ffa8d344; }
   .overlay button:hover { background:#5c2050; }
   .hidden { display:none !important; }
+  /* ---------- Night transition card ---------- */
+  #nightCard { position:fixed; inset:0; z-index:15; display:flex; align-items:center;
+    justify-content:center; font-size:clamp(24px,5vw,44px); color:var(--pink);
+    text-shadow:0 0 30px #ffa8d388, 0 4px 0 #000; letter-spacing:2px;
+    background:#060310; opacity:0; pointer-events:none; transition:opacity .8s ease; }
+  #nightCard.show { opacity:1; }
   /* ---------- Debug menu (N) ---------- */
   #debug { position:fixed; top:8px; right:8px; z-index:30; display:none;
     background:#100a20f2; border:1px solid var(--purple); border-radius:10px;
@@ -143,8 +154,9 @@
      there is sleepwalking — a puppet on an invisible thread, and every single
      one of them is impossibly attractive. Don't fight them.
      <b>Jump on their heads to snap the strings</b> — what wakes up will want a
-     word with you. Charm 3 hearts to open the shrine gate… and face what waits
-     behind it.</p>
+     word with you. Cross three nights of the open road — every soul you wake
+     remembers you — and at dawn, the almost-kiss goes to whoever holds your
+     heart highest.</p>
   <p class="keys">Move: ← → / A D &nbsp;·&nbsp; Jump: Space / ↑ / W &nbsp;·&nbsp; Mobile: on-screen buttons</p>
   <button id="startBtn">Begin the Night 💜</button>
   <p id="resetSave" class="keys hidden" style="cursor:pointer; text-decoration:underline;
@@ -159,6 +171,7 @@
 </div>
 
 <div id="debug"></div>
+<div id="nightCard"></div>
 
 <div id="touch">
   <div class="tbtn" id="tL">◀</div>
@@ -181,16 +194,23 @@
 /* ---------------- CONFIG ---------------- */
 const CONFIG = {
   tile: 36,
-  viewTiles: 24,          // horizontal tiles visible — the camera zoom (design §4.1;
-                          // 20 is the target, moves with the v0.4 level pass)
+  viewTiles: 20,          // horizontal tiles visible — the v0.4 target (design §4.1/§5)
   gravity: 2200,
   moveSpeed: 260,
   jumpVel: 780,
-  stompBounce: 480,
+  npcHeight: 34,          // body hitbox height — feeds the springboard rule
+  stompBounce: 0,         // DERIVED below — Juan's rule: a bounce lifts you to
+                          // regular jump height PLUS the NPC's height
   stompGrace: 14,         // [PROPOSED] px below a head that still counts as a stomp
   maxHearts: 3,
   iframes: 1.6,           // seconds of invulnerability after a hit
-  romancesNeeded: 3,      // gate stays in v0.3; removed in v0.4
+  ayameHazard: {          // Night 2: Ayame as a Lakitu-style menace (design §5)
+    hoverRow: 3,          // row she floats at
+    followLerp: 1.1,      // how hard she tracks you
+    dropCd: 4.5,          // seconds between warding-charm drops [PROPOSED]
+    range: 9,             // tiles; she only drops when you're this close
+    fallSpeed: 130,       // px/s charm fall speed [PROPOSED]
+  },
   healCooldown: 45,       // seconds between free heals from a friendly ally
   patrolSpeed: 55,
   meter: {                // 0–100 shared meter (design §4.5 — every value [PROPOSED])
@@ -233,37 +253,104 @@ const CONFIG = {
   },
 };
 
-/* ---------------- LEVEL (built in code — no ASCII alignment bugs) ------
-   # solid stone  = one-way platform  ^ gravestone  T dead tree
-   H heart pickup D shrine gate      P player start
-   cast: y Yuki  r Rin  k Kazuma  n Ren  A Ayame (boss)                */
+// Springboard rule (Juan): bounce apex above the head = jump height + npc height
+// => v = sqrt(jumpVel^2 + 2*gravity*npcHeight)
+CONFIG.stompBounce = Math.round(Math.sqrt(
+  CONFIG.jumpVel*CONFIG.jumpVel + 2*CONFIG.gravity*CONFIG.npcHeight));
+
+/* ---------------- LEVELS (built in code — no ASCII alignment bugs) -----
+   # solid stone  = one-way platform  ^ gravestone  T dead tree  D torii (decor)
+   H heart pickup E night exit lantern  P player start
+   cast: y Yuki  r Rin  k Kazuma  n Ren  A Ayame (finale only, Night 3)
+   Three NIGHTS, Mario-shaped: enter left, exit right (design §2.5/§5).
+   Springboard secrets: hearts/platforms reachable only by bouncing off a
+   body standing on a high platform — the §2.2 payoff. */
 const COLS = 150, ROWS = 17, GROUND = 12;
-const grid = Array.from({length:ROWS}, () => Array(COLS).fill(' '));
+let grid;
 function put(c, x, y, w=1){ for (let i=0;i<w;i++) grid[y][x+i] = c; }
-for (let x=0; x<COLS; x++) for (let y=GROUND; y<GROUND+3; y++) grid[y][x] = '#';
-for (const [a,b] of [[34,37],[66,69],[96,98]])            // pits
-  for (let x=a; x<=b; x++) for (let y=GROUND; y<GROUND+3; y++) grid[y][x] = ' ';
-put('P', 3, GROUND-1);
-put('^', 8, GROUND-1);  put('T', 14, GROUND-1);
-put('y', 22, GROUND-1);                                   // Yuki, on the road
-put('r', 30, GROUND-1);                                   // a Rin…
-put('=', 40, 9, 6);     put('H', 42, 8);
-put('y', 44, 8);                                          // …another Yuki?
-put('r', 52, GROUND-1);                                   // another Rin (same Rin?)
-put('n', 57, GROUND-1);                                   // a Ren
-put('^', 58, GROUND-1); put('^', 61, GROUND-1);
-put('=', 74, 9, 4);     put('=', 80, 7, 5); put('H', 82, 6);
-put('k', 76, GROUND-1);                                   // a Kazuma on the road
-put('=', 86, 5, 7);     put('k', 89, 4);                  // Kazuma, on his balcony
-put('T', 101, GROUND-1);
-put('n', 106, GROUND-1);                                  // Ren, on the road
-put('y', 110, GROUND-1);                                  // Yuki again??
-put('^', 112, GROUND-1); put('^', 115, GROUND-1);
-put('=', 118, 8, 5);    put('H', 120, 7);
-put('r', 122, 7);                                         // Rin. again. unravel it
-put('D', 128, GROUND-1);                                  // shrine gate
-put('A', 137, 8);                                         // Ayame, past the gate
-const LEVEL = grid.map(r => r.join(''));
+function road(pits){                       // base ground minus pits
+  for (let x=0; x<COLS; x++) for (let y=GROUND; y<GROUND+3; y++) grid[y][x] = '#';
+  for (const [a,b] of pits)
+    for (let x=a; x<=b; x++) for (let y=GROUND; y<GROUND+3; y++) grid[y][x] = ' ';
+}
+function hill(x0, w, top){                 // raised solid terrain
+  for (let x=x0; x<x0+w; x++) for (let y=top; y<GROUND; y++) grid[y][x] = '#';
+}
+const LEVELS = [
+{ name:'🌙 Night One — The Long Road', build(){
+  road([[34,37],[66,69],[96,98]]);
+  put('P', 3, GROUND-1);
+  put('^', 8, GROUND-1);  put('T', 14, GROUND-1);
+  put('y', 22, GROUND-1);
+  put('r', 30, GROUND-1);
+  put('=', 40, 9, 6);     put('H', 42, 8);
+  put('y', 44, 8);
+  put('r', 52, GROUND-1);
+  put('n', 57, GROUND-1);
+  put('^', 58, GROUND-1); put('^', 61, GROUND-1);
+  put('=', 74, 9, 4);     put('=', 80, 7, 5); put('H', 82, 6);
+  put('k', 76, GROUND-1);
+  put('=', 86, 5, 7);     put('k', 89, 4);           // the balcony…
+  put('=', 92, 3, 3);     put('H', 93, 2);           // …bounce off Kazuma to reach
+  put('T', 101, GROUND-1);
+  put('n', 106, GROUND-1);
+  put('y', 110, GROUND-1);
+  put('^', 112, GROUND-1); put('^', 115, GROUND-1);
+  put('=', 118, 8, 5);    put('H', 120, 7);
+  put('r', 122, 7);
+  put('D', 132, GROUND-1);
+  put('E', 146, GROUND-1);
+}},
+{ name:'🌙 Night Two — The Graveyard Hill', lakitu:true, build(){
+  road([[28,30],[58,61],[90,92],[120,122]]);
+  hill(14, 6, 10); hill(44, 8, 10); hill(74, 10, 9); hill(104, 8, 10); hill(134, 10, 10);
+  put('P', 3, GROUND-1);
+  put('D', 10, GROUND-1);
+  put('^', 8, GROUND-1); put('^', 22, GROUND-1); put('^', 40, GROUND-1);
+  put('^', 17, 9); put('^', 108, 9);                 // graves on the hills
+  put('y', 16, 9);
+  put('=', 34, 9, 4);     put('H', 35, 8);
+  put('r', 36, 8);
+  put('k', 47, 9);
+  put('T', 55, GROUND-1);
+  put('n', 56, GROUND-1);
+  put('=', 66, 7, 4);     put('r', 67, 6);           // Rin on the high walk…
+  put('=', 60, 3, 3);     put('H', 61, 2);           // …bounce off her to reach
+  put('y', 78, 8);
+  put('D', 88, GROUND-1);
+  put('T', 96, GROUND-1);
+  put('^', 97, GROUND-1);
+  put('n', 107, 9);
+  put('y', 116, GROUND-1);
+  put('^', 126, GROUND-1);
+  put('r', 137, 9);
+  put('E', 146, GROUND-1);
+}},
+{ name:'🌙 Night Three — The Shrine Path', build(){
+  road([[24,27],[50,53],[80,83],[108,110]]);
+  for (let y=4; y<GROUND; y++){ grid[y][146] = '#'; grid[y][147] = '#'; } // shrine wall
+  put('P', 3, GROUND-1);
+  put('D', 18, GROUND-1); put('D', 36, GROUND-1); put('D', 58, GROUND-1);
+  put('D', 76, GROUND-1); put('D', 96, GROUND-1); put('D', 118, GROUND-1);
+  put('D', 134, GROUND-1);                            // the torii path
+  put('^', 12, GROUND-1); put('T', 40, GROUND-1); put('^', 88, GROUND-1);
+  put('T', 112, GROUND-1);
+  put('y', 14, GROUND-1);
+  put('=', 50, 8, 4);     put('H', 51, 7);
+  put('r', 30, GROUND-1);
+  put('n', 44, GROUND-1);
+  put('y', 58, GROUND-1);
+  put('=', 64, 6, 4);     put('k', 65, 5);            // Kazuma on the high road…
+  put('H', 66, 3); put('H', 68, 3);                   // …bounce off him for these
+  put('r', 74, GROUND-1);
+  put('=', 80, 8, 4);     put('H', 81, 7);
+  put('n', 90, GROUND-1);
+  put('y', 100, GROUND-1);
+  put('r', 116, GROUND-1);
+  put('k', 126, GROUND-1);
+  put('A', 140, 8);                                   // Ayame — the finale
+}},
+];
 
 /* ---------------- CAST ----------------
    Each entry: look (chibi renderer) + scene-1 dialog (qs), a date scene,
@@ -316,6 +403,7 @@ const CAST = {
       ],
       win:'She walks you back along her road, your hand very carefully in her almost-there one, taking the longest possible way. "Same time tomorrow? The moss and I will be waiting."',
     },
+    almostKiss:'Yuki floats closer than she has ever dared, the cold air going warm, eyes fluttering shut — "if I phase through you right now I will simply pass away a SECOND time" — and leans in',
     quips:[ 'Boo! …Did I get you? Be got. Please. It\'s good for my confidence.',
       'The other me waved at you?? We are… going to have a talk. Me and me. All of us.',
       '*happy ghost noises*' ],
@@ -373,6 +461,7 @@ const CAST = {
       ],
       win:'She walks you to the edge of her street swinging your linked hands like a metronome. "Same time tomorrow. Bring snacks. Bring the hand. ESPECIALLY the hand."',
     },
+    almostKiss:'Rin grabs your collar with her best hand, grinning so hard her jaw creaks — "fair warning, I have rehearsed this moment since snack run number three" — and leans in',
     quips:[ 'Snack run later? You\'re buying. Still dead, still broke.',
       'How am I over here AND over there? Fufufu. Town secret. Unravel it, detective.',
       '*finger guns with a slightly loose finger* Hey. Heyyy. It\'s you.' ],
@@ -430,6 +519,7 @@ const CAST = {
       ],
       win:'He escorts you down from the balcony one step at a time, your hand held aloft like something ceremonial and priceless. "Same hour tomorrow. The moon and I will BOTH be ready. One of us has better hair."',
     },
+    almostKiss:'Kazuma bows, lifts your chin like something priceless, and leans in with four hundred years of absolute certainty — "magnificent," he whispers, quietly, for the first time in centuries',
     quips:[ 'You may walk beside me! This is a privilege extended to very few. MAGNIFICENT posture today, by the way.',
       'Another me on the road? Impossible. There is only one of me. There has ONLY EVER BEEN one of me. …We will not discuss this further.',
       '*adjusts cape* The night suits you. I would know. I have seen four hundred of them.' ],
@@ -487,6 +577,7 @@ const CAST = {
       ],
       win:'He walks you down the hill exactly one half-step closer than strictly necessary, your hand warm in his the whole way. "Same moon tomorrow. I\'ll save your spot. It\'s got your name on it now — I checked with the hill."',
     },
+    almostKiss:'Ren stops fighting the tail entirely, tips his forehead against yours — "the pack voted. it was unanimous. even Aunt Moriko" — and leans in',
     quips:[ '*ears perk before you\'re even close* Oh. You. Good. Stay where I can see you — the town\'s weird tonight.',
       'You met another me? Weird. Handsome guy though, right? Right.',
       'The pack asked about you again. All seventeen questions. I answered ALL of them. …Favorably.' ],
@@ -522,17 +613,22 @@ const CAST = {
              r:'*she is suddenly INCHES from your face* I am the fog, beloved. I have ALREADY caught you. You are standing inside me RIGHT NOW.'},
             {t:'Haunt me, I guess? Standard package?', aff:0,
              r:'"Standard package." I will haunt you ARTISANALLY. Bespoke torment. Nothing but the finest for heartbreakers.'} ] },
-      { q:'Final question, little heartbeat. The gate behind me leads out of Hollow Hills. Walk through it and dawn takes you home — alone, safe, free of us. Or stay in the dark, with the dead, with… me. With all of us. Choose.',
-        c:[ {t:'Keep the gate. The dark\'s got better company anyway.', aff:6,
+      { q:'Final question, little heartbeat. The path behind me leads out of Hollow Hills. Walk it and dawn takes you home — alone, safe, free of us. Or stay in the dark, with the dead, with… me. With all of us. Choose.',
+        c:[ {t:'Keep the path. The dark\'s got better company anyway.', aff:6,
              r:'*for one second, the terrifying shrine spirit looks exactly like a girl who was not expecting that answer* …oh. OH. Well. Then it is decided. You are OURS now. …Mine on Thursdays.'},
             {t:'Can I sleep on it? Big decision.', aff:0,
-             r:'*pinches the bridge of her nose* Three hundred years and I get "let me sleep on it." Fine. FINE. The gate isn\'t going anywhere. Neither am I. Unfortunately for you, neither are my FEELINGS.'},
+             r:'*pinches the bridge of her nose* Three hundred years and I get "let me sleep on it." Fine. FINE. The path isn\'t going anywhere. Neither am I. Unfortunately for you, neither are my FEELINGS.'},
             {t:'Home, obviously. This place is a graveyard.', aff:-7,
              r:'IT IS A *SHRINE*. THE GRAVEYARD IS *ADJACENT*. GET OUT.'} ] },
     ],
-    win:'The gate dissolves into moonlight. Ayame turns away to hide her face behind her sleeve. "Curfew is dawn. Dinner is at the shrine. Yuki picked the menu, so it is exclusively snacks. …Welcome home, beloved."',
+    win:'The last seal over the shrine path dissolves into moonlight. Ayame turns away to hide her face behind her sleeve. "Curfew is dawn. Dinner is at the shrine. Yuki picked the menu, so it is exclusively snacks. …Welcome home, beloved."',
     lose:'The sky splits with violet lightning. "OUT. OF. MY. SHRINE." — Ayame hurls you back down the hill. She cools off eventually. Spirits always do.',
     meh:'Ayame studies you for a long, long moment. "Undecided. I have waited three centuries; I can wait one more conversation. Come back to me, little heartbeat."',
+    ambientLakitu:[ 'enjoying the night, little heartbeat?',
+      '*watching. affectionately. menacingly. both.*',
+      'do NOT fall in that pit. only I may end you. …lovingly.',
+      'the others cannot HAVE you yet. shrine rules.',
+      '*a warding charm flutters past your ear* oops.' ],
   },
 };
 
@@ -567,10 +663,13 @@ try {
   }
 } catch(e){}
 bonds.ayame = freshBond();             // the finale always replays
+let savedLevel = 0;
+try { savedLevel = (JSON.parse(localStorage.getItem(SAVE_KEY))?._world?.level) || 0; } catch(e){}
 function saveBonds(){
   try {
     const s = {};
     for (const id in bonds) if (id !== 'ayame') s[id] = bonds[id];
+    s._world = { level: levelIdx };      // which night you're on
     localStorage.setItem(SAVE_KEY, JSON.stringify(s));
   } catch(e){}
 }
@@ -630,6 +729,7 @@ function resize(){
 addEventListener('resize', resize); resize();
 
 const rows = ROWS, cols = COLS;
+let LEVEL = [];
 const tileAt = (x,y) => (y>=0 && y<rows && x>=0 && x<cols) ? LEVEL[y][x] : ' ';
 const solid = (x,y) => (x < 0 || x >= cols) ? true : tileAt(x,y) === '#';
 const oneway = (x,y) => tileAt(x,y) === '=';
@@ -638,37 +738,63 @@ const player = { x:0, y:0, w:22, h:30, vx:0, vy:0, onGround:false, facing:1,
   hearts:CONFIG.maxHearts, iframe:0, prevBottom:0, walkT:0, dead:false };
 let spawn = {x:3*T, y:(GROUND-2)*T};
 const chars = [], pickups = [], graves = [], trees = [], particles = [];
-let gate = null;
+const toriis = [], talismans = [];
+let exitL = null, lakitu = null, levelIdx = 0, transitioning = false;
 let romanced = Object.keys(CAST).filter(id => !CAST[id].boss && bonds[id].romanced).length;
 const healCd = {}, quipIdx = {};   // per-character, runtime only
 let camX = 0, camY = 0;
-let gameState = 'title'; // title | play | dialog | ending
+let gameState = 'title'; // title | play | dialog | night | ending
 let timeT = 0, flash = 0;
 const wisps = Array.from({length:14}, () => ({ x:Math.random()*cols*T,
   y:Math.random()*9*T, s:.5+Math.random(), p:Math.random()*7 }));
 
-for (let y=0; y<rows; y++) for (let x=0; x<cols; x++){
-  const c = LEVEL[y][x], wx = x*T, wy = y*T;
-  if (c==='P') spawn = {x:wx, y:wy - 4};
-  else if (c==='H') pickups.push({x:wx+T/2, y:wy+T/2, taken:false, p:Math.random()*7});
-  else if (c==='^') graves.push({x:wx, y:wy});
-  else if (c==='T') trees.push({x:wx, y:wy});
-  else if (c==='D') gate = {x:wx, y:wy, open:false, anim:0};
-  else if ('yrknA'.includes(c)){
-    const id = {y:'yuki', r:'rin', k:'kazuma', n:'ren', A:'ayame'}[c];
-    const boss = !!CAST[id].boss;
-    chars.push({ id, def:CAST[id], x:wx+5, y:wy+T-34, w:26, h:34, vx:0, vy:0, dir:-1,
-      state:'roam',            // roam | talk | angry (boss finale only)
-      attitude: boss ? 'boss' : (bonds[id].freed ? deriveAttitude(id) : 'puppet'),
-      spoken:false,            // each body carries ONE conversation (design §2.1)
-      juggle:0, counting:false, rainbow:false,
-      spin:0, hidden:false, respawnAt:0, talkCd:0,
-      ambientAt: Math.random()*20 + 8,
-      walkT:Math.random()*7, aff:0, qi:0,
-      home:{x:wx+5, y:wy+T-34}, boss });
+function loadLevel(n){
+  levelIdx = Math.max(0, Math.min(LEVELS.length - 1, n));
+  grid = Array.from({length:ROWS}, () => Array(COLS).fill(' '));
+  chars.length = 0; pickups.length = 0; graves.length = 0; trees.length = 0;
+  toriis.length = 0; talismans.length = 0; particles.length = 0; speech.clear();
+  exitL = null; lakitu = null;
+  LEVELS[levelIdx].build();
+  LEVEL = grid.map(r => r.join(''));
+  for (let y=0; y<rows; y++) for (let x=0; x<cols; x++){
+    const c = LEVEL[y][x], wx = x*T, wy = y*T;
+    if (c==='P') spawn = {x:wx, y:wy - 4};
+    else if (c==='H') pickups.push({x:wx+T/2, y:wy+T/2, taken:false, p:Math.random()*7});
+    else if (c==='^') graves.push({x:wx, y:wy});
+    else if (c==='T') trees.push({x:wx, y:wy});
+    else if (c==='D') toriis.push({x:wx, y:wy});
+    else if (c==='E') exitL = {x:wx, y:wy};
+    else if ('yrknA'.includes(c)){
+      const id = {y:'yuki', r:'rin', k:'kazuma', n:'ren', A:'ayame'}[c];
+      const boss = !!CAST[id].boss;
+      chars.push({ id, def:CAST[id], x:wx+5, y:wy+T-34, w:26, h:34, vx:0, vy:0, dir:-1,
+        state:'roam',            // roam | talk | angry (boss finale only)
+        attitude: boss ? 'boss' : (bonds[id].freed ? deriveAttitude(id) : 'puppet'),
+        spoken:false,            // each body carries ONE conversation (design §2.1)
+        juggle:0, counting:false, rainbow:false,
+        spin:0, hidden:false, respawnAt:0, talkCd:0,
+        ambientAt: Math.random()*20 + 8,
+        walkT:Math.random()*7, aff:0, qi:0,
+        home:{x:wx+5, y:wy+T-34}, boss });
+    }
   }
+  if (LEVELS[levelIdx].lakitu) lakitu = { x:spawn.x + W, y:CONFIG.ayameHazard.hoverRow*T,
+    w:26, h:34, hidden:false, dropAt: timeT + 3, ambientAt: timeT + 6 };
+  player.x = spawn.x; player.y = spawn.y; player.vx = player.vy = 0;
+  player.hearts = CONFIG.maxHearts; player.iframe = 1.2; player.dead = false;
+  camX = Math.max(0, player.x - W/2); camY = 0;
+  refreshHUD(); saveBonds();
+  if (gameState !== 'title') showHint(LEVELS[levelIdx].name, 4);
 }
-player.x = spawn.x; player.y = spawn.y;
+function nextNight(){
+  if (transitioning || levelIdx + 1 >= LEVELS.length) return;
+  transitioning = true; gameState = 'night'; SFX.gate();
+  const nc = document.getElementById('nightCard');
+  nc.textContent = LEVELS[levelIdx + 1].name;
+  nc.classList.add('show');
+  setTimeout(() => { loadLevel(levelIdx + 1); gameState = 'play'; }, 950);
+  setTimeout(() => { nc.classList.remove('show'); transitioning = false; }, 2100);
+}
 
 /* ---------------- INPUT ---------------- */
 const keys = {};
@@ -708,7 +834,7 @@ let hintT = 0;
 function showHint(msg, secs){ hintEl.textContent = msg; hintEl.classList.add('show'); hintT = secs; }
 function refreshHUD(){
   heartsEl.textContent = '💗'.repeat(player.hearts) + '🖤'.repeat(CONFIG.maxHearts - player.hearts);
-  romanceEl.textContent = `💕 ${romanced}/${CONFIG.romancesNeeded}` + (gate && gate.open ? ' ⛩️' : '');
+  romanceEl.textContent = `🌙 ${levelIdx + 1}/${LEVELS.length}`;
 }
 refreshHUD();
 
@@ -831,8 +957,6 @@ function finishDialog(ch){
     if (!st.romanced){
       st.romanced = true; saveBonds();
       romanced++; refreshHUD();
-      if (romanced >= CONFIG.romancesNeeded && gate && !gate.open)
-        setTimeout(() => showHint('The shrine gate stirs… head east ⛩️', 6), 600);
     }
     ch.mood = 'love'; SFX.good();
     burst(ch.x+ch.w/2, ch.y, PAL.heart, 18);
@@ -852,7 +976,7 @@ function closeDialog(ch){
   gameState = 'play';
   if (ch.state === 'angry' && ch.boss){
     // boss rejection: hurled back down the hill, she resets
-    player.x = gate ? gate.x - T*6 : spawn.x; player.y = spawn.y;
+    player.x = ch.home.x - T*8; player.y = spawn.y;
     player.vx = 0; player.vy = 0;
     ch.aff = 0;
   }
@@ -864,14 +988,23 @@ function closeDialog(ch){
 function ending(){
   gameState = 'ending';
   dEl.classList.remove('open');
-  document.getElementById('endH1').textContent = '🌙💜 HAPPILY HAUNTED';
-  document.getElementById('endH2').textContent = 'ever after';
+  setSwoon(false);
+  // Tokimeki rules: the almost-kiss goes to whoever holds the highest meter.
+  const order = ['yuki','rin','kazuma','ren'].sort((a,b) => bonds[b].meter - bonds[a].meter);
+  const win = order[0];
+  const others = order.slice(1).map(i => CAST[i].name);
+  const charmed = order.filter(i => bonds[i].romanced).length;
+  document.getElementById('endH1').textContent = '🌙💞 THE ALMOST-KISS';
+  document.getElementById('endH2').textContent =
+    `dawn at the shrine — ${CAST[win].name} walks you out`;
   document.getElementById('endP').textContent =
-    `You snapped the strings on ${romanced} heart${romanced===1?'':'s'} of Hollow Hills — and won ` +
-    `over the shrine spirit herself. The fog is warm now. The ghosts wave when you pass. ` +
-    `At dawn, under the gate, there is very nearly a kiss — interrupted at the last ` +
-    `second by four extremely invested spectators. Next time. DEFINITELY next time. ` +
-    `…Somewhere beyond the hills, unseen, something winds fresh thread onto a spool.`;
+    (CAST[win].almostKiss || `${CAST[win].name} leans in —`) +
+    ` — and at the worst possible second, ${others[0]}, ${others[1]} and ${others[2]} ` +
+    `arrive all at once, with Ayame's "AHEM." splitting the dawn like violet lightning. ` +
+    `Next time. DEFINITELY next time. ` +
+    `(Hearts charmed: ${charmed}/4. Somewhere beyond the hills, unseen, something ` +
+    `winds fresh thread onto a spool.)`;
+  levelIdx = 0; saveBonds();          // the next run starts a new first night
   document.getElementById('ending').classList.remove('hidden');
 }
 
@@ -965,21 +1098,39 @@ function update(dt){
     }
   }
 
-  // --- gate ---
-  if (gate){
-    const px = player.x + player.w/2;
-    if (!gate.open && romanced >= CONFIG.romancesNeeded && Math.abs(px-(gate.x+T/2)) < T*4){
-      gate.open = true; SFX.gate(); refreshHUD();
-      showHint('⛩️ The gate opens for a charmed heart…', 4);
+  // --- night exit ---
+  if (exitL && !transitioning && !player.dead &&
+      Math.abs((player.x + player.w/2) - (exitL.x + T/2)) < T*0.8 &&
+      Math.abs((player.y + player.h) - (exitL.y + T)) < T*1.6){
+    nextNight();
+  }
+
+  // --- Ayame, Lakitu-style (Night 2): hovers, follows, drops warding charms ---
+  if (lakitu){
+    const AH = CONFIG.ayameHazard;
+    lakitu.x += (player.x - lakitu.x) * Math.min(1, AH.followLerp * dt);
+    lakitu.y = AH.hoverRow*T + Math.sin(timeT*1.6)*10;
+    if (!player.dead && timeT >= lakitu.dropAt && Math.abs(player.x - lakitu.x) < AH.range*T){
+      lakitu.dropAt = timeT + AH.dropCd * (0.7 + Math.random()*0.6);
+      talismans.push({ x: lakitu.x + 13, y: lakitu.y + 34, p: Math.random()*7 });
     }
-    if (gate.open && gate.anim < 1) gate.anim = Math.min(1, gate.anim + dt*0.8);
-    if (!gate.open){
-      const g = {x:gate.x+6, y:gate.y-T*2, w:T-12, h:T*3};
-      if (overlap(player, g)){
-        player.x = px < g.x+g.w/2 ? g.x - player.w - 0.5 : g.x + g.w + 0.5;
-        const need = CONFIG.romancesNeeded - romanced;
-        showHint(`The gate is sealed. Charm ${need} more heart${need===1?'':'s'} 💕`, 3);
-      }
+    if (timeT >= lakitu.ambientAt){
+      lakitu.ambientAt = timeT + 9 + Math.random()*9;
+      if (CAST.ayame.ambientLakitu) say(lakitu, pick(CAST.ayame.ambientLakitu), 3);
+    }
+  }
+  for (let i = talismans.length - 1; i >= 0; i--){
+    const t = talismans[i];
+    t.y += CONFIG.ayameHazard.fallSpeed * dt;
+    t.x += Math.sin(timeT*3 + t.p) * 26 * dt;
+    if (!player.dead && overlap(player, { x:t.x-8, y:t.y-11, w:16, h:22 })){
+      damagePlayer(player.x + player.w/2 < t.x ? -1 : 1);
+      burst(t.x, t.y, '#e8d8ff', 8);
+      talismans.splice(i, 1); continue;
+    }
+    if (solid(Math.floor(t.x/T), Math.floor((t.y+11)/T)) || t.y > rows*T){
+      burst(t.x, t.y, '#e8d8ff', 6);
+      talismans.splice(i, 1);
     }
   }
 
@@ -1050,7 +1201,6 @@ function update(dt){
     }
 
     if (player.dead) continue;
-    if (ch.boss && !(gate && gate.open)) continue;     // unreachable until the gate opens
     // Swept contact check (design §4.2): while falling, test the full vertical
     // path travelled this frame so a fast descent can't tunnel past a head.
     const curBot = player.y + player.h;
@@ -1123,7 +1273,7 @@ function update(dt){
       }
     }
     // the boss confronts you herself when you approach
-    if (ch.boss && gate && gate.open && ch.state==='roam' &&
+    if (ch.boss && ch.state==='roam' &&
         Math.abs(player.x - ch.x) < T*1.8 && Math.abs(player.y - ch.y) < T*2.5){
       openDialog(ch);
     }
@@ -1456,22 +1606,51 @@ function render(){
     }
   }
 
-  // shrine gate
-  if (gate){
-    const gx = gate.x, gy = gate.y - T*2;
+  // torii arches (decor — the path is open now)
+  for (const tor of toriis){
+    const gx = tor.x, gy = tor.y - T*2;
     ctx.fillStyle = PAL.gateWood;
     ctx.fillRect(gx-6, gy-14, 8, T*3+14); ctx.fillRect(gx+T-2, gy-14, 8, T*3+14);
     ctx.fillRect(gx-14, gy-16, T+28, 10); ctx.fillRect(gx-8, gy-30, T+16, 9);
-    if (gate.anim < 1){
-      ctx.globalAlpha = 1-gate.anim;
-      ctx.fillStyle = PAL.gateSeal;
-      const lift = gate.anim * T*2.6;
-      for (let i=0;i<4;i++) ctx.fillRect(gx+2+i*8, gy-4-lift, 4, T*3);
-      ctx.globalAlpha = 1;
-    }
+  }
+  // the night-exit lantern
+  if (exitL){
+    const ex = exitL.x + T/2, ey = exitL.y + T;
+    const pulse = 0.55 + 0.35*Math.sin(timeT*2.4);
+    ctx.globalAlpha = 0.22 * pulse;
+    ctx.fillStyle = PAL.gateSeal;
+    ctx.beginPath(); ctx.arc(ex, ey - 34, 34, 0, 7); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#4a4270';                       // stone lantern (tōrō)
+    ctx.fillRect(ex-4, ey-18, 8, 18);
+    ctx.fillRect(ex-11, ey-22, 22, 5);
+    ctx.fillStyle = '#ffd9ec';
+    ctx.globalAlpha = 0.6 + 0.4*pulse;
+    ctx.fillRect(ex-7, ey-36, 14, 14);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = '#3a3350';
+    ctx.beginPath(); ctx.moveTo(ex-12, ey-36); ctx.lineTo(ex, ey-46); ctx.lineTo(ex+12, ey-36);
+    ctx.closePath(); ctx.fill();
     ctx.fillStyle = '#ffd6ea'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
-    ctx.fillText(gate.open ? '⛩️' : `💕 ${Math.min(romanced,CONFIG.romancesNeeded)}/${CONFIG.romancesNeeded}`,
-      gx+T/2, gy-36);
+    ctx.fillText('onward ➜', ex, ey - 54 + Math.sin(timeT*2)*3);
+  }
+  // Ayame overhead (Night 2), plus her drifting warding charms
+  if (lakitu){
+    ctx.save();
+    ctx.translate(lakitu.x + 13, lakitu.y + 34);
+    drawChibi(ctx, CAST.ayame.look, { s:1.28, facing: player.x < lakitu.x ? -1 : 1,
+      walk: timeT*2.5, mood:'neutral', floaty:true });
+    ctx.restore();
+  }
+  for (const t of talismans){
+    ctx.save();
+    ctx.translate(t.x, t.y);
+    ctx.rotate(Math.sin(timeT*3 + t.p) * 0.3);
+    ctx.fillStyle = '#f6ecff'; ctx.fillRect(-7, -11, 14, 22);
+    ctx.strokeStyle = '#c9739f'; ctx.lineWidth = 1.4; ctx.strokeRect(-7, -11, 14, 22);
+    ctx.fillStyle = '#c9739f'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText('封', 0, 3);
+    ctx.restore();
   }
 
   // pickups
@@ -1487,8 +1666,6 @@ function render(){
   for (const ch of chars){
     if (ch.hidden) continue;
     const st = bonds[ch.id];
-    if (ch.boss && !(gate && gate.open))            // distant silhouette until the gate opens
-      ctx.globalAlpha = 0.35 + 0.1*Math.sin(timeT*2);
     if (ch.attitude === 'puppet'){                  // puppet strings, swaying gently
       ctx.strokeStyle = '#cfc4f0'; ctx.globalAlpha = 0.28; ctx.lineWidth = 1;
       const cxm = ch.x + ch.w/2, topY = ch.y - 4;
@@ -1595,6 +1772,8 @@ function render(){
   }
 }
 
+loadLevel(savedLevel);
+
 /* ---------------- MAIN LOOP ---------------- */
 let last = performance.now();
 function frame(now){
@@ -1646,18 +1825,21 @@ function renderDebug(){
   KNOBS.forEach(([name, get], i) => {
     h += `<span class="knob">${name} <input type="number" step="any" value="${get()}" data-k="${i}"></span>`;
   });
-  h += `<div style="margin-top:6px;color:#8f7fb8">romanced ${romanced}/${CONFIG.romancesNeeded} · zoom ${Z.toFixed(2)} · state ${gameState}</div>`;
+  h += `<div style="margin-top:6px;color:#8f7fb8">night ${levelIdx+1}/${LEVELS.length} · zoom ${Z.toFixed(2)} · state ${gameState} <button data-skip style="margin-left:8px">skip night ▶</button></div>`;
   dbgEl.innerHTML = h;
   dbgEl.querySelectorAll('input').forEach(inp => inp.addEventListener('change', () => {
     const v = parseFloat(inp.value);
     if (!isNaN(v)) KNOBS[+inp.dataset.k][2](v);
   }));
+  const sk = dbgEl.querySelector('[data-skip]');
+  if (sk) sk.addEventListener('click', () => { if (gameState === 'play') nextNight(); });
 }
 
 // debug hooks (strip before a public ship)
 window._game = { player, chars, CONFIG, bonds, saveBonds, deriveAttitude, say, speech,
   get state(){ return gameState; }, get Z(){ return Z; }, get W(){ return W; },
-  get romanced(){ return romanced; }, openDialog, gate: () => gate };
+  get romanced(){ return romanced; }, get level(){ return levelIdx; },
+  get lakitu(){ return lakitu; }, talismans, loadLevel, nextNight, openDialog };
 </script>
 </body>
 </html>
