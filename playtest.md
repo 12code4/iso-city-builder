@@ -1,87 +1,94 @@
-# playtest.md — v0.2 "Broken Strings" feedback sheet
+# playtest.md — v0.4 "Open Road" feedback sheet
 
-Open `index.html`, play blind (don't re-read the README first), jot answers
-here or just mark ✅/❌/🤔. Numbers in [brackets] are the CONFIG knobs your
-answer would tune. If she plays: **don't explain anything** — where she gets
-confused IS the data. Note her first unprompted laugh and anything she
-screenshots; those are the truest signals we have.
+Play at the Pages link, blind. **This sheet is short on purpose** — the old v0.2
+sheet had 30 questions, which is exactly why it never got filled in. Everything
+below is either (a) something no human has ever felt, or (b) an answer that
+unblocks a build.
 
-## A. Platforming feel (first 2 minutes)
+Mark ✅/❌/🤔 and scribble. Half-answers are fine.
 
-1. Jump: floaty, heavy, or right? Can you clear pits comfortably but not
-   trivially? [jumpVel, gravity]
-2. Run speed: does crossing the map feel brisk or like a commute? [moveSpeed]
-3. Stomping: can you reliably land on heads at the new sprite size, or do you
-   eat side-hits you feel you didn't deserve? (This one matters most.)
-4. Camera: does it keep what you care about on screen? Any nausea/jitter?
+---
 
-## B. The attitude system
+## ⭐ The Big Two — answer these first
 
-5. Hostile chase: scary-fun or unfair? Especially near pits. [hostileSpeedMult,
-   chaseRange]
-6. Can you actually TELL the three bands apart just by watching a body move
-   (0.8× mellow vs normal vs 1.25× hunt)? If not, they need stronger tells.
-7. Bump-off: did you do it by accident while just trying to traverse? How did
-   losing affection for it feel — fair consequence or gotcha? [bumpBondLoss]
-8. 30s respawn after a bump: too long (map feels empty) or too short (no
-   weight)? [bumpRespawn]
-9. Healing from friends: did you notice it happening? Cooldown feel? 45s.
-   [healCooldown]
-10. Walk-up talking: did you discover it without being told? Did the dialog
-    ever open when you were just trying to walk past a friend? [talkCooldown]
+These two gate more work than everything else combined.
 
-## C. Dialog & writing
+**1. Voice ranking.** Rank Yuki / Rin / Kazuma / Ren best→worst. Whose lines
+made you actually smile? Whose fell flat?
+→ *Decides who gets the big dialogue expansion first in v0.5. Nothing else
+orders that work.*
 
-11. Rank the four: whose voice lands best/worst? (Decides who gets content
-    first in v0.3.)
-12. Choices: is the +1 answer too obvious? Is picking the "wrong" answer ever
-    tempting for the reaction alone? (It should be.)
-13. Length: are 3 questions per first-talk right, or does it overstay?
-14. The wary regreet when you've hurt someone — does it feel earned?
-15. Any line that made you cringe (bad cringe, not anime cringe). Flag it.
+```
+1. ______  2. ______  3. ______  4. ______
+```
 
-## D. Romance pacing (the heart of the game)
+**2. Band legibility.** Watching a character walk — with no icons, no dialog —
+can you tell **friendly / free-thinking / hostile** apart?
+→ *Right now speed is the main tell (0.8× vs 1.25×). If the answer is no, they
+need non-speed tells (posture, chatter rate, string state). Cheap to add — but
+only worth building if it actually fails.*
 
-16. Does the hand-holding date climax actually LAND as intense? Did the
-    build-up earn it?
-17. The almost-kiss finale with four spectators: satisfying-frustrating (the
-    goal) or just frustrating?
-18. After finishing: do you WANT the third date / the real kiss? (If no, the
-    ladder is broken regardless of anything else.)
+```
+yes / no / only when they chase me
+```
 
-## E. Horror & aesthetic
+---
 
-19. Is it spooky-cozy or did it tip into either "not spooky at all" or
-    "actually stressful"? Where on that dial should v0.3's Shade sit?
-20. Puppet strings + glazed eyes: did you understand the mind-control lore
-    WITHOUT reading anything? What did you think the strings were?
-21. Palette check (the pastel pinks/purples/blues): too dark, too washed, or
-    right? Screenshot the prettiest moment you find.
-22. Lightning flashes: atmosphere or annoyance? [lightningChance]
+## 🆕 Never been felt by a human
 
-## F. Structure & difficulty
+All of this shipped since your last playtest. No data on any of it.
 
-23. Time from start → gate open: felt like? (Target: a cozy 10–20 min first
-    run.) Is 3 romances the right price? [romancesNeeded]
-24. Boss fight: did losing hearts to wrong answers feel tense or cheap? Did
-    you fail it at least once (intended)?
-25. Deaths: did any death feel unfair (pit placement, respawn point)?
-26. Did you find all 3 heart pickups without hunting?
+| Thing | What to notice |
+| --- | --- |
+| **Springboard bounce** | Bouncing off a freed body now lifts you a full jump + their height. Floaty? Uncontrollable? Just right? |
+| **The 7-bounce juggle** | Funny or tedious? Did you ever hit the 1-in-20 where they count out loud and flutter off in a rainbow? |
+| **Dialog once per body** | Does "this one already talked to me" read as intentional, or as broken dialog? |
+| **Three nights** | Does hitting the lantern feel like a Mario world-clear? Any night that drags? |
+| **20-tile zoom** | Too close? Can you see enough ahead to react? |
+| **Ayame overhead (Night 2)** | Scary-fun or annoying? Are the falling charms readable in time? |
+| **The swoon** (hand-hold) | *Re-test of the old Q16.* Does the climax land now, or still flat? |
+| **The finale** | Did the winner feel *earned*? Did you know who it'd be before it said? |
+| **Springboard secrets** | Did you find any? Did you even suspect they existed? |
 
-## G. The mystery & the meta
+---
 
-27. When did you first notice there are multiple Yukis/Rins? What was your
-    theory? (Don't tell her there IS an answer.)
-28. Did any ambient bubble / quip make the town feel alive vs noisy?
-    [ambientMinS/MaxS]
-29. What would you show a friend first? (That's our trailer moment.)
-30. One thing you'd cut, one thing you'd double down on. No essay — one line
-    each.
+## 🎛 The numbers (press **N** in-game)
 
-## Parking spots for bugs
+Every one of these is a **guess** — nobody has ever corrected them by playing.
+Nudge them live and tell me what felt right.
 
-- Softlocks / dialog stuck open:
-- Bodies stuck on geometry / walking in place:
-- Bubbles unreadable or overlapping:
-- Mobile (if tested): buttons reachable? pinch/scroll accidents?
-- Anything that survived a reload that shouldn't have (or vice versa):
+| Knob | Now | Notice |
+| --- | --- | --- |
+| `meter.friendlyMin` | 55 | Too easy/slow to make a friend? |
+| `meter.hostileMax` | 19 | Do people turn hostile too readily? |
+| `meter.start` | 25 | How warm is a stranger you just freed? |
+| choice weights | +5/6/8, −4/−6/−8 | Does one good answer feel like enough? |
+| `bounce.warn` / `.fall` | 6 / 7 | Right number of bounces before they leave? |
+| `bounce.fallCost` | 6 | Does felling a friend sting enough? |
+| `viewTiles` | 20 | 20 vs 24 — flip it and compare |
+
+---
+
+## 🐛 Bugs / parking
+
+- Softlocks, stuck dialogs:
+- Bodies stuck on geometry:
+- Unfair deaths (pit placement, respawn):
+- Mobile, if tested:
+- Anything that made you go "huh?":
+
+---
+
+## ✅ Answered / retired — don't re-ask
+
+| Q | Status |
+| --- | --- |
+| Q3 stomps registering as side-hits | **Fixed** (swept check). Confirm by never eating an undeserved hit. |
+| Q7 accidental bump-offs cost affection | **Retired by design** — juggle counts only consecutive airborne bounces. |
+| Q16 hand-holding doesn't land | **Swoon shipped** → re-test above. Full fix is still v0.6's CG/poses. |
+| Q18 wants a longer game | **Half done** — three nights. "More scenes per character" is v0.5. |
+| Q4 camera / Q8 respawn / Q17 kiss / Q23 pacing / Q24 boss | **Transformed** by the gate removal + juggle — restated in the tables above. |
+
+Still live but lower priority (ask after the Big Two): jump/run feel, ally
+healing discoverability, walk-up talking discoverability, horror & palette,
+difficulty, the clone mystery, the trailer moment, one-thing-to-cut.
