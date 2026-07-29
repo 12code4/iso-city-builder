@@ -2,6 +2,9 @@
 
 Stable architecture reference. Session-by-session notes live in plan.md.
 Update this file only when an architectural decision changes.
+**New here? Read VISION.md first** — the north star, the player profile
+(who this gift is for and what she likes), the 1.0 definition, and the
+handoff orientation. This file is the law; that file is the reason.
 
 ## Repo layout (changed 2026-07-25 — read this first)
 

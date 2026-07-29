@@ -109,6 +109,17 @@ screen offers "forget everything (new story)" once a save exists.
   Zero new engine logic per character.
 - Tiny WebAudio synth for SFX — still zero assets.
 
+## Project docs — read in this order
+
+| File | What it is |
+| --- | --- |
+| [`VISION.md`](VISION.md) | **Start here.** North star, the player profile (what she likes — the design compass), what 1.0 means, handoff orientation. |
+| [`CLAUDE.md`](CLAUDE.md) | Architecture law: locked decisions, core state, attitude bands, watch list. |
+| [`design-doc.md`](design-doc.md) | The compiled v0.2 playtest → law + release plan (v0.3/v0.4 built; v0.5–v0.7 ahead). |
+| [`roadmap.md`](roadmap.md) | What's next, organized by blocker. |
+| [`playtest.md`](playtest.md) | The open questions — deliberately short. |
+| [`plan.md`](plan.md) | Session-by-session dev log. |
+
 ## Version history
 
 - **v0.1 "First Night"** — core platformer + stomp-to-talk dating system, five

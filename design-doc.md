@@ -3,6 +3,14 @@
 **Status:** authored 2026-07-25 from Juan's v0.2 "Broken Strings" playtest.
 **Supersedes:** the two items parked in README "Design backlog" — *dialog-trigger
 rework* and *angry/neutral/friendly behavior design doc*. Both are answered here.
+
+> **STATUS UPDATE (2026-07-26, handoff pass):** §4 (v0.3 "Close Quarters") and
+> §5 (v0.4 "Open Road") are **BUILT and shipped**; §6–§8 (v0.5–v0.7) are the
+> road ahead. The top-of-doc warning still applies in full: every [PROPOSED]
+> number remains an unplayed guess — correct via the in-game `N` menu.
+> §9.7's tag commands are deferred to Juan's organizational pass, by his call.
+> Current blockers and next steps live in **roadmap.md**; the project's north
+> star and player profile live in **VISION.md** (read that first).
 > ### ⚠️ READ THIS FIRST — [PROPOSED] means GUESSED
 >
 > Juan ruled on the **design**. He did **not** rule on most of the **numbers**.

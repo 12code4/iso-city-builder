@@ -15,6 +15,16 @@ release plan in design-doc.md §3; re-scope those after v0.4 lands.
 
 ## Session log
 
+- **2026-07-26 — Session 5 (handoff pass).**
+  - Wrote **VISION.md**: the player profile (Juan's confirmed statements about
+    what his partner likes vs. working assumptions — previously this compass
+    lived only in chat history), the [PROPOSED] 1.0 definition ("Cut the Last
+    String"), read-order, operational quirks (tag 403s, stray city-builder
+    branches), and decision rights. Kept anonymous — public repo.
+  - Coherence sweep: dated status banner on design-doc.md (v0.3/v0.4 marked
+    BUILT without rewriting the historical doc), CLAUDE.md and README now
+    point newcomers at VISION.md first.
+
 - **2026-07-26 — Session 4 (Q16 swoon + build v0.4 "Open Road").**
   - Q16 fix on v0.3: the 'swoon' treatment — the hand-holding date climax gets
     a warm wash, pulsing bloom, portrait halo, drifting petals (frame-layer
