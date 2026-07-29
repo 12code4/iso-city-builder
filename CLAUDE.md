@@ -21,9 +21,10 @@ Inherited from the city builder and still binding:
   WIP on feature branches; merge when done + verified + reviewed.
 - One clear commit per milestone/feature/fix. Never squash unrelated work.
 - Tag every finished version (`git tag -a vX.Y-mc`) — the `-mc` suffix keeps
-  the namespace clear of any other project's tags. No versions are tagged yet;
-  v0.1/v0.2 tagging is HELD until Juan's playtest review passes (definition
-  of done requires review).
+  the namespace clear of any other project's tags. RULED: tag them all —
+  but cloud sessions cannot push tag refs (remote 403s), so tagging is queued
+  for Juan's organizational pass. Until then, versions are preserved as
+  playable files on disk (design-doc §2.7), which covers the same need.
 - Docs stay in sync every version: README (front page + version history),
   CLAUDE.md (architecture), roadmap.md (future), plan.md (session log).
 - Definition of done: verified (headless/browser) → reviewed → docs updated →

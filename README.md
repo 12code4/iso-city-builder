@@ -11,8 +11,9 @@ this game's Bowser — has every soul in town sleepwalking on invisible threads,
 and every single one of them is impossibly attractive. You don't fight the
 "enemies" — **jumping on their heads snaps the strings**, and what wakes up
 wants a word with you. Every goomba-slot is a cute anime girl or an
-uber-confident hot anime guy with a real dialog tree. Charm three hearts to
-open the shrine gate, then survive a conversation with the spirit guarding it.
+uber-confident hot anime guy with a real dialog tree. Cross three nights of
+the open road — every soul you wake remembers you — and at dawn, the
+almost-kiss goes to whoever holds your heart highest.
 
 Every version is a single self-contained HTML file — no build step, no assets,
 no dependencies. Every character is a procedurally drawn chibi.
@@ -25,8 +26,7 @@ no dependencies. Every character is a procedurally drawn chibi.
 
 One page, every version: it opens the latest build (v0.4) and has an in-page
 menu to switch to any older version (deep-linkable, e.g. `…/#v=v0.2`). Desktop and
-mobile touch both work. *(Live once GitHub Pages is enabled for this repo —
-Settings → Pages → deploy from `main` / root.)*
+mobile touch both work.
 
 Prefer local? Open `index.html` (the same launcher) or a versioned file
 directly, e.g. `midnight-crush-v0.4-open-road.html`, in any browser.
@@ -66,8 +66,9 @@ directly, e.g. `midnight-crush-v0.4-open-road.html`, in any browser.
     turn wary until you win them back.
   - Greetings are context-dependent: first meeting (strings snap), warm return,
     or a cold "I made a list of grievances. You're the ENTIRE list."
-- Charm **3 hearts** to unseal the shrine gate. Behind it waits **Ayame**, the
-  boss — a pure dialog battle where wrong answers cost real hearts.
+- Cross **three nights** to the shrine, where **Ayame** — who spent Night 2
+  hovering overhead dropping warding charms at you — waits with the finale:
+  a pure dialog battle where wrong answers cost real hearts.
 
 **The clone mystery (deliberately unexplained):** there are several Yukis on
 the map. Several Rins. They all share one bond, one memory, one heart. Talk to
