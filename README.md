@@ -1,5 +1,12 @@
 # 🌙 Midnight Crush — a haunted dating platformer
 
+> ## ⚠️ This project has MOVED
+> **Development continues at [`12code4/datinghorrorsim`](https://github.com/12code4/datinghorrorsim)**
+> (migrated 2026-07-26 at v0.4 "Open Road"). This repo is now the read-only
+> archive: the full pre-migration commit history and the shelved isometric
+> city builder (branch [`iso-city-builder`](../../tree/iso-city-builder))
+> live here. Don't develop here.
+
 > **Midnight Crush owns this repo.** A Mario-style platformer crossed with an
 > anime dating sim, wrapped in pastel-pink-purple-blue horror. Built as a gift
 > game. 💜 The isometric city builder that originally lived here is shelved —
